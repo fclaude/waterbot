@@ -9,8 +9,8 @@ class TestWaterBot:
 
     def setup_method(self):
         """Setup test fixtures"""
-        with patch("waterbot.signal.bot.SignalCli"):
-            self.bot = WaterBot()
+        # No external SignalCli library needed
+        self.bot = WaterBot()
 
     def test_bot_initialization(self):
         """Test bot initialization"""
@@ -390,20 +390,17 @@ class TestWaterBot:
         mock_thread.is_alive.return_value = True
         self.bot.polling_thread = mock_thread
 
-        with patch.object(self.bot.api, "stop_signal") as mock_stop_signal:
-            with patch("waterbot.signal.bot.gpio_handler.cleanup") as mock_cleanup:
-                self.bot.stop()
+        # No external API cleanup needed for subprocess-based signal-cli
+        with patch("waterbot.signal.bot.gpio_handler.cleanup") as mock_cleanup:
+            self.bot.stop()
 
-                assert self.bot.running is False
-                mock_thread.join.assert_called_once_with(timeout=5)
-                mock_stop_signal.assert_called_once()
-                mock_cleanup.assert_called_once()
+            assert self.bot.running is False
+            mock_thread.join.assert_called_once_with(timeout=5)
+            mock_cleanup.assert_called_once()
 
     def test_stop_bot_not_running(self):
         """Test stopping bot when not running"""
         self.bot.running = False
 
-        with patch.object(self.bot.api, "stop_signal") as mock_stop_signal:
-            self.bot.stop()
-
-            mock_stop_signal.assert_not_called()
+        # No external API cleanup needed for subprocess-based signal-cli
+        self.bot.stop()

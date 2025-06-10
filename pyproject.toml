@@ -35,7 +35,6 @@ dependencies = [
     "python-dotenv",
     "schedule",
     "requests",
-    "SignalCliApi",
     "tzlocal",
 ]
 

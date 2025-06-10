@@ -4,8 +4,6 @@ import subprocess
 import threading
 import time
 
-from SignalCliApi import SignalCli
-
 from .. import scheduler
 from ..config import (
     DEBUG_MODE,
@@ -16,6 +14,9 @@ from ..config import (
 )
 from ..gpio import handler as gpio_handler
 from ..utils.command_parser import parse_command
+
+# Signal CLI integration via subprocess (no external library needed)
+
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
@@ -34,8 +35,8 @@ class WaterBot:
             f"Initializing WaterBot with SIGNAL_PHONE_NUMBER={SIGNAL_PHONE_NUMBER}"
         )
 
-        # Initialize the SignalCli with the configured phone number
-        self.api = SignalCli(SIGNAL_PHONE_NUMBER)
+        # Store configuration for signal-cli subprocess calls
+        # No external API object needed - using subprocess calls
         self.phone_number = SIGNAL_PHONE_NUMBER
         self.group_id = SIGNAL_GROUP_ID
         logger.debug(f"WaterBot will listen to group ID: {self.group_id}")
@@ -398,7 +399,7 @@ class WaterBot:
             self.polling_thread.join(timeout=5)
 
         # Stop SignalCli
-        self.api.stop_signal()
+        # No cleanup needed for subprocess-based signal-cli calls
 
         # Clean up GPIO
         gpio_handler.cleanup()
