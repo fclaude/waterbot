@@ -190,6 +190,24 @@ The test suite covers:
 
 Tests use mock objects and dependency injection to ensure they can run without hardware dependencies or external services.
 
+## CI/CD Integration
+
+WaterBot includes comprehensive CI/CD pipelines for automated testing and deployment:
+
+### GitLab CI/CD
+- Automated testing on every commit and merge request
+- Multi-Python version testing (3.8-3.11)
+- Code quality checks (linting, formatting, type checking)
+- Security vulnerability scanning
+- Docker image building and testing
+
+### GitHub Actions
+- Similar comprehensive pipeline for GitHub repositories
+- Automatic PyPI publishing on releases
+- Codecov integration for coverage reporting
+
+See [CI-CD.md](CI-CD.md) for detailed pipeline documentation.
+
 ## Running as a Service
 
 To run the bot as a service on your Raspberry Pi:

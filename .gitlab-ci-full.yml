@@ -1,0 +1,298 @@
+# GitLab CI/CD Pipeline for WaterBot
+# Runs on every commit to ensure code quality and functionality
+
+# Global settings
+image: python:3.11-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTEST_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pytest"
+  OPERATION_MODE: "emulation"  # Always run in emulation mode for CI
+
+# Cache configuration for faster builds
+cache:
+  paths:
+    - .cache/pip
+    - .cache/pytest
+    - .venv/
+
+# Pipeline stages
+stages:
+  - prepare
+  - quality
+  - test
+  - security
+  - build
+  - deploy
+
+# Before script - run for all jobs unless overridden
+before_script:
+  - apt-get update -qq && apt-get install -y -qq git make
+  - python --version
+  - pip install --upgrade pip
+  - python -m venv .venv
+  - source .venv/bin/activate
+  - pip install -r requirements.txt
+
+# Stage 1: Prepare environment and dependencies
+prepare:dependencies:
+  stage: prepare
+  script:
+    - make install-dev
+    - pip freeze > installed-requirements.txt
+  artifacts:
+    paths:
+      - installed-requirements.txt
+    expire_in: 1 hour
+  only:
+    - main
+    - merge_requests
+    - develop
+
+# Stage 2: Code quality checks
+code:format-check:
+  stage: quality
+  script:
+    - pip install black isort
+    - make format-check
+  only:
+    - main
+    - merge_requests
+    - develop
+
+code:lint:
+  stage: quality
+  script:
+    - pip install flake8
+    - make lint
+  only:
+    - main
+    - merge_requests
+    - develop
+
+code:type-check:
+  stage: quality
+  script:
+    - pip install mypy
+    - make type-check
+  allow_failure: true  # Type checking can be strict
+  only:
+    - main
+    - merge_requests
+    - develop
+
+# Stage 3: Testing
+test:unit:
+  stage: test
+  script:
+    - make test-cov-fail
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    when: always
+    paths:
+      - htmlcov/
+    expire_in: 30 days
+  only:
+    - main
+    - merge_requests
+    - develop
+
+test:python-versions:
+  stage: test
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11"]
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - make test
+  only:
+    - main
+    - merge_requests
+
+# Stage 4: Security scanning
+security:bandit:
+  stage: security
+  script:
+    - pip install bandit
+    - make security-check
+  artifacts:
+    when: always
+    paths:
+      - bandit-report.json
+      - safety-report.json
+    expire_in: 30 days
+  allow_failure: true
+  only:
+    - main
+    - merge_requests
+    - develop
+
+security:dependency-scan:
+  stage: security
+  script:
+    - pip install safety
+    - safety check --json --output safety-report.json || true
+    - safety check
+  artifacts:
+    when: always
+    paths:
+      - safety-report.json
+    expire_in: 30 days
+  allow_failure: true
+  only:
+    - main
+    - merge_requests
+    - develop
+
+# Stage 5: Build
+build:package:
+  stage: build
+  script:
+    - make build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 7 days
+  only:
+    - main
+    - tags
+
+build:docker:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    # Login to registry if credentials are available
+    - if [ -n "$CI_REGISTRY_PASSWORD" ]; then echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY; fi
+  script:
+    - docker build -t waterbot:$CI_COMMIT_SHA .
+    - docker build -t waterbot:latest .
+    # Push to registry only if credentials are available
+    - |
+      if [ -n "$CI_REGISTRY_IMAGE" ] && [ -n "$CI_REGISTRY_PASSWORD" ]; then
+        docker tag waterbot:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+        docker tag waterbot:latest $CI_REGISTRY_IMAGE:latest
+        docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+        docker push $CI_REGISTRY_IMAGE:latest
+      else
+        echo "Registry not configured, skipping push"
+      fi
+  only:
+    - main
+    - tags
+
+# Stage 6: Deploy (example for different environments)
+deploy:staging:
+  stage: deploy
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "This is where you would deploy to your staging server"
+    # Example deployment commands:
+    # - ssh staging-server "docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # - ssh staging-server "docker-compose down && docker-compose up -d"
+  environment:
+    name: staging
+    url: https://waterbot-staging.example.com
+  only:
+    - main
+  when: manual
+
+deploy:production:
+  stage: deploy
+  script:
+    - echo "Deploying to production environment..."
+    - echo "This is where you would deploy to your production server"
+    # Example deployment commands:
+    # - ssh production-server "docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # - ssh production-server "docker-compose down && docker-compose up -d"
+  environment:
+    name: production
+    url: https://waterbot.example.com
+  only:
+    - tags
+  when: manual
+
+# Special jobs for different triggers
+
+# Run comprehensive checks on merge requests
+mr:comprehensive-check:
+  stage: quality
+  script:
+    - make ci-check
+  only:
+    - merge_requests
+  except:
+    - main
+
+# Nightly comprehensive test
+nightly:full-test:
+  stage: test
+  script:
+    - make check-all
+    - echo "Running extended test suite..."
+    - pytest tests/ -v --durations=10
+  only:
+    - schedules
+  when: always
+
+# Release preparation
+release:prepare:
+  stage: build
+  script:
+    - echo "Preparing release for tag $CI_COMMIT_TAG"
+    - make build
+    - echo "Release artifacts ready"
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 month
+  only:
+    - tags
+
+# Include additional GitLab CI templates for enhanced functionality
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+
+# Custom rules for when jobs should run
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# Job templates for reuse
+.test_template: &test_template
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git make
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+  variables:
+    OPERATION_MODE: "emulation"
+
+.docker_template: &docker_template
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+
+# Notification on pipeline failure (customize as needed)
+notify:failure:
+  stage: deploy
+  script:
+    - echo "Pipeline failed! Sending notification..."
+    # Add your notification logic here (Slack, email, etc.)
+  when: on_failure
+  only:
+    - main
+    - tags
