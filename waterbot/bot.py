@@ -3,9 +3,10 @@ import logging
 import signal
 import sys
 import time
-from .config import validate_config, LOG_LEVEL, DEBUG_MODE
+from .config import validate_config, LOG_LEVEL, DEBUG_MODE, ENABLE_SCHEDULING
 from .signal.bot import WaterBot
 from .gpio import handler as gpio_handler
+from . import scheduler
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
@@ -32,6 +33,7 @@ def handle_shutdown(signum, frame):
     logger.info("Received shutdown signal")
     if hasattr(handle_shutdown, "bot") and handle_shutdown.bot:
         handle_shutdown.bot.stop()
+    scheduler.stop_scheduler()
     sys.exit(0)
 
 def main():
@@ -45,6 +47,11 @@ def main():
     try:
         # Validate configuration
         validate_config()
+        
+        # Start scheduler if enabled
+        if ENABLE_SCHEDULING:
+            logger.info("Starting device scheduler")
+            scheduler.start_scheduler()
         
         # Create and start the bot
         bot = WaterBot()
@@ -63,6 +70,7 @@ def main():
     finally:
         if 'bot' in locals():
             bot.stop()
+        scheduler.stop_scheduler()
         gpio_handler.cleanup()
         logger.info("WaterBot shut down")
 

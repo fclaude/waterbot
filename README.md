@@ -8,8 +8,10 @@ A Python bot that uses Signal messenger to control GPIO pins on a Raspberry Pi Z
 - Secure: only responds to messages from a specified Signal group
 - Command-based interface to control devices
 - Timed operations (e.g., turn on a device for 1 hour)
+- **Automatic scheduling**: Set devices to turn on/off at specific times
 - Emulation mode for testing on non-RPi devices
 - Configurable device-to-pin mapping via .env file
+- Comprehensive unit test coverage
 
 ## Requirements
 
@@ -49,6 +51,20 @@ DEVICE_HEATER=22
 
 # Default timeout in seconds (optional, for timed operations)
 DEFAULT_TIMEOUT=3600
+
+# Scheduling Configuration
+# Enable automatic scheduling of devices
+ENABLE_SCHEDULING=true
+# JSON file to store schedule configuration (optional)
+SCHEDULE_CONFIG_FILE=schedules.json
+
+# Schedule Configuration (alternative to JSON file)
+# Format: SCHEDULE_<DEVICE>_<ACTION>=HH:MM[,HH:MM,...]
+# Examples:
+# SCHEDULE_PUMP_ON=08:00,20:00
+# SCHEDULE_PUMP_OFF=12:00,23:00
+# SCHEDULE_LIGHT_ON=06:30
+# SCHEDULE_LIGHT_OFF=22:00
 ```
 
 ### Signal CLI Setup
@@ -82,6 +98,7 @@ python -m waterbot.bot
 
 Send these commands from the Signal group to control your devices:
 
+#### Device Control
 - `status` - Show the status of all devices
 - `on <device>` - Turn on a specific device
 - `off <device>` - Turn off a specific device
@@ -90,8 +107,17 @@ Send these commands from the Signal group to control your devices:
 - `on all` - Turn on all devices
 - `off all` - Turn off all devices
 
+#### Scheduling Commands
+- `schedules` - Show all configured schedules and next runs
+- `schedule <device> <on|off> <HH:MM>` - Add a new schedule
+- `unschedule <device> <on|off> <HH:MM>` - Remove a schedule
+
+#### Help
+- Send any unrecognized command to get help
+
 ### Examples
 
+#### Basic Device Control
 ```
 status
 on light
@@ -102,9 +128,67 @@ on all
 off all
 ```
 
+#### Scheduling Examples
+```
+# Show all schedules
+schedules
+
+# Turn on pump at 8:00 AM and 8:00 PM every day
+schedule pump on 08:00
+schedule pump on 20:00
+
+# Turn off pump at 12:00 PM and 11:00 PM every day
+schedule pump off 12:00
+schedule pump off 23:00
+
+# Turn on lights at 6:30 AM
+schedule light on 06:30
+
+# Turn off lights at 10:00 PM
+schedule light off 22:00
+
+# Remove a schedule
+unschedule pump on 20:00
+```
+
 ## Development and Testing
 
 For development and testing on non-RPi devices, set `OPERATION_MODE=emulation` in your `.env` file. In this mode, GPIO operations will be simulated and printed to the console.
+
+### Running Tests
+
+The project includes comprehensive unit tests. To run the tests:
+
+```bash
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=waterbot --cov-report=html
+
+# Run specific test file
+pytest tests/test_gpio_handler.py
+
+# Run tests matching a pattern
+pytest -k "test_device"
+```
+
+### Test Coverage
+
+The test suite covers:
+- GPIO interface and hardware abstraction
+- Device control logic and timing
+- Schedule configuration and management  
+- Signal bot message handling
+- Command parsing and validation
+- Error handling and edge cases
+
+### Testing Configuration
+
+Tests use mock objects and dependency injection to ensure they can run without hardware dependencies or external services.
 
 ## Running as a Service
 

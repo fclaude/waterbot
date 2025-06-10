@@ -6,8 +6,10 @@ import json
 import threading
 import subprocess
 from SignalCliApi import SignalCli
-from ..config import SIGNAL_PHONE_NUMBER, SIGNAL_GROUP_ID, LOG_LEVEL, DEBUG_MODE
+from ..config import SIGNAL_PHONE_NUMBER, SIGNAL_GROUP_ID, LOG_LEVEL, DEBUG_MODE, get_schedules
 from ..gpio import handler as gpio_handler
+from .. import scheduler
+from ..utils.command_parser import parse_command
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
@@ -174,8 +176,10 @@ class WaterBot:
                 text = text.strip().lower()
                 logger.info(f"Received command: {text}")
                 
-                # Process the command
-                response = self._process_command(text)
+                # Process the command using the command parser
+                command_type, params = parse_command(text)
+                response = self._execute_command(command_type, params)
+                
                 if response:
                     logger.debug(f"Sending response: {response}")
                     # Send the response
@@ -192,34 +196,54 @@ class WaterBot:
         except Exception as e:
             logger.error(f"Error handling message: {e}", exc_info=True)
     
-    def _process_command(self, text):
+    def _execute_command(self, command_type, params):
         """
-        Process command from the message
+        Execute a parsed command
         
         Args:
-            text (str): Command text
+            command_type (str): Type of command
+            params (dict): Command parameters
             
         Returns:
             str: Response message
         """
-        # Check for status command
-        if text == 'status':
+        if command_type == "status":
             return self._get_status_response()
         
-        # Check for on/off all commands
-        if text == 'on all':
+        elif command_type == "show_schedules":
+            return self._get_schedules_response()
+        
+        elif command_type == "schedule_add":
+            device = params["device"]
+            action = params["action"]
+            time_str = params["time"]
+            success = scheduler.add_schedule(device, action, time_str)
+            if success:
+                return f"Added schedule: {device} {action} at {time_str}"
+            else:
+                return f"Failed to add schedule for {device}"
+        
+        elif command_type == "schedule_remove":
+            device = params["device"]
+            action = params["action"]
+            time_str = params["time"]
+            success = scheduler.remove_schedule(device, action, time_str)
+            if success:
+                return f"Removed schedule: {device} {action} at {time_str}"
+            else:
+                return f"No such schedule found: {device} {action} at {time_str}"
+        
+        elif command_type == "all_on":
             gpio_handler.turn_all_on()
             return "All devices turned ON"
         
-        if text == 'off all':
+        elif command_type == "all_off":
             gpio_handler.turn_all_off()
             return "All devices turned OFF"
         
-        # Check for device-specific commands with optional timer
-        on_match = re.match(r'on\s+(\w+)(?:\s+(\d+))?', text)
-        if on_match:
-            device, time_str = on_match.groups()
-            timeout = int(time_str) if time_str else None
+        elif command_type == "device_on":
+            device = params["device"]
+            timeout = params.get("timeout")
             success = gpio_handler.turn_on(device, timeout)
             if success:
                 time_msg = f" for {timeout} seconds" if timeout else ""
@@ -227,10 +251,9 @@ class WaterBot:
             else:
                 return f"Error: Unknown device '{device}'"
         
-        off_match = re.match(r'off\s+(\w+)(?:\s+(\d+))?', text)
-        if off_match:
-            device, time_str = off_match.groups()
-            timeout = int(time_str) if time_str else None
+        elif command_type == "device_off":
+            device = params["device"]
+            timeout = params.get("timeout")
             success = gpio_handler.turn_off(device, timeout)
             if success:
                 time_msg = f" for {timeout} seconds" if timeout else ""
@@ -238,13 +261,48 @@ class WaterBot:
             else:
                 return f"Error: Unknown device '{device}'"
         
-        # Unknown command
-        return "Unknown command. Available commands:\n" \
-               "status - Show status of all devices\n" \
-               "on <device> [time] - Turn on a device\n" \
-               "off <device> [time] - Turn off a device\n" \
-               "on all - Turn on all devices\n" \
-               "off all - Turn off all devices"
+        elif command_type == "error":
+            return params["message"]
+        
+        elif command_type == "help":
+            return self._get_help_response()
+        
+        else:
+            return "Unknown command. Send 'help' for available commands."
+    
+    def _get_help_response(self):
+        """Generate help response message"""
+        return ("Available commands:\n"
+                "status - Show status of all devices\n"
+                "on <device> [time] - Turn on a device\n"
+                "off <device> [time] - Turn off a device\n"
+                "on all - Turn on all devices\n"
+                "off all - Turn off all devices\n"
+                "schedules - Show all schedules\n"
+                "schedule <device> <on|off> <HH:MM> - Add schedule\n"
+                "unschedule <device> <on|off> <HH:MM> - Remove schedule")
+    
+    def _get_schedules_response(self):
+        """Generate schedules response message"""
+        schedules = get_schedules()
+        if not schedules:
+            return "No schedules configured"
+        
+        response = "Device Schedules:\n"
+        for device, actions in schedules.items():
+            response += f"\n{device.upper()}:\n"
+            for action, times in actions.items():
+                for time_str in times:
+                    response += f"  {action.upper()} at {time_str}\n"
+        
+        # Add next runs information
+        next_runs = scheduler.get_next_runs()
+        if next_runs:
+            response += "\nNext scheduled runs:\n"
+            for run in next_runs[:5]:  # Show next 5 runs
+                response += f"  {run['device']} {run['action']} at {run['time']} (next: {run['next_run']})\n"
+        
+        return response
     
     def _get_status_response(self):
         """

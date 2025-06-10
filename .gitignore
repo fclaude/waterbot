@@ -23,12 +23,21 @@ wheels/
 .installed.cfg
 *.egg
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
 # Logs
 *.log
 logs/
 
 # Signal CLI data
 +*/
+
+# Scheduling
+schedules.json
 
 # Virtual environments
 venv/
