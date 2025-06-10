@@ -3,20 +3,18 @@ import logging
 import signal
 import sys
 import time
-from .config import validate_config, LOG_LEVEL, DEBUG_MODE, ENABLE_SCHEDULING
-from .signal.bot import WaterBot
-from .gpio import handler as gpio_handler
+
 from . import scheduler
+from .config import DEBUG_MODE, ENABLE_SCHEDULING, LOG_LEVEL, validate_config
+from .gpio import handler as gpio_handler
+from .signal.bot import WaterBot
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
 logging.basicConfig(
     level=log_level,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("waterbot.log")
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("waterbot.log")],
 )
 
 # Configure root logger
@@ -28,6 +26,7 @@ if DEBUG_MODE:
 
 logger.debug("Logging initialized with level=%s, debug_mode=%s", LOG_LEVEL, DEBUG_MODE)
 
+
 def handle_shutdown(signum, frame):
     """Handle shutdown signals"""
     logger.info("Received shutdown signal")
@@ -36,43 +35,45 @@ def handle_shutdown(signum, frame):
     scheduler.stop_scheduler()
     sys.exit(0)
 
+
 def main():
     """Main entry point for the waterbot"""
     logger.info("Starting WaterBot")
-    
+
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
-    
+
     try:
         # Validate configuration
         validate_config()
-        
+
         # Start scheduler if enabled
         if ENABLE_SCHEDULING:
             logger.info("Starting device scheduler")
             scheduler.start_scheduler()
-        
+
         # Create and start the bot
         bot = WaterBot()
         handle_shutdown.bot = bot  # Store reference for signal handler
-        
+
         bot.start()
-        
+
         # Keep the main thread alive
         while True:
             time.sleep(1)
-    
+
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
     except Exception as e:
         logger.error(f"Error in main loop: {e}", exc_info=True)
     finally:
-        if 'bot' in locals():
+        if "bot" in locals():
             bot.stop()
         scheduler.stop_scheduler()
         gpio_handler.cleanup()
         logger.info("WaterBot shut down")
+
 
 if __name__ == "__main__":
     main()
