@@ -1,0 +1,129 @@
+# Docker Compose for WaterBot development and testing
+version: '3.8'
+
+services:
+  # Main WaterBot application
+  waterbot:
+    build:
+      context: .
+      target: production
+    container_name: waterbot
+    restart: unless-stopped
+    environment:
+      - OPERATION_MODE=${OPERATION_MODE:-emulation}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - ENABLE_SCHEDULING=${ENABLE_SCHEDULING:-true}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./schedules.json:/app/data/schedules.json
+    networks:
+      - waterbot-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import waterbot.config; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Development version with code mounting
+  waterbot-dev:
+    build:
+      context: .
+      target: development
+    container_name: waterbot-dev
+    profiles:
+      - dev
+    environment:
+      - OPERATION_MODE=emulation
+      - LOG_LEVEL=DEBUG
+      - DEBUG_MODE=true
+      - ENABLE_SCHEDULING=true
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - waterbot-network
+    command: ["python", "-m", "waterbot.bot"]
+    stdin_open: true
+    tty: true
+
+  # Test runner service
+  waterbot-test:
+    build:
+      context: .
+      target: development
+    container_name: waterbot-test
+    profiles:
+      - test
+    environment:
+      - OPERATION_MODE=emulation
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    networks:
+      - waterbot-network
+    command: ["pytest", "tests/", "-v", "--cov=waterbot", "--cov-report=html"]
+
+  # Continuous testing with file watching
+  waterbot-test-watch:
+    build:
+      context: .
+      target: development
+    container_name: waterbot-test-watch
+    profiles:
+      - test-watch
+    environment:
+      - OPERATION_MODE=emulation
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    networks:
+      - waterbot-network
+    command: ["ptw", "tests/", "waterbot/", "--", "-v"]
+
+  # Code quality checks
+  waterbot-lint:
+    build:
+      context: .
+      target: development
+    container_name: waterbot-lint
+    profiles:
+      - lint
+    volumes:
+      - .:/app
+    networks:
+      - waterbot-network
+    command: ["make", "check-all"]
+
+  # Documentation server (if you add docs later)
+  waterbot-docs:
+    build:
+      context: .
+      target: development
+    container_name: waterbot-docs
+    profiles:
+      - docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    networks:
+      - waterbot-network
+    command: ["python", "-m", "http.server", "8000", "--directory", "htmlcov"]
+
+networks:
+  waterbot-network:
+    driver: bridge
+
+volumes:
+  waterbot-data:
+    driver: local
+  waterbot-logs:
+    driver: local

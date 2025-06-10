@@ -1,5 +1,7 @@
 # Environment
 .env
+.env.*
+!.env.sample
 
 # Python
 __pycache__/
@@ -19,27 +21,83 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.cache
+nosetests.xml
+test-results/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Code quality reports
+bandit-report.json
+safety-report.json
+flake8-report.txt
 
 # Logs
 *.log
 logs/
+log/
 
 # Signal CLI data
 +*/
 
 # Scheduling
 schedules.json
+data/
 
 # Virtual environments
 venv/
 env/
 ENV/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Pre-commit
+.pre-commit-config.yaml.bak
+
+# Secrets
+.secrets.baseline
+
+# Documentation
+docs/_build/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
