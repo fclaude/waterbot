@@ -232,45 +232,220 @@ See [CI-CD.md](CI-CD.md) for detailed pipeline documentation.
 
 ## Running as a Service
 
-To run the bot as a service on your Raspberry Pi:
+To run the bot as a systemd service on your Raspberry Pi, follow these
+comprehensive steps:
 
-1. Create a service file:
+### Prerequisites
+
+1. **Ensure you have a dedicated user for the service** (recommended for
+   security):
+
+```bash
+# Create a dedicated user for the bot (optional but recommended)
+sudo useradd -r -s /bin/false -d /opt/waterbot waterbot-service
+
+# Or use the default 'pi' user if you prefer
+```
+
+1. **Add the service user to the gpio group** (for GPIO access):
+
+```bash
+# If using dedicated user:
+sudo usermod -a -G gpio waterbot-service
+
+# If using pi user:
+sudo usermod -a -G gpio pi
+```
+
+### Installation for Service
+
+1. **Install the bot in a system location** (recommended):
+
+```bash
+# Create application directory
+sudo mkdir -p /opt/waterbot
+sudo chown $USER:$USER /opt/waterbot
+
+# Clone and setup the application
+cd /opt/waterbot
+git clone https://github.com/yourusername/waterbot.git .
+```
+
+1. **Install Python dependencies**:
+
+```bash
+# Install system-wide or in a virtual environment
+sudo pip3 install -r requirements.txt
+
+# Or create a virtual environment (recommended):
+python3 -m venv /opt/waterbot/venv
+sudo chown -R waterbot-service:waterbot-service /opt/waterbot
+source /opt/waterbot/venv/bin/activate
+pip install -r requirements.txt
+```
+
+1. **Setup configuration**:
+
+```bash
+# Create and configure the .env file
+sudo cp .env.example .env  # if you have an example file
+sudo nano /opt/waterbot/.env
+
+# Ensure proper ownership
+sudo chown waterbot-service:waterbot-service /opt/waterbot/.env
+sudo chmod 600 /opt/waterbot/.env  # Secure the config file
+```
+
+1. **Configure Signal CLI for the service user**:
+
+```bash
+# Switch to service user (if using dedicated user)
+sudo -u waterbot-service -s
+
+# Or configure for pi user
+# Register and verify Signal CLI as documented in the installation section
+# Make sure Signal CLI is accessible in the service environment
+```
+
+### Creating the Service
+
+1. **Create the systemd service file**:
 
 ```bash
 sudo nano /etc/systemd/system/waterbot.service
 ```
 
-1. Add the following content (adjust paths as needed):
+1. **Add the service configuration**:
 
 ```ini
 [Unit]
 Description=WaterBot Signal GPIO Controller
 After=network.target
+Wants=network-online.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/waterbot
-ExecStart=/usr/bin/python3 -m waterbot.bot
+Type=simple
+User=waterbot-service
+Group=waterbot-service
+WorkingDirectory=/opt/waterbot
+Environment=PATH=/opt/waterbot/venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Use virtual environment if created
+ExecStart=/opt/waterbot/venv/bin/python -m waterbot.bot
+# Or use system Python
+# ExecStart=/usr/bin/python3 -m waterbot.bot
+
+# Restart configuration
 Restart=always
 RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/waterbot
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waterbot
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-1. Enable and start the service:
+**Note**: If using the `pi` user instead of a dedicated user, change `User=pi`
+and `Group=pi` in the service file, and adjust paths accordingly (e.g.,
+`/home/pi/waterbot`).
+
+### Managing the Service
+
+1. **Reload systemd and enable the service**:
 
 ```bash
+sudo systemctl daemon-reload
 sudo systemctl enable waterbot.service
+```
+
+1. **Start the service**:
+
+```bash
 sudo systemctl start waterbot.service
 ```
 
-1. Check status:
+1. **Check service status**:
 
 ```bash
 sudo systemctl status waterbot.service
 ```
 
-## License
+1. **View service logs**:
 
-MIT
+```bash
+# View recent logs
+sudo journalctl -u waterbot.service -f
+
+# View logs from specific time
+sudo journalctl -u waterbot.service --since "1 hour ago"
+
+# View all logs for the service
+sudo journalctl -u waterbot.service --no-pager
+```
+
+### Troubleshooting
+
+**Common issues and solutions:**
+
+1. **Permission denied errors**:
+   - Ensure the service user is in the `gpio` group
+   - Check file ownership and permissions for the bot directory
+   - Verify the .env file is accessible to the service user
+
+2. **Signal CLI not working**:
+   - Ensure Signal CLI is installed and configured for the service user
+   - Check that the service user can access Signal CLI commands
+   - Verify the Signal phone number is properly registered
+
+3. **Module import errors**:
+   - Ensure all dependencies are installed in the correct Python environment
+   - Check that the PYTHONPATH includes the waterbot directory
+   - Verify the virtual environment path (if used) is correct
+
+4. **Service won't start**:
+   - Check the service logs: `sudo journalctl -u waterbot.service`
+   - Verify all file paths in the service configuration
+   - Test the bot manually first: `python3 -m waterbot.bot`
+
+5. **GPIO access issues**:
+   - Ensure the service user is in the `gpio` group:
+     `groups waterbot-service`
+   - Check that GPIO pins are not being used by other processes
+   - Verify the device-to-pin mapping in your .env file
+
+### Service Management Commands
+
+```bash
+# Start the service
+sudo systemctl start waterbot.service
+
+# Stop the service
+sudo systemctl stop waterbot.service
+
+# Restart the service
+sudo systemctl restart waterbot.service
+
+# Enable service to start on boot
+sudo systemctl enable waterbot.service
+
+# Disable service from starting on boot
+sudo systemctl disable waterbot.service
+
+# Check if service is running
+sudo systemctl is-active waterbot.service
+
+# View service configuration
+sudo systemctl show waterbot.service
+```
