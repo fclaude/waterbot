@@ -94,7 +94,8 @@ run-test-command: ## Test basic command parsing
 
 # Build targets
 build: clean ## Build the package
-	$(PYTHON) setup.py sdist bdist_wheel
+	$(PIP) install build wheel
+	$(PYTHON) -m build
 
 install-local: ## Install package locally in development mode
 	$(PIP) install -e .
