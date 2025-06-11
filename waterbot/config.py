@@ -70,19 +70,23 @@ def load_schedules():
                 action = parts[-1].lower()
 
                 if device in DEVICE_TO_PIN and action in ["on", "off"]:
-                    if device not in DEVICE_SCHEDULES:
-                        DEVICE_SCHEDULES[device] = {}
-
                     # Parse time values (comma-separated)
                     times = []
                     for time_str in value.split(","):
                         time_str = time_str.strip()
                         if re.match(r"^\d{2}:\d{2}$", time_str):
-                            times.append(time_str)
+                            # Validate time format (HH:MM where HH is 00-23 and MM is 00-59)
+                            hour, minute = time_str.split(":")
+                            if int(hour) <= 23 and int(minute) <= 59:
+                                times.append(time_str)
+                            else:
+                                print(f"Warning: Invalid time format in {key}: {time_str}")
                         else:
                             print(f"Warning: Invalid time format in {key}: {time_str}")
 
                     if times:
+                        if device not in DEVICE_SCHEDULES:
+                            DEVICE_SCHEDULES[device] = {}
                         DEVICE_SCHEDULES[device][action] = times
 
 

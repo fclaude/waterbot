@@ -10,19 +10,12 @@ class TestWaterBot:
 
     def setup_method(self):
         """Setup test fixtures"""
-        # Mock environment variables for tests and store the bot
-        self.env_patcher = patch.dict(
-            os.environ,
-            {"SIGNAL_PHONE_NUMBER": "+1234567890", "SIGNAL_GROUP_ID": "test_group_id"},
-        )
-        self.env_patcher.start()
-
-        # Force reload of config module to pick up new env vars
-        import importlib
-
-        from waterbot import config
-
-        importlib.reload(config)
+        # Patch the config values directly instead of relying on environment variable reloading
+        self.config_phone_patcher = patch('waterbot.signal.bot.SIGNAL_PHONE_NUMBER', '+1234567890')
+        self.config_group_patcher = patch('waterbot.signal.bot.SIGNAL_GROUP_ID', 'test_group_id')
+        
+        self.config_phone_patcher.start()
+        self.config_group_patcher.start()
 
         # No external SignalCli library needed
         from waterbot.signal.bot import WaterBot
@@ -31,7 +24,8 @@ class TestWaterBot:
 
     def teardown_method(self):
         """Cleanup test fixtures"""
-        self.env_patcher.stop()
+        self.config_phone_patcher.stop()
+        self.config_group_patcher.stop()
 
     def test_bot_initialization(self):
         """Test bot initialization"""
