@@ -1,3 +1,4 @@
+"""Command parsing utilities for WaterBot."""
 import logging
 import re
 
@@ -8,7 +9,7 @@ logger = logging.getLogger("command_parser")
 
 def parse_command(text):
     """
-    Parse a command string into an action and parameters
+    Parse a command string into an action and parameters.
 
     Args:
         text (str): Command text from user

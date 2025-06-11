@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Main bot entry point for WaterBot."""
 import logging
 import signal
 import sys
@@ -28,7 +29,7 @@ logger.debug("Logging initialized with level=%s, debug_mode=%s", LOG_LEVEL, DEBU
 
 
 def handle_shutdown(signum, frame):
-    """Handle shutdown signals"""
+    """Handle shutdown signals."""
     logger.info("Received shutdown signal")
     if hasattr(handle_shutdown, "bot") and handle_shutdown.bot:
         handle_shutdown.bot.stop()
@@ -37,7 +38,7 @@ def handle_shutdown(signum, frame):
 
 
 def main():
-    """Main entry point for the waterbot"""
+    """Start the WaterBot application."""
     logger.info("Starting WaterBot")
 
     # Register signal handlers for graceful shutdown

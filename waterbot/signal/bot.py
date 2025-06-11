@@ -1,3 +1,4 @@
+"""Signal bot implementation for WaterBot."""
 import json
 import logging
 import subprocess
@@ -29,8 +30,10 @@ if DEBUG_MODE:
 
 
 class WaterBot:
+    """Signal bot for controlling water devices via GPIO."""
+
     def __init__(self):
-        """Initialize the Signal bot for water control"""
+        """Initialize the Signal bot for water control."""
         logger.debug(
             f"Initializing WaterBot with SIGNAL_PHONE_NUMBER={SIGNAL_PHONE_NUMBER}"
         )
@@ -47,7 +50,7 @@ class WaterBot:
 
     def _send_message(self, recipient=None, group_id=None, message=""):
         """
-        Send a message using signal-cli command line
+        Send a message using signal-cli command line.
 
         Args:
             recipient: Phone number to send to
@@ -88,7 +91,7 @@ class WaterBot:
 
     def _receive_messages(self):
         """
-        Receive messages using signal-cli command line
+        Receive messages using signal-cli command line.
 
         Returns:
             List of message JSON strings
@@ -116,7 +119,7 @@ class WaterBot:
             return []
 
     def _poll_messages(self):
-        """Poll for new messages in a separate thread"""
+        """Poll for new messages in a separate thread."""
         logger.debug("Starting message polling thread")
 
         while self.running:
@@ -136,7 +139,7 @@ class WaterBot:
 
     def _handle_message(self, message):
         """
-        Handle incoming Signal messages
+        Handle incoming Signal messages.
 
         Args:
             message: JSON message string from SignalCliApi
@@ -198,7 +201,7 @@ class WaterBot:
 
     def _execute_command(self, command_type, params):
         """
-        Execute a parsed command
+        Execute a parsed command.
 
         Args:
             command_type (str): Type of command
@@ -271,7 +274,7 @@ class WaterBot:
             return "Unknown command. Send 'help' for available commands."
 
     def _get_help_response(self):
-        """Generate help response message"""
+        """Generate help response message."""
         return (
             "Available commands:\n"
             "status - Show status of all devices\n"
@@ -285,7 +288,7 @@ class WaterBot:
         )
 
     def _get_schedules_response(self):
-        """Generate schedules response message"""
+        """Generate schedules response message."""
         schedules = get_schedules()
         if not schedules:
             return "No schedules configured"
@@ -311,7 +314,7 @@ class WaterBot:
 
     def _get_status_response(self):
         """
-        Generate status response message
+        Generate status response message.
 
         Returns:
             str: Status message
@@ -328,7 +331,7 @@ class WaterBot:
         return response
 
     def start(self):
-        """Start the Signal bot"""
+        """Start the Signal bot."""
         if self.running:
             logger.warning("Bot is already running")
             return
@@ -369,7 +372,7 @@ class WaterBot:
             raise
 
     def _check_signal_cli(self):
-        """Check if signal-cli is installed and in PATH"""
+        """Check if signal-cli is installed and in PATH."""
         try:
             result = subprocess.run(
                 ["signal-cli", "--version"],
@@ -386,7 +389,7 @@ class WaterBot:
             return False
 
     def stop(self):
-        """Stop the Signal bot"""
+        """Stop the Signal bot."""
         if not self.running:
             logger.warning("Bot is not running")
             return

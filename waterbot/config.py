@@ -1,3 +1,4 @@
+"""Configuration management for WaterBot."""
 import json
 import os
 import re
@@ -80,7 +81,9 @@ def load_schedules():
                             if int(hour) <= 23 and int(minute) <= 59:
                                 times.append(time_str)
                             else:
-                                print(f"Warning: Invalid time format in {key}: {time_str}")
+                                print(
+                                    f"Warning: Invalid time format in {key}: {time_str}"
+                                )
                         else:
                             print(f"Warning: Invalid time format in {key}: {time_str}")
 

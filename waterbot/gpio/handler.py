@@ -1,3 +1,4 @@
+"""GPIO device control and management for WaterBot."""
 import logging
 from threading import Lock, Timer
 from typing import Dict, Optional
@@ -9,9 +10,10 @@ logger = logging.getLogger("gpio_handler")
 
 
 class DeviceController:
-    """Controls GPIO devices with proper abstraction for testing"""
+    """Controls GPIO devices with proper abstraction for testing."""
 
     def __init__(self, gpio_interface: Optional[GPIOInterface] = None):
+        """Initialize the device controller."""
         self.gpio = gpio_interface
         self.device_status: Dict[str, bool] = {}
         self.device_timers: Dict[str, Optional[Timer]] = {}
@@ -25,7 +27,7 @@ class DeviceController:
         self._setup_devices()
 
     def _initialize_gpio(self):
-        """Initialize GPIO interface based on operation mode"""
+        """Initialize GPIO interface based on operation mode."""
         if not IS_EMULATION:
             try:
                 self.gpio = HardwareGPIO()
@@ -38,7 +40,7 @@ class DeviceController:
             logger.info("GPIO initialized in emulation mode")
 
     def _setup_devices(self):
-        """Setup all configured devices"""
+        """Set up all configured devices."""
         for device, pin in DEVICE_TO_PIN.items():
             self.gpio.setup(pin, "OUT")
             self.gpio.output(pin, False)
@@ -48,7 +50,7 @@ class DeviceController:
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
 
     def turn_on(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn on a device, optionally with a timeout"""
+        """Turn on a device, optionally with a timeout."""
         if device not in DEVICE_TO_PIN:
             logger.warning(f"Unknown device: {device}")
             return False
@@ -79,7 +81,7 @@ class DeviceController:
         return True
 
     def turn_off(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn off a device, optionally with a timeout"""
+        """Turn off a device, optionally with a timeout."""
         if device not in DEVICE_TO_PIN:
             logger.warning(f"Unknown device: {device}")
             return False
@@ -110,11 +112,11 @@ class DeviceController:
         return True
 
     def get_status(self) -> Dict[str, bool]:
-        """Get status of all devices"""
+        """Get status of all devices."""
         return self.device_status.copy()
 
     def turn_all_on(self, timeout: Optional[int] = None) -> bool:
-        """Turn on all devices"""
+        """Turn on all devices."""
         success = True
         for device in DEVICE_TO_PIN.keys():
             if not self.turn_on(device, timeout):
@@ -122,7 +124,7 @@ class DeviceController:
         return success
 
     def turn_all_off(self, timeout: Optional[int] = None) -> bool:
-        """Turn off all devices"""
+        """Turn off all devices."""
         success = True
         for device in DEVICE_TO_PIN.keys():
             if not self.turn_off(device, timeout):
@@ -130,7 +132,7 @@ class DeviceController:
         return success
 
     def cleanup(self):
-        """Clean up GPIO resources"""
+        """Clean up GPIO resources."""
         # Cancel all timers
         for device in self.device_timers:
             if self.device_timers[device]:
@@ -152,7 +154,7 @@ _controller: Optional[DeviceController] = None
 
 
 def _get_controller() -> DeviceController:
-    """Get the global device controller instance"""
+    """Get the global device controller instance."""
     global _controller
     if _controller is None:
         _controller = DeviceController()
@@ -160,38 +162,38 @@ def _get_controller() -> DeviceController:
 
 
 def set_controller(controller: DeviceController):
-    """Set a custom controller (for testing)"""
+    """Set a custom controller (for testing)."""
     global _controller
     _controller = controller
 
 
 # Backward compatibility functions
 def turn_on(device: str, timeout: Optional[int] = None) -> bool:
-    """Turn on a device, optionally with a timeout"""
+    """Turn on a device, optionally with a timeout."""
     return _get_controller().turn_on(device, timeout)
 
 
 def turn_off(device: str, timeout: Optional[int] = None) -> bool:
-    """Turn off a device, optionally with a timeout"""
+    """Turn off a device, optionally with a timeout."""
     return _get_controller().turn_off(device, timeout)
 
 
 def get_status() -> Dict[str, bool]:
-    """Get status of all devices"""
+    """Get status of all devices."""
     return _get_controller().get_status()
 
 
 def turn_all_on(timeout: Optional[int] = None) -> bool:
-    """Turn on all devices"""
+    """Turn on all devices."""
     return _get_controller().turn_all_on(timeout)
 
 
 def turn_all_off(timeout: Optional[int] = None) -> bool:
-    """Turn off all devices"""
+    """Turn off all devices."""
     return _get_controller().turn_all_off(timeout)
 
 
 def cleanup():
-    """Clean up GPIO resources"""
+    """Clean up GPIO resources."""
     controller = _get_controller()
     controller.cleanup()
