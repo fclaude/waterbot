@@ -82,13 +82,17 @@ build-package:
 # Simple Docker build (no registry push to avoid auth issues)
 build-docker:
   stage: build
-  image: docker:20.10.16
+  image: docker:24.0.5
   services:
-    - docker:20.10.16-dind
+    - docker:24.0.5-dind
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_TLS_CERTDIR: "/certs"
-  before_script: []
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  before_script:
+    - docker info
   script:
     - docker build -t waterbot:latest .
     - docker run --rm waterbot:latest python -c "import waterbot; print('Docker build successful')"
