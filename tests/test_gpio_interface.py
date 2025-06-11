@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -89,38 +89,62 @@ class TestMockGPIO:
 class TestHardwareGPIO:
     """Test cases for HardwareGPIO"""
 
-    @patch("waterbot.gpio.interface.RPi.GPIO")
-    def test_hardware_gpio_initialization(self, mock_gpio):
-        HardwareGPIO()
+    def test_hardware_gpio_initialization(self):
+        mock_gpio = MagicMock()
 
-        mock_gpio.setmode.assert_called_once_with(mock_gpio.BCM)
-        mock_gpio.setwarnings.assert_called_once_with(False)
+        # Mock the entire RPi module and make sure RPi.GPIO returns our mock
+        mock_rpi = MagicMock()
+        mock_rpi.GPIO = mock_gpio
 
-    @patch("waterbot.gpio.interface.RPi.GPIO")
-    def test_setup_pin(self, mock_gpio):
-        gpio = HardwareGPIO()
-        gpio.setup(17, "OUT")
+        with patch.dict("sys.modules", {"RPi": mock_rpi, "RPi.GPIO": mock_gpio}):
+            gpio = HardwareGPIO()
 
-        mock_gpio.setup.assert_called_once_with(17, mock_gpio.OUT)
+            # The actual GPIO object stored should be our mock
+            assert gpio.GPIO == mock_gpio
+            mock_gpio.setmode.assert_called_once_with(mock_gpio.BCM)
+            mock_gpio.setwarnings.assert_called_once_with(False)
 
-    @patch("waterbot.gpio.interface.RPi.GPIO")
-    def test_output_pin_value(self, mock_gpio):
-        gpio = HardwareGPIO()
+    def test_setup_pin(self):
+        mock_gpio = MagicMock()
+        mock_rpi = MagicMock()
+        mock_rpi.GPIO = mock_gpio
 
-        gpio.output(17, True)
-        mock_gpio.output.assert_called_with(17, mock_gpio.HIGH)
+        with patch.dict("sys.modules", {"RPi": mock_rpi, "RPi.GPIO": mock_gpio}):
+            gpio = HardwareGPIO()
+            gpio.setup(17, "OUT")
 
-        gpio.output(17, False)
-        mock_gpio.output.assert_called_with(17, mock_gpio.LOW)
+            mock_gpio.setup.assert_called_once_with(17, mock_gpio.OUT)
 
-    @patch("waterbot.gpio.interface.RPi.GPIO")
-    def test_cleanup(self, mock_gpio):
-        gpio = HardwareGPIO()
-        gpio.cleanup()
+    def test_output_pin_value(self):
+        mock_gpio = MagicMock()
+        mock_rpi = MagicMock()
+        mock_rpi.GPIO = mock_gpio
 
-        mock_gpio.cleanup.assert_called_once()
+        with patch.dict("sys.modules", {"RPi": mock_rpi, "RPi.GPIO": mock_gpio}):
+            gpio = HardwareGPIO()
+
+            gpio.output(17, True)
+            mock_gpio.output.assert_called_with(17, mock_gpio.HIGH)
+
+            gpio.output(17, False)
+            mock_gpio.output.assert_called_with(17, mock_gpio.LOW)
+
+    def test_cleanup(self):
+        mock_gpio = MagicMock()
+        mock_rpi = MagicMock()
+        mock_rpi.GPIO = mock_gpio
+
+        with patch.dict("sys.modules", {"RPi": mock_rpi, "RPi.GPIO": mock_gpio}):
+            gpio = HardwareGPIO()
+            gpio.cleanup()
+
+            mock_gpio.cleanup.assert_called_once()
 
     def test_hardware_gpio_import_error(self):
-        with patch("waterbot.gpio.interface.RPi", None):
-            with pytest.raises(RuntimeError, match="RPi.GPIO not available"):
-                HardwareGPIO()
+        # Simulate ImportError by removing RPi from sys.modules
+        with patch.dict("sys.modules", {}, clear=True):
+            with patch(
+                "builtins.__import__", side_effect=ImportError("No module named 'RPi'")
+            ):
+                with pytest.raises(RuntimeError, match="RPi.GPIO not available"):
+                    HardwareGPIO()

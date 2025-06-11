@@ -32,6 +32,12 @@ def parse_command(text):
         device, action, time_str = schedule_add_match.groups()
         if device not in DEVICE_TO_PIN:
             return "error", {"message": f"Unknown device: {device}"}
+
+        # Validate time format (HH:MM where HH is 00-23 and MM is 00-59)
+        hour, minute = time_str.split(":")
+        if int(hour) > 23 or int(minute) > 59:
+            return "help", {}  # Invalid time, fall through to help
+
         return "schedule_add", {"device": device, "action": action, "time": time_str}
 
     # Schedule remove: "unschedule <device> <action> <time>"
@@ -42,6 +48,12 @@ def parse_command(text):
         device, action, time_str = schedule_remove_match.groups()
         if device not in DEVICE_TO_PIN:
             return "error", {"message": f"Unknown device: {device}"}
+
+        # Validate time format (HH:MM where HH is 00-23 and MM is 00-59)
+        hour, minute = time_str.split(":")
+        if int(hour) > 23 or int(minute) > 59:
+            return "help", {}  # Invalid time, fall through to help
+
         return "schedule_remove", {"device": device, "action": action, "time": time_str}
 
     # All devices commands

@@ -1,4 +1,5 @@
 import json
+import os
 from unittest.mock import Mock, patch
 
 from waterbot.signal.bot import WaterBot
@@ -9,13 +10,33 @@ class TestWaterBot:
 
     def setup_method(self):
         """Setup test fixtures"""
+        # Mock environment variables for tests and store the bot
+        self.env_patcher = patch.dict(
+            os.environ,
+            {"SIGNAL_PHONE_NUMBER": "+1234567890", "SIGNAL_GROUP_ID": "test_group_id"},
+        )
+        self.env_patcher.start()
+
+        # Force reload of config module to pick up new env vars
+        import importlib
+
+        from waterbot import config
+
+        importlib.reload(config)
+
         # No external SignalCli library needed
+        from waterbot.signal.bot import WaterBot
+
         self.bot = WaterBot()
+
+    def teardown_method(self):
+        """Cleanup test fixtures"""
+        self.env_patcher.stop()
 
     def test_bot_initialization(self):
         """Test bot initialization"""
-        assert self.bot.phone_number == self.bot.phone_number
-        assert self.bot.group_id == self.bot.group_id
+        assert self.bot.phone_number == "+1234567890"
+        assert self.bot.group_id == "test_group_id"
         assert self.bot.running is False
         assert self.bot.polling_thread is None
 
@@ -255,7 +276,7 @@ class TestWaterBot:
             "envelope": {
                 "sourceNumber": "+1234567890",
                 "dataMessage": {
-                    "groupInfo": {"groupId": self.bot.group_id},
+                    "groupInfo": {"groupId": "test_group_id"},
                     "message": "status",
                 },
             }
@@ -269,7 +290,7 @@ class TestWaterBot:
 
                 mock_execute.assert_called_once()
                 mock_send.assert_called_once_with(
-                    group_id=self.bot.group_id, message="Test response"
+                    group_id="test_group_id", message="Test response"
                 )
 
     def test_handle_message_direct_message(self):
@@ -315,7 +336,7 @@ class TestWaterBot:
             "envelope": {
                 "sourceNumber": "+1234567890",
                 "dataMessage": {
-                    "groupInfo": {"groupId": self.bot.group_id},
+                    "groupInfo": {"groupId": "test_group_id"},
                     "message": "",
                 },
             }

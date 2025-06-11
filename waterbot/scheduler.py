@@ -20,13 +20,13 @@ class DeviceScheduler:
 
     def setup_schedules(self):
         """Set up all scheduled tasks based on configuration"""
+        # Clear existing schedules first
+        schedule.clear()
+        self.scheduled_jobs.clear()
+
         if not ENABLE_SCHEDULING:
             logger.info("Scheduling is disabled")
             return
-
-        # Clear existing schedules
-        schedule.clear()
-        self.scheduled_jobs.clear()
 
         for device, actions in DEVICE_SCHEDULES.items():
             for action, times in actions.items():
