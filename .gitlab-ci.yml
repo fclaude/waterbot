@@ -88,6 +88,7 @@ build-docker:
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_TLS_CERTDIR: "/certs"
+  before_script: []
   script:
     - docker build -t waterbot:latest .
     - docker run --rm waterbot:latest python -c "import waterbot; print('Docker build successful')"
