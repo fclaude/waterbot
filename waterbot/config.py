@@ -1,4 +1,5 @@
 """Configuration management for WaterBot."""
+
 import json
 import os
 import re
@@ -105,8 +106,7 @@ def save_schedules():
 
 
 def add_schedule(device, action, time):
-    """
-    Add a schedule for a device.
+    """Add a schedule for a device.
 
     Args:
         device (str): Device name
@@ -140,8 +140,7 @@ def add_schedule(device, action, time):
 
 
 def remove_schedule(device, action, time):
-    """
-    Remove a schedule for a device.
+    """Remove a schedule for a device.
 
     Args:
         device (str): Device name
@@ -171,8 +170,7 @@ def remove_schedule(device, action, time):
 
 
 def get_schedules(device=None):
-    """
-    Get schedules for a device or all devices.
+    """Get schedules for a device or all devices.
 
     Args:
         device (str, optional): Device name. If None, returns all schedules.

@@ -5,6 +5,7 @@ This guide covers development setup, workflows, and best practices for contribut
 ## Quick Start
 
 ### Option 1: Automated Setup
+
 ```bash
 # Run the setup script
 chmod +x scripts/setup-dev.sh
@@ -12,6 +13,7 @@ chmod +x scripts/setup-dev.sh
 ```
 
 ### Option 2: Manual Setup
+
 ```bash
 # Create virtual environment
 python3 -m venv .venv
@@ -32,6 +34,7 @@ make test
 ```
 
 ### Option 3: Docker Development
+
 ```bash
 # Build and run development container
 docker-compose --profile dev up waterbot-dev
@@ -246,6 +249,7 @@ footer (optional)
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Examples:
+
 - `feat(scheduler): add daily recurring schedules`
 - `fix(gpio): handle device not found error`
 - `docs(readme): update installation instructions`
@@ -319,6 +323,7 @@ DEVICE_FAN=27
 ### Schedule Configuration
 
 Two options:
+
 1. Environment variables: `SCHEDULE_PUMP_ON=08:00,20:00`
 2. JSON file: `schedules.json`
 

@@ -1,4 +1,5 @@
 """Signal bot implementation for WaterBot."""
+
 import json
 import logging
 import subprocess
@@ -49,8 +50,7 @@ class WaterBot:
         logger.info(f"Signal bot initialized with phone number {SIGNAL_PHONE_NUMBER}")
 
     def _send_message(self, recipient=None, group_id=None, message=""):
-        """
-        Send a message using signal-cli command line.
+        """Send a message using signal-cli command line.
 
         Args:
             recipient: Phone number to send to
@@ -90,8 +90,7 @@ class WaterBot:
             return False
 
     def _receive_messages(self):
-        """
-        Receive messages using signal-cli command line.
+        """Receive messages using signal-cli command line.
 
         Returns:
             List of message JSON strings
@@ -138,8 +137,7 @@ class WaterBot:
         logger.debug("Message polling thread stopped")
 
     def _handle_message(self, message):
-        """
-        Handle incoming Signal messages.
+        """Handle incoming Signal messages.
 
         Args:
             message: JSON message string from SignalCliApi
@@ -200,8 +198,7 @@ class WaterBot:
             logger.error(f"Error handling message: {e}", exc_info=True)
 
     def _execute_command(self, command_type, params):
-        """
-        Execute a parsed command.
+        """Execute a parsed command.
 
         Args:
             command_type (str): Type of command
@@ -313,8 +310,7 @@ class WaterBot:
         return response
 
     def _get_status_response(self):
-        """
-        Generate status response message.
+        """Generate status response message.
 
         Returns:
             str: Status message

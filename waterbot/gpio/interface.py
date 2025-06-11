@@ -1,4 +1,5 @@
 """GPIO interface abstractions for WaterBot."""
+
 from abc import ABC, abstractmethod
 from typing import Dict
 

@@ -1,4 +1,5 @@
 """GPIO device control and management for WaterBot."""
+
 import logging
 from threading import Lock, Timer
 from typing import Dict, Optional

@@ -23,17 +23,20 @@ A Python bot that uses Signal messenger to control GPIO pins on a Raspberry Pi Z
 ## Installation
 
 1. Clone this repository:
+
 ```bash
 git clone https://github.com/yourusername/waterbot.git
 cd waterbot
 ```
 
 2. Install the required packages:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 3. Create a `.env` file with your configuration:
+
 ```
 # Signal Configuration
 SIGNAL_PHONE_NUMBER="+1234567890"
@@ -73,17 +76,23 @@ This bot uses Signal CLI to communicate with the Signal network. Follow these st
 
 1. Install Signal CLI according to [official instructions](https://github.com/AsamK/signal-cli)
 2. Register a phone number for your bot:
+
 ```bash
 signal-cli -u +1234567890 register
 ```
+
 3. Verify with the code received:
+
 ```bash
 signal-cli -u +1234567890 verify 123-456
 ```
+
 4. Find your Signal group ID:
+
 ```bash
 signal-cli -u +1234567890 listGroups
 ```
+
 5. Update your `.env` file with the phone number and group ID
 
 ## Usage
@@ -99,6 +108,7 @@ python -m waterbot.bot
 Send these commands from the Signal group to control your devices:
 
 #### Device Control
+
 - `status` - Show the status of all devices
 - `on <device>` - Turn on a specific device
 - `off <device>` - Turn off a specific device
@@ -108,16 +118,19 @@ Send these commands from the Signal group to control your devices:
 - `off all` - Turn off all devices
 
 #### Scheduling Commands
+
 - `schedules` - Show all configured schedules and next runs
 - `schedule <device> <on|off> <HH:MM>` - Add a new schedule
 - `unschedule <device> <on|off> <HH:MM>` - Remove a schedule
 
 #### Help
+
 - Send any unrecognized command to get help
 
 ### Examples
 
 #### Basic Device Control
+
 ```
 status
 on light
@@ -129,6 +142,7 @@ off all
 ```
 
 #### Scheduling Examples
+
 ```
 # Show all schedules
 schedules
@@ -179,9 +193,10 @@ pytest -k "test_device"
 ### Test Coverage
 
 The test suite covers:
+
 - GPIO interface and hardware abstraction
 - Device control logic and timing
-- Schedule configuration and management  
+- Schedule configuration and management
 - Signal bot message handling
 - Command parsing and validation
 - Error handling and edge cases
@@ -195,6 +210,7 @@ Tests use mock objects and dependency injection to ensure they can run without h
 WaterBot includes comprehensive CI/CD pipelines for automated testing and deployment:
 
 ### GitLab CI/CD
+
 - Automated testing on every commit and merge request
 - Multi-Python version testing (3.8-3.11)
 - Code quality checks (linting, formatting, type checking)
@@ -202,6 +218,7 @@ WaterBot includes comprehensive CI/CD pipelines for automated testing and deploy
 - Docker image building and testing
 
 ### GitHub Actions
+
 - Similar comprehensive pipeline for GitHub repositories
 - Automatic PyPI publishing on releases
 - Codecov integration for coverage reporting
@@ -213,11 +230,13 @@ See [CI-CD.md](CI-CD.md) for detailed pipeline documentation.
 To run the bot as a service on your Raspberry Pi:
 
 1. Create a service file:
+
 ```bash
 sudo nano /etc/systemd/system/waterbot.service
 ```
 
 2. Add the following content (adjust paths as needed):
+
 ```
 [Unit]
 Description=WaterBot Signal GPIO Controller
@@ -235,12 +254,14 @@ WantedBy=multi-user.target
 ```
 
 3. Enable and start the service:
+
 ```bash
 sudo systemctl enable waterbot.service
 sudo systemctl start waterbot.service
 ```
 
 4. Check status:
+
 ```bash
 sudo systemctl status waterbot.service
 ```

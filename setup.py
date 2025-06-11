@@ -1,4 +1,6 @@
-from setuptools import setup, find_packages
+"""Setup configuration for WaterBot package."""
+
+from setuptools import find_packages, setup
 
 setup(
     name="waterbot",
@@ -34,4 +36,4 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
     ],
-) 
+)

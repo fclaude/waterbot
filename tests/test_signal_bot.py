@@ -11,9 +11,13 @@ class TestWaterBot:
     def setup_method(self):
         """Setup test fixtures"""
         # Patch the config values directly instead of relying on environment variable reloading
-        self.config_phone_patcher = patch('waterbot.signal.bot.SIGNAL_PHONE_NUMBER', '+1234567890')
-        self.config_group_patcher = patch('waterbot.signal.bot.SIGNAL_GROUP_ID', 'test_group_id')
-        
+        self.config_phone_patcher = patch(
+            "waterbot.signal.bot.SIGNAL_PHONE_NUMBER", "+1234567890"
+        )
+        self.config_group_patcher = patch(
+            "waterbot.signal.bot.SIGNAL_GROUP_ID", "test_group_id"
+        )
+
         self.config_phone_patcher.start()
         self.config_group_patcher.start()
 

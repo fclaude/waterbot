@@ -18,29 +18,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install black isort flake8 mypy bandit safety
-    
+
     - name: Code formatting check
       run: make format-check
-    
+
     - name: Linting
       run: make lint
-    
+
     - name: Type checking
       run: make type-check
       continue-on-error: true
-    
+
     - name: Security check
       run: make security-check
       continue-on-error: true
@@ -51,24 +51,24 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    
+
     - name: Run tests
       run: make test-cov
-    
+
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
       uses: codecov/codecov-action@v3
@@ -81,10 +81,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Build Docker image
       run: |
         docker build -t waterbot:latest .
@@ -96,22 +96,22 @@ jobs:
     needs: [quality, test]
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build
         pip install -r requirements.txt
-    
+
     - name: Build package
       run: make build
-    
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -125,22 +125,22 @@ jobs:
     if: github.event_name == 'release'
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build twine
         pip install -r requirements.txt
-    
+
     - name: Build package
       run: make build
-    
+
     - name: Publish to PyPI
       env:
         TWINE_USERNAME: __token__
