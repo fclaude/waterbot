@@ -120,8 +120,8 @@ clean: ## Clean build artifacts
 	rm -rf .mypy_cache/
 	rm -f bandit-report.json
 	rm -f safety-report.json
-	find . -type d -name __pycache__ -delete
-	find . -type f -name "*.pyc" -delete
+	find . -path ./.venv -prune -o -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -path ./.venv -prune -o -type f -name "*.pyc" -exec rm -f {} + 2>/dev/null || true
 
 clean-all: clean ## Clean all generated files including logs and schedules
 	rm -f *.log
