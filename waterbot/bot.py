@@ -4,6 +4,7 @@ import logging
 import signal
 import sys
 import time
+from typing import Any
 
 from . import scheduler
 from .config import DEBUG_MODE, ENABLE_SCHEDULING, LOG_LEVEL, validate_config
@@ -25,19 +26,23 @@ if DEBUG_MODE:
     # Also set DEBUG level for all signalbot loggers
     logging.getLogger("signalbot").setLevel(logging.DEBUG)
 
-logger.debug("Logging initialized with level=%s, debug_mode=%s", LOG_LEVEL, DEBUG_MODE)
+logger.debug(
+    "Logging initialized with level=%s, debug_mode=%s",
+    LOG_LEVEL,
+    DEBUG_MODE,
+)
 
 
-def handle_shutdown(signum, frame):
+def handle_shutdown(signum: int, frame: Any) -> None:
     """Handle shutdown signals."""
     logger.info("Received shutdown signal")
-    if hasattr(handle_shutdown, "bot") and handle_shutdown.bot:
+    if hasattr(handle_shutdown, "bot") and handle_shutdown.bot is not None:
         handle_shutdown.bot.stop()
     scheduler.stop_scheduler()
     sys.exit(0)
 
 
-def main():
+def main() -> None:
     """Start the WaterBot application."""
     logger.info("Starting WaterBot")
 
@@ -56,7 +61,8 @@ def main():
 
         # Create and start the bot
         bot = WaterBot()
-        handle_shutdown.bot = bot  # Store reference for signal handler
+        # Store reference for signal handler
+        handle_shutdown.bot = bot  # type: ignore[attr-defined]
 
         bot.start()
 

@@ -8,7 +8,7 @@ FROM python:3.11-slim as builder
 WORKDIR /app
 
 # Install system dependencies for building
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -19,14 +19,14 @@ COPY requirements.txt .
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip==24.0 && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY . .
 
 # Install the package
-RUN pip install -e .
+RUN pip install --no-cache-dir -e .
 
 # Production stage
 FROM python:3.11-slim as production
@@ -40,7 +40,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN groupadd -r waterbot && useradd -r -g waterbot waterbot
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     # Signal CLI dependencies (Java)
     default-jre-headless \
     wget \
@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Signal CLI
-RUN wget -O /tmp/signal-cli.tar.gz \
+RUN wget --progress=dot:giga -O /tmp/signal-cli.tar.gz \
     https://github.com/AsamK/signal-cli/releases/download/v0.11.12/signal-cli-0.11.12-Linux.tar.gz && \
     tar -xzf /tmp/signal-cli.tar.gz -C /opt/ && \
     ln -s /opt/signal-cli-*/bin/signal-cli /usr/local/bin/signal-cli && \
@@ -89,10 +89,15 @@ CMD ["python", "-m", "waterbot.bot"]
 FROM builder as development
 
 # Install development dependencies
-RUN pip install black flake8 isort mypy bandit safety pytest-watch
-
-# Install pre-commit
-RUN pip install pre-commit
+RUN pip install --no-cache-dir \
+    black==24.0.0 \
+    flake8==7.0.0 \
+    isort==5.13.0 \
+    mypy==1.8.0 \
+    bandit==1.7.6 \
+    safety==3.0.0 \
+    pytest-watch==4.2.0 \
+    pre-commit==3.6.0
 
 # Set development environment variables
 ENV OPERATION_MODE=emulation

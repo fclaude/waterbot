@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203
+per-file-ignores =
+    __init__.py:F401
+    tests/*:S101,S311
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    .tox

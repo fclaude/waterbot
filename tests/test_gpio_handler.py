@@ -1,3 +1,5 @@
+"""Tests for GPIO handler functionality."""
+
 from unittest.mock import Mock, patch
 
 from waterbot.gpio.handler import DeviceController
@@ -5,10 +7,10 @@ from waterbot.gpio.interface import MockGPIO
 
 
 class TestDeviceController:
-    """Test cases for DeviceController"""
+    """Test cases for DeviceController."""
 
     def setup_method(self):
-        """Setup test fixtures"""
+        """Set up test fixtures."""
         self.mock_gpio = MockGPIO()
 
         # Mock DEVICE_TO_PIN configuration
@@ -21,11 +23,11 @@ class TestDeviceController:
         self.controller = DeviceController(self.mock_gpio)
 
     def teardown_method(self):
-        """Clean up patches"""
+        """Clean up patches."""
         self.patcher.stop()
 
     def test_device_setup(self):
-        """Test that devices are properly setup during initialization"""
+        """Test that devices are properly set up during initialization."""
         # Check that all devices were setup
         assert len(self.mock_gpio.setup_calls) == 3
         expected_calls = [(17, "OUT"), (18, "OUT"), (27, "OUT")]
@@ -37,7 +39,7 @@ class TestDeviceController:
             assert self.controller.device_status[device] is False
 
     def test_turn_on_device(self):
-        """Test turning on a device"""
+        """Test turning on a device."""
         success = self.controller.turn_on("pump")
 
         assert success is True
@@ -45,7 +47,7 @@ class TestDeviceController:
         assert (17, True) in self.mock_gpio.output_calls
 
     def test_turn_off_device(self):
-        """Test turning off a device"""
+        """Test turning off a device."""
         # First turn on
         self.controller.turn_on("pump")
 
@@ -57,7 +59,7 @@ class TestDeviceController:
         assert (17, False) in self.mock_gpio.output_calls
 
     def test_turn_on_unknown_device(self):
-        """Test turning on unknown device returns False"""
+        """Test turning on unknown device returns False."""
         success = self.controller.turn_on("unknown")
 
         assert success is False
@@ -66,7 +68,7 @@ class TestDeviceController:
         assert len(self.mock_gpio.output_calls) == initial_calls
 
     def test_get_status(self):
-        """Test getting device status"""
+        """Test getting device status."""
         self.controller.turn_on("pump")
         self.controller.turn_on("light")
 
@@ -77,7 +79,7 @@ class TestDeviceController:
         assert status["fan"] is False
 
     def test_turn_all_on(self):
-        """Test turning on all devices"""
+        """Test turning on all devices."""
         success = self.controller.turn_all_on()
 
         assert success is True
@@ -85,7 +87,7 @@ class TestDeviceController:
             assert self.controller.device_status[device] is True
 
     def test_turn_all_off(self):
-        """Test turning off all devices"""
+        """Test turning off all devices."""
         # First turn all on
         self.controller.turn_all_on()
 
@@ -97,7 +99,7 @@ class TestDeviceController:
             assert self.controller.device_status[device] is False
 
     def test_turn_on_with_timeout(self):
-        """Test turning on device with timeout"""
+        """Test turning on device with timeout."""
         with patch("waterbot.gpio.handler.Timer") as mock_timer:
             mock_timer_instance = Mock()
             mock_timer.return_value = mock_timer_instance
@@ -110,7 +112,7 @@ class TestDeviceController:
             mock_timer_instance.start.assert_called_once()
 
     def test_cleanup(self):
-        """Test cleanup functionality"""
+        """Test cleanup functionality."""
         # Set up some active timers
         with patch("waterbot.gpio.handler.Timer") as mock_timer:
             mock_timer_instance = Mock()
@@ -127,10 +129,10 @@ class TestDeviceController:
 
 
 class TestDeviceControllerModuleFunctions:
-    """Test module-level functions"""
+    """Test module-level functions."""
 
     def setup_method(self):
-        """Reset global controller for each test"""
+        """Reset global controller for each test."""
         import waterbot.gpio.handler as handler
 
         handler._controller = None
@@ -138,7 +140,7 @@ class TestDeviceControllerModuleFunctions:
     @patch("waterbot.gpio.handler.DEVICE_TO_PIN", {"pump": 17})
     @patch("waterbot.gpio.handler.IS_EMULATION", True)
     def test_module_turn_on(self):
-        """Test module-level turn_on function"""
+        """Test module-level turn_on function."""
         from waterbot.gpio.handler import set_controller, turn_on
         from waterbot.gpio.interface import MockGPIO
 
@@ -154,7 +156,7 @@ class TestDeviceControllerModuleFunctions:
     @patch("waterbot.gpio.handler.DEVICE_TO_PIN", {"pump": 17})
     @patch("waterbot.gpio.handler.IS_EMULATION", True)
     def test_module_get_status(self):
-        """Test module-level get_status function"""
+        """Test module-level get_status function."""
         from waterbot.gpio.handler import get_status, set_controller, turn_on
         from waterbot.gpio.interface import MockGPIO
 

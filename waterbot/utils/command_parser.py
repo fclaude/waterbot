@@ -2,13 +2,14 @@
 
 import logging
 import re
+from typing import Any, Dict, Optional, Tuple
 
 from ..config import DEVICE_TO_PIN
 
 logger = logging.getLogger("command_parser")
 
 
-def parse_command(text):
+def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
     """Parse a command string into an action and parameters.
 
     Args:
@@ -42,7 +43,7 @@ def parse_command(text):
         return "schedule_add", {"device": device, "action": action, "time": time_str}
 
     # Schedule remove: "unschedule <device> <action> <time>"
-    schedule_remove_match = re.match(
+    schedule_remove_match = re.match(  # type: ignore[unreachable]
         r"unschedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text
     )
     if schedule_remove_match:

@@ -1,17 +1,19 @@
+"""Tests for scheduler functionality."""
+
 from unittest.mock import Mock, patch
 
 from waterbot.scheduler import DeviceScheduler
 
 
 class TestDeviceScheduler:
-    """Test cases for DeviceScheduler"""
+    """Test cases for DeviceScheduler."""
 
     def setup_method(self):
-        """Setup test fixtures"""
+        """Set up test fixtures."""
         self.scheduler = DeviceScheduler()
 
     def teardown_method(self):
-        """Clean up after each test"""
+        """Clean up after each test."""
         if self.scheduler.running:
             self.scheduler.stop()
 
@@ -25,7 +27,7 @@ class TestDeviceScheduler:
     )
     @patch("waterbot.scheduler.schedule")
     def test_setup_schedules(self, mock_schedule):
-        """Test setting up schedules from configuration"""
+        """Test setting up schedules from configuration."""
         mock_job = Mock()
         mock_schedule.every.return_value.day.at.return_value.do.return_value = mock_job
 
@@ -40,7 +42,7 @@ class TestDeviceScheduler:
     @patch("waterbot.scheduler.ENABLE_SCHEDULING", False)
     @patch("waterbot.scheduler.schedule")
     def test_setup_schedules_disabled(self, mock_schedule):
-        """Test that schedules are not set up when scheduling is disabled"""
+        """Test that schedules are not set up when scheduling is disabled."""
         self.scheduler.setup_schedules()
 
         assert len(self.scheduler.scheduled_jobs) == 0
@@ -48,7 +50,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.scheduler.gpio_handler")
     def test_schedule_device_action_on(self, mock_gpio):
-        """Test scheduling a device 'on' action"""
+        """Test scheduling a device 'on' action."""
         mock_gpio.turn_on.return_value = True
 
         with patch("waterbot.scheduler.schedule") as mock_schedule:
@@ -76,7 +78,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.scheduler.gpio_handler")
     def test_schedule_device_action_off(self, mock_gpio):
-        """Test scheduling a device 'off' action"""
+        """Test scheduling a device 'off' action."""
         mock_gpio.turn_off.return_value = True
 
         with patch("waterbot.scheduler.schedule") as mock_schedule:
@@ -97,7 +99,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.config.add_schedule")
     def test_add_schedule_success(self, mock_config_add):
-        """Test adding a new schedule dynamically"""
+        """Test adding a new schedule dynamically."""
         mock_config_add.return_value = True
 
         with patch.object(
@@ -111,7 +113,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.config.add_schedule")
     def test_add_schedule_failure(self, mock_config_add):
-        """Test adding a schedule that fails validation"""
+        """Test adding a schedule that fails validation."""
         mock_config_add.return_value = False
 
         success = self.scheduler.add_schedule("invalid", "on", "09:00")
@@ -122,7 +124,7 @@ class TestDeviceScheduler:
     @patch("waterbot.config.remove_schedule")
     @patch("waterbot.scheduler.schedule")
     def test_remove_schedule_success(self, mock_schedule, mock_config_remove):
-        """Test removing an existing schedule"""
+        """Test removing an existing schedule."""
         mock_config_remove.return_value = True
 
         # Set up a scheduled job
@@ -140,7 +142,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.config.remove_schedule")
     def test_remove_schedule_not_found(self, mock_config_remove):
-        """Test removing a schedule that doesn't exist"""
+        """Test removing a schedule that doesn't exist."""
         mock_config_remove.return_value = False
 
         success = self.scheduler.remove_schedule("pump", "on", "08:00")
@@ -149,7 +151,7 @@ class TestDeviceScheduler:
         mock_config_remove.assert_called_once_with("pump", "on", "08:00")
 
     def test_get_next_runs(self):
-        """Test getting next scheduled runs"""
+        """Test getting next scheduled runs."""
         from datetime import datetime, timedelta
 
         # Create mock jobs with next_run times
@@ -172,7 +174,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.scheduler.ENABLE_SCHEDULING", True)
     def test_start_scheduler(self):
-        """Test starting the scheduler"""
+        """Test starting the scheduler."""
         with patch.object(self.scheduler, "setup_schedules") as mock_setup:
             with patch("threading.Thread") as mock_thread:
                 mock_thread_instance = Mock()
@@ -187,13 +189,13 @@ class TestDeviceScheduler:
 
     @patch("waterbot.scheduler.ENABLE_SCHEDULING", False)
     def test_start_scheduler_disabled(self):
-        """Test starting scheduler when scheduling is disabled"""
+        """Test starting scheduler when scheduling is disabled."""
         self.scheduler.start()
 
         assert self.scheduler.running is False
 
     def test_start_scheduler_already_running(self):
-        """Test starting scheduler when already running"""
+        """Test starting scheduler when already running."""
         self.scheduler.running = True
 
         with patch.object(self.scheduler, "setup_schedules") as mock_setup:
@@ -203,7 +205,7 @@ class TestDeviceScheduler:
 
     @patch("waterbot.scheduler.schedule")
     def test_stop_scheduler(self, mock_schedule):
-        """Test stopping the scheduler"""
+        """Test stopping the scheduler."""
         self.scheduler.running = True
         mock_thread = Mock()
         mock_thread.is_alive.return_value = True
@@ -217,7 +219,7 @@ class TestDeviceScheduler:
         assert len(self.scheduler.scheduled_jobs) == 0
 
     def test_stop_scheduler_not_running(self):
-        """Test stopping scheduler when not running"""
+        """Test stopping scheduler when not running."""
         self.scheduler.running = False
 
         with patch("waterbot.scheduler.schedule") as mock_schedule:
@@ -228,7 +230,7 @@ class TestDeviceScheduler:
     @patch("waterbot.scheduler.schedule")
     @patch("waterbot.scheduler.time.sleep")
     def test_run_scheduler_loop(self, mock_sleep, mock_schedule):
-        """Test the scheduler loop execution"""
+        """Test the scheduler loop execution."""
         self.scheduler.running = True
 
         # Mock sleep to only run once
@@ -244,17 +246,17 @@ class TestDeviceScheduler:
 
 
 class TestSchedulerModuleFunctions:
-    """Test module-level scheduler functions"""
+    """Test module-level scheduler functions."""
 
     def teardown_method(self):
-        """Clean up global scheduler"""
+        """Clean up global scheduler."""
         from waterbot.scheduler import _scheduler
 
         if _scheduler and _scheduler.running:
             _scheduler.stop()
 
     def test_get_scheduler_singleton(self):
-        """Test that get_scheduler returns the same instance"""
+        """Test that get_scheduler returns the same instance."""
         from waterbot.scheduler import get_scheduler
 
         scheduler1 = get_scheduler()
@@ -264,7 +266,7 @@ class TestSchedulerModuleFunctions:
 
     @patch("waterbot.scheduler.ENABLE_SCHEDULING", True)
     def test_start_stop_scheduler_functions(self):
-        """Test module-level start and stop functions"""
+        """Test module-level start and stop functions."""
         from waterbot.scheduler import get_scheduler, start_scheduler, stop_scheduler
 
         with patch.object(get_scheduler(), "start") as mock_start:
@@ -276,7 +278,7 @@ class TestSchedulerModuleFunctions:
                 mock_stop.assert_called_once()
 
     def test_add_remove_schedule_functions(self):
-        """Test module-level add and remove schedule functions"""
+        """Test module-level add and remove schedule functions."""
         from waterbot.scheduler import add_schedule, get_scheduler, remove_schedule
 
         with patch.object(get_scheduler(), "add_schedule") as mock_add:
@@ -288,7 +290,7 @@ class TestSchedulerModuleFunctions:
                 mock_remove.assert_called_once_with("pump", "on", "08:00")
 
     def test_get_next_runs_function(self):
-        """Test module-level get_next_runs function"""
+        """Test module-level get_next_runs function."""
         from waterbot.scheduler import get_next_runs, get_scheduler
 
         with patch.object(get_scheduler(), "get_next_runs") as mock_get_next:

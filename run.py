@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger("waterbot_runner")
 
 
-def check_env_file():
+def check_env_file() -> bool:
     """Check if .env file exists and create it if needed."""
     if not os.path.exists(".env"):
         logger.info("No .env file found. Creating a template .env file.")
@@ -58,7 +58,7 @@ DEBUG_MODE=false
     return True
 
 
-def main():
+def main() -> int:
     """Run the WaterBot application."""
     parser = argparse.ArgumentParser(description="Run WaterBot Signal GPIO Controller")
     parser.add_argument(

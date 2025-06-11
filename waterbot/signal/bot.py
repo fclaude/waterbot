@@ -2,9 +2,10 @@
 
 import json
 import logging
-import subprocess
+import subprocess  # nosec B404: subprocess needed for signal-cli integration
 import threading
 import time
+from typing import List, Optional
 
 from .. import scheduler
 from ..config import (
@@ -33,7 +34,7 @@ if DEBUG_MODE:
 class WaterBot:
     """Signal bot for controlling water devices via GPIO."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Signal bot for water control."""
         logger.debug(
             f"Initializing WaterBot with SIGNAL_PHONE_NUMBER={SIGNAL_PHONE_NUMBER}"
@@ -45,11 +46,16 @@ class WaterBot:
         self.group_id = SIGNAL_GROUP_ID
         logger.debug(f"WaterBot will listen to group ID: {self.group_id}")
         self.running = False
-        self.polling_thread = None
+        self.polling_thread: Optional[threading.Thread] = None
 
         logger.info(f"Signal bot initialized with phone number {SIGNAL_PHONE_NUMBER}")
 
-    def _send_message(self, recipient=None, group_id=None, message=""):
+    def _send_message(
+        self,
+        recipient: Optional[str] = None,
+        group_id: Optional[str] = None,
+        message: str = "",
+    ) -> bool:
         """Send a message using signal-cli command line.
 
         Args:
@@ -62,7 +68,7 @@ class WaterBot:
             return False
 
         try:
-            cmd = ["signal-cli", "-u", self.phone_number]
+            cmd: List[str] = ["signal-cli", "-u", self.phone_number or ""]
 
             if group_id:
                 cmd.extend(["send", "-g", group_id])
@@ -75,7 +81,9 @@ class WaterBot:
             cmd.extend(["-m", message])
 
             logger.debug(f"Sending message command: {' '.join(cmd)}")
-            result = subprocess.run(
+            # nosec B603: subprocess call is safe - cmd is constructed from
+            # validated inputs and signal-cli path
+            result = subprocess.run(  # nosec B603
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
 
@@ -89,17 +97,26 @@ class WaterBot:
             logger.error(f"Exception sending message: {e}", exc_info=True)
             return False
 
-    def _receive_messages(self):
+    def _receive_messages(self) -> List[str]:
         """Receive messages using signal-cli command line.
 
         Returns:
             List of message JSON strings
         """
         try:
-            cmd = ["signal-cli", "-u", self.phone_number, "-o", "json", "receive"]
+            cmd: List[str] = [
+                "signal-cli",
+                "-u",
+                self.phone_number or "",
+                "-o",
+                "json",
+                "receive",
+            ]
 
             logger.debug(f"Receiving messages command: {' '.join(cmd)}")
-            result = subprocess.run(
+            # nosec B603: subprocess call is safe - cmd is constructed from
+            # validated inputs and signal-cli path
+            result = subprocess.run(  # nosec B603
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
 
@@ -117,7 +134,7 @@ class WaterBot:
             logger.error(f"Exception receiving messages: {e}", exc_info=True)
             return []
 
-    def _poll_messages(self):
+    def _poll_messages(self) -> None:
         """Poll for new messages in a separate thread."""
         logger.debug("Starting message polling thread")
 
@@ -136,7 +153,7 @@ class WaterBot:
 
         logger.debug("Message polling thread stopped")
 
-    def _handle_message(self, message):
+    def _handle_message(self, message: str) -> None:
         """Handle incoming Signal messages.
 
         Args:
@@ -197,7 +214,9 @@ class WaterBot:
         except Exception as e:
             logger.error(f"Error handling message: {e}", exc_info=True)
 
-    def _execute_command(self, command_type, params):
+    def _execute_command(
+        self, command_type: Optional[str], params: dict
+    ) -> Optional[str]:
         """Execute a parsed command.
 
         Args:
@@ -262,7 +281,7 @@ class WaterBot:
                 return f"Error: Unknown device '{device}'"
 
         elif command_type == "error":
-            return params["message"]
+            return str(params["message"])
 
         elif command_type == "help":
             return self._get_help_response()
@@ -270,7 +289,7 @@ class WaterBot:
         else:
             return "Unknown command. Send 'help' for available commands."
 
-    def _get_help_response(self):
+    def _get_help_response(self) -> str:
         """Generate help response message."""
         return (
             "Available commands:\n"
@@ -284,7 +303,7 @@ class WaterBot:
             "unschedule <device> <on|off> <HH:MM> - Remove schedule"
         )
 
-    def _get_schedules_response(self):
+    def _get_schedules_response(self) -> str:
         """Generate schedules response message."""
         schedules = get_schedules()
         if not schedules:
@@ -309,7 +328,7 @@ class WaterBot:
 
         return response
 
-    def _get_status_response(self):
+    def _get_status_response(self) -> str:
         """Generate status response message.
 
         Returns:
@@ -326,7 +345,7 @@ class WaterBot:
 
         return response
 
-    def start(self):
+    def start(self) -> None:
         """Start the Signal bot."""
         if self.running:
             logger.warning("Bot is already running")
@@ -367,10 +386,12 @@ class WaterBot:
             logger.error(f"Error starting bot: {e}", exc_info=True)
             raise
 
-    def _check_signal_cli(self):
+    def _check_signal_cli(self) -> bool:
         """Check if signal-cli is installed and in PATH."""
         try:
-            result = subprocess.run(
+            # nosec B603, B607: subprocess call is safe - using known
+            # signal-cli command with fixed arguments
+            result = subprocess.run(  # nosec B603, B607
                 ["signal-cli", "--version"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -384,7 +405,7 @@ class WaterBot:
             logger.error(f"Error checking signal-cli: {e}")
             return False
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the Signal bot."""
         if not self.running:
             logger.warning("Bot is not running")
@@ -394,7 +415,7 @@ class WaterBot:
         self.running = False
 
         # Join polling thread
-        if self.polling_thread and self.polling_thread.is_alive():
+        if self.polling_thread is not None and self.polling_thread.is_alive():
             self.polling_thread.join(timeout=5)
 
         # Stop SignalCli

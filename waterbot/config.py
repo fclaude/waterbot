@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -44,8 +45,8 @@ for key, value in os.environ.items():
 DEVICE_SCHEDULES = {}
 
 
-def load_schedules():
-    """Load device schedules from configuration file or environment variables."""
+def load_schedules() -> None:
+    """Load device schedules from configuration file or env variables."""
     global DEVICE_SCHEDULES
 
     # First try to load from JSON file
@@ -77,16 +78,20 @@ def load_schedules():
                     for time_str in value.split(","):
                         time_str = time_str.strip()
                         if re.match(r"^\d{2}:\d{2}$", time_str):
-                            # Validate time format (HH:MM where HH is 00-23 and MM is 00-59)
+                            # Validate time format (HH:MM where HH is 00-23
+                            # and MM is 00-59)
                             hour, minute = time_str.split(":")
                             if int(hour) <= 23 and int(minute) <= 59:
                                 times.append(time_str)
                             else:
                                 print(
-                                    f"Warning: Invalid time format in {key}: {time_str}"
+                                    f"Warning: Invalid time format in "
+                                    f"{key}: {time_str}"
                                 )
                         else:
-                            print(f"Warning: Invalid time format in {key}: {time_str}")
+                            print(  # type: ignore[unreachable]
+                                f"Warning: Invalid time format in {key}: " f"{time_str}"
+                            )
 
                     if times:
                         if device not in DEVICE_SCHEDULES:
@@ -94,7 +99,7 @@ def load_schedules():
                         DEVICE_SCHEDULES[device][action] = times
 
 
-def save_schedules():
+def save_schedules() -> bool:
     """Save current device schedules to configuration file."""
     try:
         with open(SCHEDULE_CONFIG_FILE, "w") as f:
@@ -105,7 +110,7 @@ def save_schedules():
         return False
 
 
-def add_schedule(device, action, time):
+def add_schedule(device: str, action: str, time: str) -> bool:
     """Add a schedule for a device.
 
     Args:
@@ -123,7 +128,7 @@ def add_schedule(device, action, time):
         return False
 
     if not re.match(r"^\d{2}:\d{2}$", time):
-        return False
+        return False  # type: ignore[unreachable]
 
     if device not in DEVICE_SCHEDULES:
         DEVICE_SCHEDULES[device] = {}
@@ -139,7 +144,7 @@ def add_schedule(device, action, time):
     return True
 
 
-def remove_schedule(device, action, time):
+def remove_schedule(device: str, action: str, time: str) -> bool:
     """Remove a schedule for a device.
 
     Args:
@@ -169,7 +174,7 @@ def remove_schedule(device, action, time):
     return False
 
 
-def get_schedules(device=None):
+def get_schedules(device: Optional[str] = None) -> Dict[str, Any]:
     """Get schedules for a device or all devices.
 
     Args:
@@ -179,8 +184,8 @@ def get_schedules(device=None):
         dict: Schedule configuration
     """
     if device:
-        return DEVICE_SCHEDULES.get(device, {})
-    return DEVICE_SCHEDULES.copy()
+        return dict(DEVICE_SCHEDULES.get(device, {}))
+    return dict(DEVICE_SCHEDULES.copy())
 
 
 # Load schedules on import
@@ -188,7 +193,7 @@ load_schedules()
 
 
 # Validate configuration
-def validate_config():
+def validate_config() -> bool:
     """Validate that all required configuration variables are set."""
     if not SIGNAL_PHONE_NUMBER:
         raise ValueError("SIGNAL_PHONE_NUMBER is not set in .env file")

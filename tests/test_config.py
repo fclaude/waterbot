@@ -1,9 +1,10 @@
+"""Tests for configuration functionality."""
+
 import json
 import os
 import tempfile
 from unittest.mock import patch
 
-from waterbot import config
 from waterbot.config import (
     DEVICE_SCHEDULES,
     add_schedule,
@@ -15,15 +16,15 @@ from waterbot.config import (
 
 
 class TestScheduleConfiguration:
-    """Test cases for schedule configuration functions"""
+    """Test cases for schedule configuration functions."""
 
     def setup_method(self):
-        """Setup test fixtures"""
+        """Set up test fixtures."""
         # Clear global schedules before each test
         DEVICE_SCHEDULES.clear()
 
     def test_add_schedule_valid(self):
-        """Test adding a valid schedule"""
+        """Test adding a valid schedule."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             success = add_schedule("pump", "on", "08:00")
 
@@ -33,7 +34,7 @@ class TestScheduleConfiguration:
             assert "08:00" in DEVICE_SCHEDULES["pump"]["on"]
 
     def test_add_schedule_invalid_device(self):
-        """Test adding schedule for unknown device"""
+        """Test adding schedule for unknown device."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             success = add_schedule("unknown", "on", "08:00")
 
@@ -41,21 +42,21 @@ class TestScheduleConfiguration:
             assert "unknown" not in DEVICE_SCHEDULES
 
     def test_add_schedule_invalid_action(self):
-        """Test adding schedule with invalid action"""
+        """Test adding schedule with invalid action."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             success = add_schedule("pump", "invalid", "08:00")
 
             assert success is False
 
     def test_add_schedule_invalid_time_format(self):
-        """Test adding schedule with invalid time format"""
+        """Test adding schedule with invalid time format."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             success = add_schedule("pump", "on", "8:00")  # Missing leading zero
 
             assert success is False
 
     def test_add_duplicate_schedule(self):
-        """Test adding duplicate schedule"""
+        """Test adding duplicate schedule."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             add_schedule("pump", "on", "08:00")
             success = add_schedule("pump", "on", "08:00")  # Duplicate
@@ -64,7 +65,7 @@ class TestScheduleConfiguration:
             assert len(DEVICE_SCHEDULES["pump"]["on"]) == 1  # No duplicate
 
     def test_add_multiple_schedules_sorted(self):
-        """Test that multiple schedules are sorted"""
+        """Test that multiple schedules are sorted."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             add_schedule("pump", "on", "12:00")
             add_schedule("pump", "on", "08:00")
@@ -74,7 +75,7 @@ class TestScheduleConfiguration:
             assert schedules == ["08:00", "12:00", "20:00"]
 
     def test_remove_schedule_existing(self):
-        """Test removing an existing schedule"""
+        """Test removing an existing schedule."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             add_schedule("pump", "on", "08:00")
             success = remove_schedule("pump", "on", "08:00")
@@ -83,13 +84,13 @@ class TestScheduleConfiguration:
             assert "pump" not in DEVICE_SCHEDULES  # Should be cleaned up
 
     def test_remove_schedule_nonexistent(self):
-        """Test removing a non-existent schedule"""
+        """Test removing a non-existent schedule."""
         success = remove_schedule("pump", "on", "08:00")
 
         assert success is False
 
     def test_remove_schedule_cleanup(self):
-        """Test that empty schedule entries are cleaned up"""
+        """Test that empty schedule entries are cleaned up."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             add_schedule("pump", "on", "08:00")
             add_schedule("pump", "off", "20:00")
@@ -109,7 +110,7 @@ class TestScheduleConfiguration:
             assert "pump" not in DEVICE_SCHEDULES
 
     def test_get_schedules_all(self):
-        """Test getting all schedules"""
+        """Test getting all schedules."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17, "light": 18}):
             add_schedule("pump", "on", "08:00")
             add_schedule("light", "off", "22:00")
@@ -122,7 +123,7 @@ class TestScheduleConfiguration:
             assert schedules["light"]["off"] == ["22:00"]
 
     def test_get_schedules_single_device(self):
-        """Test getting schedules for a single device"""
+        """Test getting schedules for a single device."""
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17, "light": 18}):
             add_schedule("pump", "on", "08:00")
             add_schedule("light", "off", "22:00")
@@ -134,13 +135,13 @@ class TestScheduleConfiguration:
             assert "light" not in pump_schedules  # Should only return pump
 
     def test_get_schedules_unknown_device(self):
-        """Test getting schedules for unknown device"""
+        """Test getting schedules for unknown device."""
         schedules = get_schedules("unknown")
 
         assert schedules == {}
 
     def test_save_and_load_schedules(self):
-        """Test saving and loading schedules from file"""
+        """Test saving and loading schedules from file."""
         # Test the core functionality by directly manipulating the data structures
         with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
             original_schedules = DEVICE_SCHEDULES.copy()
@@ -175,7 +176,7 @@ class TestScheduleConfiguration:
                 DEVICE_SCHEDULES.update(original_schedules)
 
     def test_load_schedules_from_env_vars(self):
-        """Test loading schedules from environment variables"""
+        """Test loading schedules from environment variables."""
         env_vars = {
             "SCHEDULE_PUMP_ON": "08:00,20:00",
             "SCHEDULE_PUMP_OFF": "12:00",
@@ -229,7 +230,7 @@ class TestScheduleConfiguration:
                         DEVICE_SCHEDULES.update(original_schedules)
 
     def test_load_schedules_invalid_time_format(self):
-        """Test loading schedules with invalid time format from env vars"""
+        """Test loading schedules with invalid time format from env vars."""
         env_vars = {
             "SCHEDULE_PUMP_ON": "8:00,25:00,invalid",  # Various invalid formats
         }

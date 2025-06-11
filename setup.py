@@ -10,7 +10,8 @@ setup(
         "python-dotenv>=1.0.0",
         "signalbot>=0.5.0",
         "schedule>=1.2.0",
-        "RPi.GPIO>=0.7.1; platform_machine == 'armv6l' or platform_machine == 'armv7l'",
+        "RPi.GPIO>=0.7.1; platform_machine == 'armv6l' or "
+        "platform_machine == 'armv7l'",
     ],
     python_requires=">=3.7",
     entry_points={

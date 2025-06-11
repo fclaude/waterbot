@@ -1,7 +1,7 @@
 """GPIO interface abstractions for WaterBot."""
 
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List, Tuple
 
 
 class GPIOInterface(ABC):
@@ -26,7 +26,7 @@ class GPIOInterface(ABC):
 class HardwareGPIO(GPIOInterface):
     """Hardware GPIO implementation using RPi.GPIO."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize hardware GPIO interface."""
         try:
             import RPi.GPIO as GPIO
@@ -55,7 +55,7 @@ class HardwareGPIO(GPIOInterface):
 class EmulationGPIO(GPIOInterface):
     """Emulation GPIO implementation for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize emulation GPIO interface."""
         self.pin_states: Dict[int, bool] = {}
         self.setup_pins: Dict[int, str] = {}
@@ -88,10 +88,10 @@ class EmulationGPIO(GPIOInterface):
 class MockGPIO(GPIOInterface):
     """Mock GPIO implementation for unit testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize mock GPIO interface."""
-        self.setup_calls = []
-        self.output_calls = []
+        self.setup_calls: List[Tuple[int, str]] = []
+        self.output_calls: List[Tuple[int, bool]] = []
         self.cleanup_called = False
         self.pin_states: Dict[int, bool] = {}
 

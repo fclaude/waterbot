@@ -1,3 +1,5 @@
+"""Tests for GPIO interface functionality."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,9 +8,10 @@ from waterbot.gpio.interface import EmulationGPIO, HardwareGPIO, MockGPIO
 
 
 class TestEmulationGPIO:
-    """Test cases for EmulationGPIO"""
+    """Test cases for EmulationGPIO."""
 
     def test_setup_pin(self):
+        """Test setting up a GPIO pin."""
         gpio = EmulationGPIO()
         gpio.setup(17, "OUT")
 
@@ -17,6 +20,7 @@ class TestEmulationGPIO:
         assert gpio.pin_states[17] is False
 
     def test_output_pin_value(self):
+        """Test outputting values to a GPIO pin."""
         gpio = EmulationGPIO()
         gpio.setup(17, "OUT")
 
@@ -27,12 +31,14 @@ class TestEmulationGPIO:
         assert gpio.get_pin_state(17) is False
 
     def test_output_without_setup_raises_error(self):
+        """Test that outputting without setup raises an error."""
         gpio = EmulationGPIO()
 
         with pytest.raises(RuntimeError, match="Pin 17 not setup"):
             gpio.output(17, True)
 
     def test_cleanup(self):
+        """Test GPIO cleanup functionality."""
         gpio = EmulationGPIO()
         gpio.setup(17, "OUT")
         gpio.output(17, True)
@@ -44,9 +50,10 @@ class TestEmulationGPIO:
 
 
 class TestMockGPIO:
-    """Test cases for MockGPIO"""
+    """Test cases for MockGPIO."""
 
     def test_setup_tracking(self):
+        """Test that setup calls are tracked properly."""
         gpio = MockGPIO()
         gpio.setup(17, "OUT")
         gpio.setup(18, "IN")
@@ -56,6 +63,7 @@ class TestMockGPIO:
         assert (18, "IN") in gpio.setup_calls
 
     def test_output_tracking(self):
+        """Test that output calls are tracked properly."""
         gpio = MockGPIO()
         gpio.setup(17, "OUT")
         gpio.output(17, True)
@@ -66,6 +74,7 @@ class TestMockGPIO:
         assert (17, False) in gpio.output_calls
 
     def test_pin_state_tracking(self):
+        """Test that pin states are tracked properly."""
         gpio = MockGPIO()
         gpio.setup(17, "OUT")
 
@@ -76,6 +85,7 @@ class TestMockGPIO:
         assert gpio.get_pin_state(17) is False
 
     def test_cleanup_tracking(self):
+        """Test that cleanup calls are tracked properly."""
         gpio = MockGPIO()
         gpio.setup(17, "OUT")
         gpio.output(17, True)
@@ -87,9 +97,10 @@ class TestMockGPIO:
 
 
 class TestHardwareGPIO:
-    """Test cases for HardwareGPIO"""
+    """Test cases for HardwareGPIO."""
 
     def test_hardware_gpio_initialization(self):
+        """Test hardware GPIO initialization."""
         mock_gpio = MagicMock()
 
         # Mock the entire RPi module and make sure RPi.GPIO returns our mock
@@ -105,6 +116,7 @@ class TestHardwareGPIO:
             mock_gpio.setwarnings.assert_called_once_with(False)
 
     def test_setup_pin(self):
+        """Test setting up a hardware GPIO pin."""
         mock_gpio = MagicMock()
         mock_rpi = MagicMock()
         mock_rpi.GPIO = mock_gpio
@@ -116,6 +128,7 @@ class TestHardwareGPIO:
             mock_gpio.setup.assert_called_once_with(17, mock_gpio.OUT)
 
     def test_output_pin_value(self):
+        """Test outputting values to a hardware GPIO pin."""
         mock_gpio = MagicMock()
         mock_rpi = MagicMock()
         mock_rpi.GPIO = mock_gpio
@@ -130,6 +143,7 @@ class TestHardwareGPIO:
             mock_gpio.output.assert_called_with(17, mock_gpio.LOW)
 
     def test_cleanup(self):
+        """Test hardware GPIO cleanup."""
         mock_gpio = MagicMock()
         mock_rpi = MagicMock()
         mock_rpi.GPIO = mock_gpio
@@ -141,6 +155,7 @@ class TestHardwareGPIO:
             mock_gpio.cleanup.assert_called_once()
 
     def test_hardware_gpio_import_error(self):
+        """Test hardware GPIO import error handling."""
         # Simulate ImportError by removing RPi from sys.modules
         with patch.dict("sys.modules", {}, clear=True):
             with patch(

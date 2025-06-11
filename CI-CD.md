@@ -1,6 +1,8 @@
 # CI/CD Pipeline Documentation
 
-WaterBot includes comprehensive CI/CD pipeline configurations for both GitLab and GitHub, ensuring code quality and automated testing on every commit.
+WaterBot includes comprehensive CI/CD pipeline configurations for both
+GitLab and GitHub, ensuring code quality and automated testing on every
+commit.
 
 ## Pipeline Overview
 
@@ -26,7 +28,7 @@ WaterBot includes comprehensive CI/CD pipeline configurations for both GitLab an
 - `.gitlab-ci.yml` - Simplified, robust pipeline (recommended)
 - `.gitlab-ci-full.yml` - Comprehensive pipeline with all features
 
-### Jobs
+### GitLab Jobs
 
 - `code-quality` - Formatting, linting, type checking, security
 - `test-unit` - Unit tests with coverage reporting
@@ -35,7 +37,7 @@ WaterBot includes comprehensive CI/CD pipeline configurations for both GitLab an
 - `build-docker` - Docker image building and testing
 - `mr-check` - Comprehensive checks for merge requests
 
-### Usage
+### GitLab Usage
 
 ```bash
 # The pipeline runs automatically on:
@@ -59,7 +61,7 @@ WaterBot includes comprehensive CI/CD pipeline configurations for both GitLab an
 
 - `.github/workflows/ci.yml` - Complete CI/CD workflow
 
-### Jobs
+### GitHub Jobs
 
 - `quality` - Code quality checks
 - `test` - Multi-version testing with coverage
@@ -67,7 +69,7 @@ WaterBot includes comprehensive CI/CD pipeline configurations for both GitLab an
 - `build` - Package building
 - `release` - Automated release to PyPI (on tags)
 
-### Usage
+### GitHub Usage
 
 ```bash
 # The workflow runs automatically on:
@@ -176,7 +178,8 @@ The full pipeline includes deployment stages:
 
 #### 1. Missing Templates (GitLab)
 
-**Error**: `Included file 'Security/License-Scanning.gitlab-ci.yml' is empty or does not exist!`
+**Error**: `Included file 'Security/License-Scanning.gitlab-ci.yml' is
+empty or does not exist!`
 
 **Solution**: Use the simplified `.gitlab-ci.yml` (already configured)
 

@@ -1,16 +1,18 @@
+"""Test cases for WaterBot Signal integration."""
+
 import json
-import os
 from unittest.mock import Mock, patch
 
 from waterbot.signal.bot import WaterBot
 
 
 class TestWaterBot:
-    """Test cases for WaterBot Signal integration"""
+    """Test cases for WaterBot Signal integration."""
 
     def setup_method(self):
-        """Setup test fixtures"""
-        # Patch the config values directly instead of relying on environment variable reloading
+        """Set up test fixtures."""
+        # Patch the config values directly instead of relying on environment
+        # variable reloading
         self.config_phone_patcher = patch(
             "waterbot.signal.bot.SIGNAL_PHONE_NUMBER", "+1234567890"
         )
@@ -22,17 +24,16 @@ class TestWaterBot:
         self.config_group_patcher.start()
 
         # No external SignalCli library needed
-        from waterbot.signal.bot import WaterBot
 
         self.bot = WaterBot()
 
     def teardown_method(self):
-        """Cleanup test fixtures"""
+        """Clean up test fixtures."""
         self.config_phone_patcher.stop()
         self.config_group_patcher.stop()
 
     def test_bot_initialization(self):
-        """Test bot initialization"""
+        """Test bot initialization."""
         assert self.bot.phone_number == "+1234567890"
         assert self.bot.group_id == "test_group_id"
         assert self.bot.running is False
@@ -40,7 +41,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_send_message_to_group(self, mock_run):
-        """Test sending message to group"""
+        """Test sending message to group."""
         mock_run.return_value.returncode = 0
 
         success = self.bot._send_message(group_id="test_group", message="test message")
@@ -55,7 +56,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_send_message_to_recipient(self, mock_run):
-        """Test sending message to individual recipient"""
+        """Test sending message to individual recipient."""
         mock_run.return_value.returncode = 0
 
         success = self.bot._send_message(
@@ -70,7 +71,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_send_message_failure(self, mock_run):
-        """Test send message failure handling"""
+        """Test send message failure handling."""
         mock_run.return_value.returncode = 1
         mock_run.return_value.stderr = "Error message"
 
@@ -79,14 +80,14 @@ class TestWaterBot:
         assert success is False
 
     def test_send_empty_message(self):
-        """Test sending empty message"""
+        """Test sending empty message."""
         success = self.bot._send_message(group_id="test_group", message="")
 
         assert success is False
 
     @patch("subprocess.run")
     def test_receive_messages(self, mock_run):
-        """Test receiving messages"""
+        """Test receiving messages."""
         mock_messages = ['{"message": "test1"}', '{"message": "test2"}']
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = "\n".join(mock_messages)
@@ -98,7 +99,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_receive_messages_empty(self, mock_run):
-        """Test receiving no messages"""
+        """Test receiving no messages."""
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = ""
 
@@ -108,7 +109,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_receive_messages_failure(self, mock_run):
-        """Test receive messages failure"""
+        """Test receive messages failure."""
         mock_run.return_value.returncode = 1
         mock_run.return_value.stderr = "Error"
 
@@ -117,18 +118,19 @@ class TestWaterBot:
         assert messages == []
 
     def test_execute_command_status(self):
-        """Test executing status command"""
+        """Test executing status command."""
         with patch("waterbot.signal.bot.gpio_handler.get_status") as mock_get_status:
             mock_get_status.return_value = {"pump": True, "light": False}
 
             response = self.bot._execute_command("status", {})
 
+            assert response is not None
             assert "Device Status:" in response
             assert "pump: ON" in response
             assert "light: OFF" in response
 
     def test_execute_command_device_on(self):
-        """Test executing device on command"""
+        """Test executing device on command."""
         with patch("waterbot.signal.bot.gpio_handler.turn_on") as mock_turn_on:
             mock_turn_on.return_value = True
 
@@ -136,11 +138,12 @@ class TestWaterBot:
                 "device_on", {"device": "pump", "timeout": None}
             )
 
+            assert response is not None
             assert "Device 'pump' turned ON" in response
             mock_turn_on.assert_called_once_with("pump", None)
 
     def test_execute_command_device_on_with_timeout(self):
-        """Test executing device on command with timeout"""
+        """Test executing device on command with timeout."""
         with patch("waterbot.signal.bot.gpio_handler.turn_on") as mock_turn_on:
             mock_turn_on.return_value = True
 
@@ -148,11 +151,12 @@ class TestWaterBot:
                 "device_on", {"device": "pump", "timeout": 3600}
             )
 
+            assert response is not None
             assert "Device 'pump' turned ON for 3600 seconds" in response
             mock_turn_on.assert_called_once_with("pump", 3600)
 
     def test_execute_command_device_off(self):
-        """Test executing device off command"""
+        """Test executing device off command."""
         with patch("waterbot.signal.bot.gpio_handler.turn_off") as mock_turn_off:
             mock_turn_off.return_value = True
 
@@ -160,21 +164,23 @@ class TestWaterBot:
                 "device_off", {"device": "light", "timeout": None}
             )
 
+            assert response is not None
             assert "Device 'light' turned OFF" in response
             mock_turn_off.assert_called_once_with("light", None)
 
     def test_execute_command_all_on(self):
-        """Test executing all devices on command"""
+        """Test executing all devices on command."""
         with patch("waterbot.signal.bot.gpio_handler.turn_all_on") as mock_turn_all_on:
             mock_turn_all_on.return_value = True
 
             response = self.bot._execute_command("all_on", {})
 
+            assert response is not None
             assert "All devices turned ON" in response
             mock_turn_all_on.assert_called_once()
 
     def test_execute_command_all_off(self):
-        """Test executing all devices off command"""
+        """Test executing all devices off command."""
         with patch(
             "waterbot.signal.bot.gpio_handler.turn_all_off"
         ) as mock_turn_all_off:
@@ -182,11 +188,12 @@ class TestWaterBot:
 
             response = self.bot._execute_command("all_off", {})
 
+            assert response is not None
             assert "All devices turned OFF" in response
             mock_turn_all_off.assert_called_once()
 
     def test_execute_command_schedule_add(self):
-        """Test executing schedule add command"""
+        """Test executing schedule add command."""
         with patch("waterbot.signal.bot.scheduler.add_schedule") as mock_add_schedule:
             mock_add_schedule.return_value = True
 
@@ -194,11 +201,12 @@ class TestWaterBot:
                 "schedule_add", {"device": "pump", "action": "on", "time": "08:00"}
             )
 
+            assert response is not None
             assert "Added schedule: pump on at 08:00" in response
             mock_add_schedule.assert_called_once_with("pump", "on", "08:00")
 
     def test_execute_command_schedule_remove(self):
-        """Test executing schedule remove command"""
+        """Test executing schedule remove command."""
         with patch(
             "waterbot.signal.bot.scheduler.remove_schedule"
         ) as mock_remove_schedule:
@@ -208,11 +216,12 @@ class TestWaterBot:
                 "schedule_remove", {"device": "pump", "action": "on", "time": "08:00"}
             )
 
+            assert response is not None
             assert "Removed schedule: pump on at 08:00" in response
             mock_remove_schedule.assert_called_once_with("pump", "on", "08:00")
 
     def test_execute_command_show_schedules(self):
-        """Test executing show schedules command"""
+        """Test executing show schedules command."""
         mock_schedules = {"pump": {"on": ["08:00"], "off": ["20:00"]}}
         mock_next_runs = [
             {
@@ -232,6 +241,7 @@ class TestWaterBot:
 
                 response = self.bot._execute_command("show_schedules", {})
 
+                assert response is not None
                 assert "Device Schedules:" in response
                 assert "PUMP:" in response
                 assert "ON at 08:00" in response
@@ -239,37 +249,40 @@ class TestWaterBot:
                 assert "Next scheduled runs:" in response
 
     def test_execute_command_show_schedules_empty(self):
-        """Test executing show schedules command with no schedules"""
+        """Test executing show schedules command with no schedules."""
         with patch("waterbot.signal.bot.get_schedules") as mock_get_schedules:
             mock_get_schedules.return_value = {}
 
             response = self.bot._execute_command("show_schedules", {})
 
+            assert response is not None
             assert "No schedules configured" in response
 
     def test_execute_command_help(self):
-        """Test executing help command"""
+        """Test executing help command."""
         response = self.bot._execute_command("help", {})
 
+        assert response is not None
         assert "Available commands:" in response
         assert "status" in response
         assert "on <device>" in response
         assert "schedule" in response
 
     def test_execute_command_error(self):
-        """Test executing error command"""
+        """Test executing error command."""
         response = self.bot._execute_command("error", {"message": "Test error"})
 
         assert response == "Test error"
 
     def test_execute_command_unknown(self):
-        """Test executing unknown command"""
+        """Test executing unknown command."""
         response = self.bot._execute_command("unknown", {})
 
+        assert response is not None
         assert "Unknown command" in response
 
     def test_handle_message_group_message(self):
-        """Test handling a group message"""
+        """Test handling a group message."""
         message_json = {
             "envelope": {
                 "sourceNumber": "+1234567890",
@@ -292,7 +305,7 @@ class TestWaterBot:
                 )
 
     def test_handle_message_direct_message(self):
-        """Test handling a direct message"""
+        """Test handling a direct message."""
         message_json = {
             "envelope": {
                 "sourceNumber": "+1234567890",
@@ -312,7 +325,7 @@ class TestWaterBot:
                 )
 
     def test_handle_message_wrong_group(self):
-        """Test handling message from wrong group"""
+        """Test handling message from wrong group."""
         message_json = {
             "envelope": {
                 "sourceNumber": "+1234567890",
@@ -329,7 +342,7 @@ class TestWaterBot:
             mock_execute.assert_not_called()
 
     def test_handle_message_empty_text(self):
-        """Test handling message with empty text"""
+        """Test handling message with empty text."""
         message_json = {
             "envelope": {
                 "sourceNumber": "+1234567890",
@@ -346,7 +359,7 @@ class TestWaterBot:
             mock_execute.assert_not_called()
 
     def test_handle_message_invalid_json(self):
-        """Test handling invalid JSON message"""
+        """Test handling invalid JSON message."""
         with patch.object(self.bot, "_execute_command") as mock_execute:
             self.bot._handle_message("invalid json")
 
@@ -354,7 +367,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_check_signal_cli_available(self, mock_run):
-        """Test checking if signal-cli is available"""
+        """Test checking if signal-cli is available."""
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = "signal-cli 0.10.0"
 
@@ -365,7 +378,7 @@ class TestWaterBot:
 
     @patch("subprocess.run")
     def test_check_signal_cli_not_available(self, mock_run):
-        """Test checking signal-cli when not available"""
+        """Test checking signal-cli when not available."""
         mock_run.side_effect = FileNotFoundError()
 
         result = self.bot._check_signal_cli()
@@ -374,7 +387,7 @@ class TestWaterBot:
 
     @patch("threading.Thread")
     def test_start_bot(self, mock_thread):
-        """Test starting the bot"""
+        """Test starting the bot."""
         mock_thread_instance = Mock()
         mock_thread.return_value = mock_thread_instance
 
@@ -387,14 +400,14 @@ class TestWaterBot:
                 mock_thread_instance.start.assert_called_once()
 
     def test_start_bot_signal_cli_not_available(self):
-        """Test starting bot when signal-cli is not available"""
+        """Test starting bot when signal-cli is not available."""
         with patch.object(self.bot, "_check_signal_cli", return_value=False):
             self.bot.start()
 
             assert self.bot.running is False
 
     def test_start_bot_already_running(self):
-        """Test starting bot when already running"""
+        """Test starting bot when already running."""
         self.bot.running = True
 
         with patch.object(self.bot, "_check_signal_cli") as mock_check:
@@ -403,7 +416,7 @@ class TestWaterBot:
             mock_check.assert_not_called()
 
     def test_stop_bot(self):
-        """Test stopping the bot"""
+        """Test stopping the bot."""
         self.bot.running = True
         mock_thread = Mock()
         mock_thread.is_alive.return_value = True
@@ -418,7 +431,7 @@ class TestWaterBot:
             mock_cleanup.assert_called_once()
 
     def test_stop_bot_not_running(self):
-        """Test stopping bot when not running"""
+        """Test stopping bot when not running."""
         self.bot.running = False
 
         # No external API cleanup needed for subprocess-based signal-cli

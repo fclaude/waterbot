@@ -3,6 +3,7 @@
 import logging
 import threading
 import time
+from typing import Any, Dict, List, Optional
 
 import schedule
 
@@ -15,13 +16,13 @@ logger = logging.getLogger("scheduler")
 class DeviceScheduler:
     """Handles scheduled device operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the device scheduler."""
         self.running = False
-        self.scheduler_thread = None
-        self.scheduled_jobs = []
+        self.scheduler_thread: Optional[threading.Thread] = None
+        self.scheduled_jobs: List[Dict[str, Any]] = []
 
-    def setup_schedules(self):
+    def setup_schedules(self) -> None:
         """Set up all scheduled tasks based on configuration."""
         # Clear existing schedules first
         schedule.clear()
@@ -38,11 +39,11 @@ class DeviceScheduler:
 
         logger.info(f"Set up {len(self.scheduled_jobs)} scheduled tasks")
 
-    def _schedule_device_action(self, device, action, time_str):
+    def _schedule_device_action(self, device: str, action: str, time_str: str) -> None:
         """Schedule a single device action."""
         try:
 
-            def job():
+            def job() -> None:
                 logger.info(
                     f"Executing scheduled {action} for device '{device}' at {time_str}"
                 )
@@ -82,7 +83,7 @@ class DeviceScheduler:
                 f"Error scheduling {action} for device '{device}' at {time_str}: {e}"
             )
 
-    def add_schedule(self, device, action, time_str):
+    def add_schedule(self, device: str, action: str, time_str: str) -> bool:
         """Add a new schedule dynamically."""
         from .config import add_schedule as config_add_schedule
 
@@ -92,7 +93,7 @@ class DeviceScheduler:
             return True
         return False
 
-    def remove_schedule(self, device, action, time_str):
+    def remove_schedule(self, device: str, action: str, time_str: str) -> bool:
         """Remove a schedule dynamically."""
         from .config import remove_schedule as config_remove_schedule
 
@@ -111,7 +112,7 @@ class DeviceScheduler:
         # Remove from config
         return config_remove_schedule(device, action, time_str)
 
-    def get_next_runs(self):
+    def get_next_runs(self) -> list:
         """Get information about next scheduled runs."""
         next_runs = []
         for job_info in self.scheduled_jobs:
@@ -131,7 +132,7 @@ class DeviceScheduler:
         next_runs.sort(key=lambda x: x["next_run"])
         return next_runs
 
-    def start(self):
+    def start(self) -> None:
         """Start the scheduler."""
         if self.running:
             logger.warning("Scheduler is already running")
@@ -152,7 +153,7 @@ class DeviceScheduler:
 
         logger.info("Device scheduler started")
 
-    def _run_scheduler(self):
+    def _run_scheduler(self) -> None:
         """Run the scheduler in a separate thread."""
         logger.debug("Scheduler thread started")
 
@@ -165,7 +166,7 @@ class DeviceScheduler:
 
         logger.debug("Scheduler thread stopped")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the scheduler."""
         if not self.running:
             logger.warning("Scheduler is not running")
@@ -175,7 +176,7 @@ class DeviceScheduler:
         self.running = False
 
         # Wait for scheduler thread to finish
-        if self.scheduler_thread and self.scheduler_thread.is_alive():
+        if self.scheduler_thread is not None and self.scheduler_thread.is_alive():
             self.scheduler_thread.join(timeout=5)
 
         # Clear all scheduled jobs
@@ -189,7 +190,7 @@ class DeviceScheduler:
 _scheduler = None
 
 
-def get_scheduler():
+def get_scheduler() -> DeviceScheduler:
     """Get the global scheduler instance."""
     global _scheduler
     if _scheduler is None:
@@ -197,31 +198,31 @@ def get_scheduler():
     return _scheduler
 
 
-def start_scheduler():
+def start_scheduler() -> None:
     """Start the global scheduler."""
     scheduler = get_scheduler()
     scheduler.start()
 
 
-def stop_scheduler():
+def stop_scheduler() -> None:
     """Stop the global scheduler."""
     scheduler = get_scheduler()
     scheduler.stop()
 
 
-def add_schedule(device, action, time_str):
+def add_schedule(device: str, action: str, time_str: str) -> bool:
     """Add a schedule using the global scheduler."""
     scheduler = get_scheduler()
     return scheduler.add_schedule(device, action, time_str)
 
 
-def remove_schedule(device, action, time_str):
+def remove_schedule(device: str, action: str, time_str: str) -> bool:
     """Remove a schedule using the global scheduler."""
     scheduler = get_scheduler()
     return scheduler.remove_schedule(device, action, time_str)
 
 
-def get_next_runs():
+def get_next_runs() -> list:
     """Get next scheduled runs using the global scheduler."""
     scheduler = get_scheduler()
     return scheduler.get_next_runs()

@@ -1,6 +1,7 @@
 # WaterBot - Signal GPIO Controller for Raspberry Pi
 
-A Python bot that uses Signal messenger to control GPIO pins on a Raspberry Pi Zero W. The bot only responds to messages from a specific Signal group.
+A Python bot that uses Signal messenger to control GPIO pins on a Raspberry
+Pi Zero W. The bot only responds to messages from a specific Signal group.
 
 ## Features
 
@@ -29,15 +30,15 @@ git clone https://github.com/yourusername/waterbot.git
 cd waterbot
 ```
 
-2. Install the required packages:
+1. Install the required packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file with your configuration:
+1. Create a `.env` file with your configuration:
 
-```
+```env
 # Signal Configuration
 SIGNAL_PHONE_NUMBER="+1234567890"
 SIGNAL_GROUP_ID="group.123456789"
@@ -72,7 +73,8 @@ SCHEDULE_CONFIG_FILE=schedules.json
 
 ### Signal CLI Setup
 
-This bot uses Signal CLI to communicate with the Signal network. Follow these steps to set up Signal CLI:
+This bot uses Signal CLI to communicate with the Signal network. Follow
+these steps to set up Signal CLI:
 
 1. Install Signal CLI according to [official instructions](https://github.com/AsamK/signal-cli)
 2. Register a phone number for your bot:
@@ -81,19 +83,19 @@ This bot uses Signal CLI to communicate with the Signal network. Follow these st
 signal-cli -u +1234567890 register
 ```
 
-3. Verify with the code received:
+1. Verify with the code received:
 
 ```bash
 signal-cli -u +1234567890 verify 123-456
 ```
 
-4. Find your Signal group ID:
+1. Find your Signal group ID:
 
 ```bash
 signal-cli -u +1234567890 listGroups
 ```
 
-5. Update your `.env` file with the phone number and group ID
+1. Update your `.env` file with the phone number and group ID
 
 ## Usage
 
@@ -131,7 +133,7 @@ Send these commands from the Signal group to control your devices:
 
 #### Basic Device Control
 
-```
+```text
 status
 on light
 off pump
@@ -143,7 +145,7 @@ off all
 
 #### Scheduling Examples
 
-```
+```text
 # Show all schedules
 schedules
 
@@ -167,7 +169,9 @@ unschedule pump on 20:00
 
 ## Development and Testing
 
-For development and testing on non-RPi devices, set `OPERATION_MODE=emulation` in your `.env` file. In this mode, GPIO operations will be simulated and printed to the console.
+For development and testing on non-RPi devices, set
+`OPERATION_MODE=emulation` in your `.env` file. In this mode, GPIO
+operations will be simulated and printed to the console.
 
 ### Running Tests
 
@@ -203,7 +207,8 @@ The test suite covers:
 
 ### Testing Configuration
 
-Tests use mock objects and dependency injection to ensure they can run without hardware dependencies or external services.
+Tests use mock objects and dependency injection to ensure they can run
+without hardware dependencies or external services.
 
 ## CI/CD Integration
 
@@ -235,9 +240,9 @@ To run the bot as a service on your Raspberry Pi:
 sudo nano /etc/systemd/system/waterbot.service
 ```
 
-2. Add the following content (adjust paths as needed):
+1. Add the following content (adjust paths as needed):
 
-```
+```ini
 [Unit]
 Description=WaterBot Signal GPIO Controller
 After=network.target
@@ -253,14 +258,14 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-3. Enable and start the service:
+1. Enable and start the service:
 
 ```bash
 sudo systemctl enable waterbot.service
 sudo systemctl start waterbot.service
 ```
 
-4. Check status:
+1. Check status:
 
 ```bash
 sudo systemctl status waterbot.service

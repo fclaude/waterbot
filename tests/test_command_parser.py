@@ -1,27 +1,29 @@
+"""Tests for command parser functionality."""
+
 from unittest.mock import patch
 
 from waterbot.utils.command_parser import parse_command
 
 
 class TestCommandParser:
-    """Test cases for command parser"""
+    """Test cases for command parser."""
 
     def test_status_command(self):
-        """Test parsing status command"""
+        """Test parsing status command."""
         command_type, params = parse_command("status")
 
         assert command_type == "status"
         assert params == {}
 
     def test_status_command_with_whitespace(self):
-        """Test parsing status command with extra whitespace"""
+        """Test parsing status command with extra whitespace."""
         command_type, params = parse_command("  STATUS  ")
 
         assert command_type == "status"
         assert params == {}
 
     def test_show_schedules_command(self):
-        """Test parsing schedules command variations"""
+        """Test parsing schedules command variations."""
         for cmd in ["schedules", "schedule", "SCHEDULES", "  schedule  "]:
             command_type, params = parse_command(cmd)
 
@@ -30,7 +32,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_schedule_add_command(self):
-        """Test parsing schedule add commands"""
+        """Test parsing schedule add commands."""
         command_type, params = parse_command("schedule pump on 08:00")
 
         assert command_type == "schedule_add"
@@ -43,7 +45,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_schedule_add_unknown_device(self):
-        """Test parsing schedule add with unknown device"""
+        """Test parsing schedule add with unknown device."""
         command_type, params = parse_command("schedule unknown on 08:00")
 
         assert command_type == "error"
@@ -51,7 +53,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_schedule_remove_command(self):
-        """Test parsing schedule remove commands"""
+        """Test parsing schedule remove commands."""
         command_type, params = parse_command("unschedule pump on 08:00")
 
         assert command_type == "schedule_remove"
@@ -64,14 +66,14 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_schedule_remove_unknown_device(self):
-        """Test parsing schedule remove with unknown device"""
+        """Test parsing schedule remove with unknown device."""
         command_type, params = parse_command("unschedule unknown on 08:00")
 
         assert command_type == "error"
         assert "Unknown device: unknown" in params["message"]
 
     def test_all_devices_commands(self):
-        """Test parsing all devices on/off commands"""
+        """Test parsing all devices on/off commands."""
         command_type, params = parse_command("on all")
         assert command_type == "all_on"
         assert params == {}
@@ -86,7 +88,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_device_on_command(self):
-        """Test parsing device on commands"""
+        """Test parsing device on commands."""
         command_type, params = parse_command("on pump")
 
         assert command_type == "device_on"
@@ -94,7 +96,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_on_with_timeout(self):
-        """Test parsing device on commands with timeout"""
+        """Test parsing device on commands with timeout."""
         command_type, params = parse_command("on pump 3600")
 
         assert command_type == "device_on"
@@ -102,7 +104,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_on_unknown_device(self):
-        """Test parsing device on command with unknown device"""
+        """Test parsing device on command with unknown device."""
         command_type, params = parse_command("on unknown")
 
         assert command_type == "error"
@@ -110,7 +112,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_device_off_command(self):
-        """Test parsing device off commands"""
+        """Test parsing device off commands."""
         command_type, params = parse_command("off light")
 
         assert command_type == "device_off"
@@ -118,7 +120,7 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_off_with_timeout(self):
-        """Test parsing device off commands with timeout"""
+        """Test parsing device off commands with timeout."""
         command_type, params = parse_command("off pump 1800")
 
         assert command_type == "device_off"
@@ -126,14 +128,14 @@ class TestCommandParser:
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_off_unknown_device(self):
-        """Test parsing device off command with unknown device"""
+        """Test parsing device off command with unknown device."""
         command_type, params = parse_command("off unknown")
 
         assert command_type == "error"
         assert "Unknown device: unknown" in params["message"]
 
     def test_help_command(self):
-        """Test parsing unknown commands returns help"""
+        """Test parsing unknown commands returns help."""
         command_type, params = parse_command("unknown command")
 
         assert command_type == "help"
@@ -145,7 +147,7 @@ class TestCommandParser:
         assert params == {}
 
     def test_case_insensitive_parsing(self):
-        """Test that command parsing is case insensitive"""
+        """Test that command parsing is case insensitive."""
         with patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17}):
             # Test various case combinations
             test_cases = [
@@ -161,7 +163,7 @@ class TestCommandParser:
                 assert command_type == expected_type
 
     def test_whitespace_handling(self):
-        """Test that extra whitespace is handled correctly"""
+        """Test that extra whitespace is handled correctly."""
         with patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17}):
             # Test with extra spaces
             command_type, params = parse_command("   on   pump   3600   ")
@@ -170,7 +172,7 @@ class TestCommandParser:
             assert params == {"device": "pump", "timeout": 3600}
 
     def test_schedule_time_format_validation(self):
-        """Test that schedule commands validate time format"""
+        """Test that schedule commands validate time format."""
         with patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17}):
             # Valid time format
             command_type, params = parse_command("schedule pump on 08:30")

@@ -5,7 +5,7 @@ from threading import Lock, Timer
 from typing import Dict, Optional
 
 from ..config import DEVICE_TO_PIN, IS_EMULATION
-from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO
+from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO  # noqa: I100
 
 logger = logging.getLogger("gpio_handler")
 
@@ -27,7 +27,7 @@ class DeviceController:
         # Setup devices
         self._setup_devices()
 
-    def _initialize_gpio(self):
+    def _initialize_gpio(self) -> None:
         """Initialize GPIO interface based on operation mode."""
         if not IS_EMULATION:
             try:
@@ -40,11 +40,12 @@ class DeviceController:
             self.gpio = EmulationGPIO()
             logger.info("GPIO initialized in emulation mode")
 
-    def _setup_devices(self):
+    def _setup_devices(self) -> None:
         """Set up all configured devices."""
         for device, pin in DEVICE_TO_PIN.items():
-            self.gpio.setup(pin, "OUT")
-            self.gpio.output(pin, False)
+            if self.gpio is not None:
+                self.gpio.setup(pin, "OUT")
+                self.gpio.output(pin, False)
             self.device_status[device] = False
             self.device_timers[device] = None
 
@@ -58,13 +59,15 @@ class DeviceController:
 
         with self.gpio_lock:
             # Cancel any existing timer
-            if self.device_timers[device]:
-                self.device_timers[device].cancel()
+            timer = self.device_timers[device]
+            if timer is not None:
+                timer.cancel()
                 self.device_timers[device] = None
 
             # Turn on the device
             pin = DEVICE_TO_PIN[device]
-            self.gpio.output(pin, True)
+            if self.gpio is not None:
+                self.gpio.output(pin, True)
             self.device_status[device] = True
 
             if IS_EMULATION:
@@ -75,8 +78,10 @@ class DeviceController:
                 self.device_timers[device] = Timer(
                     timeout, lambda: self.turn_off(device)
                 )
-                self.device_timers[device].daemon = True
-                self.device_timers[device].start()
+                timer = self.device_timers[device]
+                if timer is not None:
+                    timer.daemon = True
+                    timer.start()
                 logger.info(f"Device '{device}' will turn off after {timeout} seconds")
 
         return True
@@ -89,13 +94,15 @@ class DeviceController:
 
         with self.gpio_lock:
             # Cancel any existing timer
-            if self.device_timers[device]:
-                self.device_timers[device].cancel()
+            timer = self.device_timers[device]
+            if timer is not None:
+                timer.cancel()
                 self.device_timers[device] = None
 
             # Turn off the device
             pin = DEVICE_TO_PIN[device]
-            self.gpio.output(pin, False)
+            if self.gpio is not None:
+                self.gpio.output(pin, False)
             self.device_status[device] = False
 
             if IS_EMULATION:
@@ -106,8 +113,10 @@ class DeviceController:
                 self.device_timers[device] = Timer(
                     timeout, lambda: self.turn_on(device)
                 )
-                self.device_timers[device].daemon = True
-                self.device_timers[device].start()
+                timer = self.device_timers[device]
+                if timer is not None:
+                    timer.daemon = True
+                    timer.start()
                 logger.info(f"Device '{device}' will turn on after {timeout} seconds")
 
         return True
@@ -132,12 +141,13 @@ class DeviceController:
                 success = False
         return success
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up GPIO resources."""
         # Cancel all timers
         for device in self.device_timers:
-            if self.device_timers[device]:
-                self.device_timers[device].cancel()
+            timer = self.device_timers[device]
+            if timer is not None:
+                timer.cancel()
 
         # Turn off all devices before cleanup
         for device in DEVICE_TO_PIN.keys():
@@ -162,7 +172,7 @@ def _get_controller() -> DeviceController:
     return _controller
 
 
-def set_controller(controller: DeviceController):
+def set_controller(controller: DeviceController) -> None:
     """Set a custom controller (for testing)."""
     global _controller
     _controller = controller
@@ -194,7 +204,7 @@ def turn_all_off(timeout: Optional[int] = None) -> bool:
     return _get_controller().turn_all_off(timeout)
 
 
-def cleanup():
+def cleanup() -> None:
     """Clean up GPIO resources."""
     controller = _get_controller()
     controller.cleanup()

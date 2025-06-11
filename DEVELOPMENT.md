@@ -1,6 +1,7 @@
 # WaterBot Development Guide
 
-This guide covers development setup, workflows, and best practices for contributing to WaterBot.
+This guide covers development setup, workflows, and best practices for
+contributing to WaterBot.
 
 ## Quick Start
 
@@ -121,7 +122,7 @@ Run `make help` to see all available commands:
 
 ## Project Structure
 
-```
+```text
 waterbot/
 ├── waterbot/                 # Main package
 │   ├── __init__.py
@@ -238,7 +239,7 @@ waterbot/
 
 Follow conventional commit format:
 
-```
+```text
 type(scope): description
 
 body (optional)
