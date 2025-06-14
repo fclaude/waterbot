@@ -49,32 +49,54 @@ def main() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    try:
-        # Validate configuration
-        validate_config()
+    # Always start scheduler first (works offline)
+    if ENABLE_SCHEDULING:
+        logger.info("Starting device scheduler")
+        scheduler.start_scheduler()
+    else:
+        logger.info("Scheduling is disabled")
 
-        # Start scheduler if enabled
-        if ENABLE_SCHEDULING:
-            logger.info("Starting device scheduler")
-            scheduler.start_scheduler()
+    # Main application loop with automatic restart
+    while True:
+        try:
+            # Validate configuration
+            validate_config()
 
-        # Create and start the bot
-        bot = WaterBot()
-        # Store reference for signal handler
-        handle_shutdown.bot = bot  # type: ignore[attr-defined]
+            # Create and start the bot
+            logger.info("Starting Discord bot...")
+            bot = WaterBot()
+            # Store reference for signal handler
+            handle_shutdown.bot = bot  # type: ignore[attr-defined]
 
-        bot.start_bot()
+            bot.start_bot()
 
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received")
-    except Exception as e:
-        logger.error(f"Error in main loop: {e}", exc_info=True)
-    finally:
-        if "bot" in locals():
-            bot.stop_bot()
-        scheduler.stop_scheduler()
-        gpio_handler.cleanup()
-        logger.info("WaterBot shut down")
+        except KeyboardInterrupt:
+            logger.info("Keyboard interrupt received")
+            break
+        except Exception as e:
+            logger.error(f"Discord bot crashed: {e}", exc_info=True)
+            logger.info("Attempting to restart Discord bot in 30 seconds...")
+            
+            # Clean up current bot instance
+            if "bot" in locals() and bot is not None:
+                try:
+                    bot.stop_bot()
+                except Exception as cleanup_error:
+                    logger.error(f"Error during bot cleanup: {cleanup_error}")
+            
+            # Wait before restarting
+            import time
+            time.sleep(30)
+            logger.info("Restarting Discord bot...")
+            continue
+
+    # Final cleanup
+    logger.info("Shutting down WaterBot")
+    if "bot" in locals() and bot is not None:
+        bot.stop_bot()
+    scheduler.stop_scheduler()
+    gpio_handler.cleanup()
+    logger.info("WaterBot shut down")
 
 
 if __name__ == "__main__":

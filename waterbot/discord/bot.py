@@ -298,6 +298,12 @@ class WaterBot(commands.Bot):
         """Start the Discord bot."""
         logger.info("Starting Discord bot")
         try:
+            if not DISCORD_BOT_TOKEN:
+                raise ValueError("Discord bot token not configured")
+            if not self.channel_id:
+                raise ValueError("Discord channel ID not configured")
+            
+            logger.info("Attempting to connect to Discord...")
             self.run(DISCORD_BOT_TOKEN)
         except Exception as e:
             logger.error(f"Error starting Discord bot: {e}", exc_info=True)

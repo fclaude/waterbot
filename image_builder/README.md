@@ -2,15 +2,24 @@
 
 This tool helps you create pre-configured Raspberry Pi OS images for WaterBot. It automates the
 installation and configuration process, allowing you to quickly deploy WaterBot to multiple
-Raspberry Pi devices. The image is created using local files, so no internet connection is
-required on the target Raspberry Pi.
+Raspberry Pi devices.
 
-## Prerequisites
+## Cross-Platform Support
 
-- Linux system with root access
-- `wget` for downloading the Raspberry Pi OS image
-- `xz` for extracting the image
-- `dd` for writing the image to SD card
+The image builder now supports both Linux and macOS:
+
+### macOS (Recommended)
+
+- Uses Docker to provide a Linux environment
+- No special privileges required beyond Docker
+- Automatic WiFi configuration support
+- Easy to use script interface
+
+### Linux (Traditional)
+
+- Direct system access
+- Requires root privileges
+- Manual WiFi configuration
 
 ## Directory Structure
 
@@ -27,58 +36,106 @@ waterbot/
 
 ## Usage
 
-1. Create your configuration:
-   - Copy `configs/default.env` to a new file (e.g., `configs/my_config.env`)
-   - Modify the settings as needed
+### macOS (Docker-based)
 
-2. Build the image:
+1. **Prerequisites:**
+   - Install [Docker Desktop for macOS](https://www.docker.com/products/docker-desktop)
+   - Ensure Docker is running
+
+2. **Create your configuration:**
+   - Copy `configs/default.env` to a new file (e.g., `configs/home.env`)
+   - Modify the Discord bot token, channel ID, and device mappings
+
+3. **Build the image with WiFi configuration:**
+
+   ```bash
+   # Basic usage (no WiFi configured)
+   ./build_macos.sh
+
+   # With specific config
+   ./build_macos.sh home
+
+   # With WiFi configuration
+   ./build_macos.sh home "MyWiFiNetwork" "MyWiFiPassword"
+
+   # WiFi with spaces in name/password (use quotes)
+   ./build_macos.sh home "My Home WiFi" "My Complex Password 123"
+   ```
+
+4. **Write to SD card:**
+
+   ```bash
+   # Find your SD card
+   diskutil list
+
+   # Unmount the SD card (replace diskX with your device)
+   diskutil unmountDisk /dev/diskX
+
+   # Write the image (use rdiskX for faster writing)
+   sudo dd if=output/waterbot.img of=/dev/rdiskX bs=1m
+
+   # Eject the SD card
+   diskutil eject /dev/diskX
+   ```
+
+### Linux (Traditional)
+
+1. **Build the image:**
 
    ```bash
    sudo ./build_image.sh [config_name]
    ```
 
-   If no config name is provided, it will use `default.env`
-
-3. Write the image to SD card:
+2. **Write to SD card:**
 
    ```bash
    sudo dd if=waterbot.img of=/dev/sdX bs=4M status=progress
    ```
 
-   Replace `/dev/sdX` with your SD card device (e.g., `/dev/sdb`)
+### After Booting
 
-4. Insert the SD card into your Raspberry Pi and boot it
+1. **If WiFi was configured:** The Pi will connect automatically
+2. **If no WiFi:** Connect via Ethernet or configure WiFi manually
+3. **Check service status:**
 
-5. After first boot, you'll need to:
-   - Register your Signal phone number:
-
-     ```bash
-     signal-cli -u YOUR_PHONE_NUMBER register
-     ```
-
-   - Verify your phone number:
-
-     ```bash
-     signal-cli -u YOUR_PHONE_NUMBER verify CODE
-     ```
-
-   - Check the service status:
-
-     ```bash
-     systemctl status waterbot.service
-     ```
+   ```bash
+   systemctl status waterbot.service
+   journalctl -u waterbot.service -f
+   ```
 
 ## Configuration Files
 
 Configuration files are stored in the `configs/` directory. Each file should be named `[name].env`
 and contain the following settings:
 
-- `SIGNAL_PHONE_NUMBER`: Your bot's Signal phone number
-- `SIGNAL_GROUP_ID`: The Signal group ID where the bot will operate
+- `DISCORD_BOT_TOKEN`: Your bot's Discord token
+- `DISCORD_CHANNEL_ID`: The Discord channel ID where the bot will operate
 - `OPERATION_MODE`: Either `rpi` or `emulation`
-- Device to GPIO pin mappings
-- Scheduling configuration
+- Device to GPIO pin mappings (e.g., `DEVICE_BED1=17`)
+- Scheduling configuration (e.g., `SCHEDULE_BED1_ON=05:00,21:00`)
 - Other WaterBot settings
+
+## Network Resilience Features
+
+The image builder creates a robust system that handles network issues gracefully:
+
+### Offline Operation
+
+- **Scheduled tasks continue working** even without internet
+- **GPIO control remains functional** for local device management
+- **Service automatically restarts** if crashes occur
+
+### Network Recovery
+
+- **Discord bot reconnects automatically** when internet returns
+- **Exponential backoff** prevents rapid reconnection attempts
+- **Systemd service** handles process management and restarts
+
+### WiFi Configuration
+
+- **Pre-configured WiFi** connects automatically on first boot
+- **SSH enabled** for manual configuration if needed
+- **No network dependency** for core functionality
 
 ## Troubleshooting
 

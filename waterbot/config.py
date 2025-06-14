@@ -195,10 +195,19 @@ load_schedules()
 # Validate configuration
 def validate_config() -> bool:
     """Validate that all required configuration variables are set."""
-    if not DISCORD_BOT_TOKEN:
-        raise ValueError("DISCORD_BOT_TOKEN is not set in .env file")
-    if not DISCORD_CHANNEL_ID:
-        raise ValueError("DISCORD_CHANNEL_ID is not set in .env file")
+    import os
+    
+    # Check if we're running in offline/scheduling-only mode
+    offline_mode = os.getenv("OFFLINE_MODE", "false").lower() == "true"
+    
+    if not offline_mode:
+        if not DISCORD_BOT_TOKEN:
+            raise ValueError("DISCORD_BOT_TOKEN is not set in .env file")
+        if not DISCORD_CHANNEL_ID:
+            raise ValueError("DISCORD_CHANNEL_ID is not set in .env file")
+    else:
+        print("Running in offline mode - Discord validation skipped")
+    
     if not DEVICE_TO_PIN:
         raise ValueError("No device to GPIO pin mappings found in .env file")
 
