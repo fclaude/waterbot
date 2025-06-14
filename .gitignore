@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.sample
+image_builder/configs/home.env
 
 # Python
 __pycache__/
