@@ -102,3 +102,6 @@ docs/_build/
 *.tmp
 *.temp
 .cache/
+
+# Image builder output
+image_builder/output/waterbot.img
