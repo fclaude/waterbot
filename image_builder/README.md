@@ -6,20 +6,28 @@ Raspberry Pi devices.
 
 ## Cross-Platform Support
 
-The image builder now supports both Linux and macOS:
+The image builder uses Docker and works on **any platform**:
 
-### macOS (Recommended)
+### ✅ Supported Platforms
+- **macOS** (Intel and Apple Silicon)
+- **Linux** (all distributions with Docker support)
+- **Windows** (with Docker Desktop or WSL2)
 
-- Uses Docker to provide a Linux environment
-- No special privileges required beyond Docker
-- Automatic WiFi configuration support
-- Easy to use script interface
+### 🚀 Key Benefits
+- **No sudo/admin privileges required** - just Docker
+- **Unified experience** across all platforms
+- **Automatic WiFi configuration** support
+- **Network resilience** built-in
+- **Easy to use** script interface
 
-### Linux (Traditional)
+## Prerequisites
 
-- Direct system access
-- Requires root privileges
-- Manual WiFi configuration
+1. **Install Docker:**
+   - **macOS:** [Docker Desktop for macOS](https://www.docker.com/products/docker-desktop)
+   - **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/install/linux-install/)
+   - **Windows:** [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+
+2. **Ensure Docker is running**
 
 ## Directory Structure
 
@@ -31,68 +39,73 @@ waterbot/
     │   └── default.env # Default configuration
     ├── scripts/       # Setup scripts
     │   └── setup.sh   # Main setup script
-    └── build_image.sh # Main script to build the image
+    ├── output/        # Generated images appear here
+    └── build.sh       # Unified build script for all platforms
 ```
 
 ## Usage
 
-### macOS (Docker-based)
+### 1. Create your configuration
+- Copy `configs/default.env` to a new file (e.g., `configs/home.env`)
+- Modify the Discord bot token, channel ID, and device mappings
 
-1. **Prerequisites:**
-   - Install [Docker Desktop for macOS](https://www.docker.com/products/docker-desktop)
-   - Ensure Docker is running
+### 2. Build the image with WiFi configuration
 
-2. **Create your configuration:**
-   - Copy `configs/default.env` to a new file (e.g., `configs/home.env`)
-   - Modify the Discord bot token, channel ID, and device mappings
+```bash
+# Basic usage (no WiFi configured)
+./build.sh
 
-3. **Build the image with WiFi configuration:**
+# With specific config
+./build.sh home
 
-   ```bash
-   # Basic usage (no WiFi configured)
-   ./build_macos.sh
+# With WiFi configuration
+./build.sh home "MyWiFiNetwork" "MyWiFiPassword"
 
-   # With specific config
-   ./build_macos.sh home
+# WiFi with spaces in name/password (use quotes)
+./build.sh home "My Home WiFi" "My Complex Password 123"
 
-   # With WiFi configuration
-   ./build_macos.sh home "MyWiFiNetwork" "MyWiFiPassword"
+# Show help and available configurations
+./build.sh --help
+```
 
-   # WiFi with spaces in name/password (use quotes)
-   ./build_macos.sh home "My Home WiFi" "My Complex Password 123"
-   ```
+### 3. Write to SD card
 
-4. **Write to SD card:**
+The script will provide platform-specific instructions:
 
-   ```bash
-   # Find your SD card
-   diskutil list
+#### macOS
+```bash
+# Find your SD card
+diskutil list
 
-   # Unmount the SD card (replace diskX with your device)
-   diskutil unmountDisk /dev/diskX
+# Unmount the SD card (replace diskX with your device)
+diskutil unmountDisk /dev/diskX
 
-   # Write the image (use rdiskX for faster writing)
-   sudo dd if=output/waterbot.img of=/dev/rdiskX bs=1m
+# Write the image (use rdiskX for faster writing)
+sudo dd if=output/waterbot.img of=/dev/rdiskX bs=1m
 
-   # Eject the SD card
-   diskutil eject /dev/diskX
-   ```
+# Eject the SD card
+diskutil eject /dev/diskX
+```
 
-### Linux (Traditional)
+#### Linux
+```bash
+# Find your SD card
+lsblk
 
-1. **Build the image:**
+# Unmount the SD card (replace sdX with your device)
+sudo umount /dev/sdX*
 
-   ```bash
-   sudo ./build_image.sh [config_name]
-   ```
+# Write the image
+sudo dd if=output/waterbot.img of=/dev/sdX bs=4M status=progress
 
-2. **Write to SD card:**
+# Safely remove
+sync && sudo eject /dev/sdX
+```
 
-   ```bash
-   sudo dd if=waterbot.img of=/dev/sdX bs=4M status=progress
-   ```
+#### Windows
+Use a tool like [Balena Etcher](https://www.balena.io/etcher/) or [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to write the image to your SD card.
 
-### After Booting
+### 4. First Boot
 
 1. **If WiFi was configured:** The Pi will connect automatically
 2. **If no WiFi:** Connect via Ethernet or configure WiFi manually
@@ -139,25 +152,97 @@ The image builder creates a robust system that handles network issues gracefully
 
 ## Troubleshooting
 
-1. If the image build fails:
-   - Check that you have all required tools installed
-   - Ensure you have enough disk space
-   - Verify that you're running as root
-   - Make sure your WaterBot source code is in the correct location
+### Docker Issues
 
-2. If the Raspberry Pi doesn't boot:
-   - Verify that the image was written correctly to the SD card
-   - Check that the SD card is properly inserted
-   - Try using a different SD card
+1. **Docker not installed:**
+   - Follow platform-specific installation instructions above
+   - Restart your terminal after installation
 
-3. If WaterBot doesn't start:
-   - Check the service status: `systemctl status waterbot.service`
-   - View the logs: `journalctl -u waterbot.service -f`
-   - Verify Signal CLI setup: `signal-cli -u YOUR_PHONE_NUMBER listGroups`
+2. **Docker not running:**
+   - **macOS/Windows:** Start Docker Desktop
+   - **Linux:** `sudo systemctl start docker`
+
+3. **Permission denied:**
+   - **Linux:** Add your user to docker group: `sudo usermod -aG docker $USER`
+   - **macOS/Windows:** Usually handled by Docker Desktop
+
+### Build Issues
+
+1. **Configuration not found:**
+   - Check available configs with `./build.sh --help`
+   - Ensure the `.env` file exists in `configs/` directory
+
+2. **Image build fails:**
+   - Check Docker logs for errors
+   - Ensure sufficient disk space
+   - Verify internet connection for downloading base image
+
+3. **WiFi not working:**
+   - Check WiFi credentials are correct
+   - Ensure network supports WPA-PSK authentication
+   - Try connecting via Ethernet first
+
+### Pi Boot Issues
+
+1. **Service won't start:**
+   - Check logs: `journalctl -u waterbot.service -f`
+   - Verify configuration: `cat /opt/waterbot/.env`
+   - Test manually: `cd /opt/waterbot && python -m waterbot.bot`
+
+2. **Discord bot offline:**
+   - Check internet connection
+   - Verify Discord token is valid
+   - Ensure bot has channel permissions
+
+3. **GPIO not working:**
+   - Verify `OPERATION_MODE=rpi` in configuration
+   - Check device pin mappings
+   - Ensure user is in `gpio` group
+
+## Advanced Usage
+
+### Custom Base Images
+
+You can modify the Dockerfile to use different base images or add additional packages:
+
+```dockerfile
+# Example: Add custom packages
+RUN apt-get update && apt-get install -y \
+    your-custom-package \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+### Multiple Configurations
+
+Create different configuration files for different deployments:
+
+```bash
+# Production configuration
+./build.sh production "HomeWiFi" "password123"
+
+# Development configuration  
+./build.sh dev "TestWiFi" "devpass"
+
+# Greenhouse configuration
+./build.sh greenhouse "GreenHouseWiFi" "plantpass"
+```
+
+### Batch Building
+
+Build multiple images with different configurations:
+
+```bash
+#!/bin/bash
+for config in home greenhouse lab; do
+    ./build.sh "$config" "CommonWiFi" "SharedPassword"
+    mv output/waterbot.img "output/waterbot-${config}.img"
+done
+```
 
 ## Security Notes
 
-- The image includes a default configuration that should be modified for production use
-- Signal CLI registration requires manual intervention for security reasons
-- The service runs as a dedicated user with limited privileges
-- Configuration files are protected with appropriate permissions
+- The image includes SSH enabled for initial setup - disable if not needed
+- WiFi passwords are stored in plain text during build - use secure build environment
+- Default configurations should be modified for production use
+- Consider using environment-specific Discord tokens and channels
+- The service runs with limited privileges for security

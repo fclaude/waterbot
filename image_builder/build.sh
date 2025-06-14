@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cross-platform image builder for WaterBot
-# This script builds Raspberry Pi images on macOS using Docker
+# This script builds Raspberry Pi images using Docker (works on macOS, Linux, Windows)
 
 set -e
 
@@ -39,7 +39,13 @@ print_error() {
 
 # Function to show usage
 show_usage() {
+    echo "WaterBot Cross-Platform Image Builder"
+    echo "=====================================  "
+    echo ""
     echo "Usage: $0 [config_name] [wifi_ssid] [wifi_password]"
+    echo ""
+    echo "This script uses Docker to build Raspberry Pi images on any platform."
+    echo "No sudo privileges required - just Docker!"
     echo ""
     echo "Arguments:"
     echo "  config_name   - Configuration file to use (default: 'default')"
@@ -53,7 +59,9 @@ show_usage() {
     echo "  $0 home \"My Network\" \"My Password\"   # Use home config with WiFi (spaces in quotes)"
     echo ""
     echo "Available configurations:"
-    ls configs/*.env 2>/dev/null | sed 's/configs\///g' | sed 's/\.env//g' | sed 's/^/  - /'
+    find configs/ -name "*.env" 2>/dev/null | sed 's|configs/||g' | sed 's|\.env||g' | sed 's/^/  - /' || echo "  No configurations found"
+    echo ""
+    echo "Supported platforms: macOS, Linux, Windows (with Docker)"
 }
 
 # Check if help requested
@@ -65,14 +73,26 @@ fi
 # Check if Docker is available
 if ! command -v docker &> /dev/null; then
     print_error "Docker is not installed or not available in PATH"
-    print_info "Please install Docker Desktop for macOS from: https://www.docker.com/products/docker-desktop"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        print_info "Please install Docker Desktop for macOS from: https://www.docker.com/products/docker-desktop"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        print_info "Please install Docker from: https://docs.docker.com/engine/install/"
+    else
+        print_info "Please install Docker from: https://docs.docker.com/get-docker/"
+    fi
     exit 1
 fi
 
 # Check if Docker is running
 if ! docker info &> /dev/null; then
     print_error "Docker is not running"
-    print_info "Please start Docker Desktop and try again"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        print_info "Please start Docker Desktop and try again"
+    else
+        print_info "Please start the Docker service:"
+        print_info "  sudo systemctl start docker"
+        print_info "Or start Docker Desktop if using the desktop version"
+    fi
     exit 1
 fi
 
@@ -80,14 +100,14 @@ fi
 if [ ! -f "configs/${CONFIG_NAME}.env" ]; then
     print_error "Configuration '${CONFIG_NAME}' not found in configs directory"
     print_info "Available configurations:"
-    ls configs/*.env 2>/dev/null | sed 's/configs\///g' | sed 's/\.env//g' | sed 's/^/  - /' || echo "  No configurations found"
+    find configs/ -name "*.env" 2>/dev/null | sed 's|configs/||g' | sed 's|\.env||g' | sed 's/^/  - /' || echo "  No configurations found"
     exit 1
 fi
 
 # Get absolute path to project root
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-print_status "WaterBot Raspberry Pi Image Builder for macOS"
+print_status "WaterBot Raspberry Pi Image Builder (Docker)"
 print_info "Configuration: ${CONFIG_NAME}"
 if [ -n "$WIFI_SSID" ]; then
     print_info "WiFi Network: ${WIFI_SSID}"
@@ -126,15 +146,28 @@ if [ -f "output/waterbot.img" ]; then
 
     print_status "Next steps:"
     echo "1. Insert your SD card"
-    echo "2. Find your SD card device:"
-    echo "   diskutil list"
-    echo "3. Unmount the SD card (replace diskX with your device):"
-    echo "   diskutil unmountDisk /dev/diskX"
-    echo "4. Write the image to SD card:"
-    echo "   sudo dd if=output/waterbot.img of=/dev/rdiskX bs=1m"
-    echo "   (Use 'rdiskX' instead of 'diskX' for faster writing on macOS)"
-    echo "5. Eject the SD card:"
-    echo "   diskutil eject /dev/diskX"
+    
+    # Platform-specific instructions
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "2. Find your SD card device:"
+        echo "   diskutil list"
+        echo "3. Unmount the SD card (replace diskX with your device):"
+        echo "   diskutil unmountDisk /dev/diskX"
+        echo "4. Write the image to SD card:"
+        echo "   sudo dd if=output/waterbot.img of=/dev/rdiskX bs=1m"
+        echo "   (Use 'rdiskX' instead of 'diskX' for faster writing on macOS)"
+        echo "5. Eject the SD card:"
+        echo "   diskutil eject /dev/diskX"
+    else
+        echo "2. Find your SD card device:"
+        echo "   lsblk"
+        echo "3. Unmount the SD card (replace sdX with your device):"
+        echo "   sudo umount /dev/sdX*"
+        echo "4. Write the image to SD card:"
+        echo "   sudo dd if=output/waterbot.img of=/dev/sdX bs=4M status=progress"
+        echo "5. Safely remove the SD card:"
+        echo "   sync && sudo eject /dev/sdX"
+    fi
 
     if [ -n "$WIFI_SSID" ]; then
         print_status "WiFi is pre-configured. The Pi will connect to '$WIFI_SSID' automatically."
