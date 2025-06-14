@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Signal configuration
-SIGNAL_PHONE_NUMBER = os.getenv("SIGNAL_PHONE_NUMBER")
-SIGNAL_GROUP_ID = os.getenv("SIGNAL_GROUP_ID")
+# Discord configuration
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 
 # Operation mode
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
@@ -195,10 +195,10 @@ load_schedules()
 # Validate configuration
 def validate_config() -> bool:
     """Validate that all required configuration variables are set."""
-    if not SIGNAL_PHONE_NUMBER:
-        raise ValueError("SIGNAL_PHONE_NUMBER is not set in .env file")
-    if not SIGNAL_GROUP_ID:
-        raise ValueError("SIGNAL_GROUP_ID is not set in .env file")
+    if not DISCORD_BOT_TOKEN:
+        raise ValueError("DISCORD_BOT_TOKEN is not set in .env file")
+    if not DISCORD_CHANNEL_ID:
+        raise ValueError("DISCORD_CHANNEL_ID is not set in .env file")
     if not DEVICE_TO_PIN:
         raise ValueError("No device to GPIO pin mappings found in .env file")
 

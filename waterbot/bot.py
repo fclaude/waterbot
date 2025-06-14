@@ -3,13 +3,12 @@
 import logging
 import signal
 import sys
-import time
 from typing import Any
 
 from . import scheduler
 from .config import DEBUG_MODE, ENABLE_SCHEDULING, LOG_LEVEL, validate_config
+from .discord.bot import WaterBot
 from .gpio import handler as gpio_handler
-from .signal.bot import WaterBot
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
@@ -23,8 +22,8 @@ logging.basicConfig(
 logger = logging.getLogger("waterbot")
 if DEBUG_MODE:
     logger.setLevel(logging.DEBUG)
-    # Also set DEBUG level for all signalbot loggers
-    logging.getLogger("signalbot").setLevel(logging.DEBUG)
+    # Also set DEBUG level for all discord bot loggers
+    logging.getLogger("discord_bot").setLevel(logging.DEBUG)
 
 logger.debug(
     "Logging initialized with level=%s, debug_mode=%s",
@@ -37,7 +36,7 @@ def handle_shutdown(signum: int, frame: Any) -> None:
     """Handle shutdown signals."""
     logger.info("Received shutdown signal")
     if hasattr(handle_shutdown, "bot") and handle_shutdown.bot is not None:
-        handle_shutdown.bot.stop()
+        handle_shutdown.bot.stop_bot()
     scheduler.stop_scheduler()
     sys.exit(0)
 
@@ -64,11 +63,7 @@ def main() -> None:
         # Store reference for signal handler
         handle_shutdown.bot = bot  # type: ignore[attr-defined]
 
-        bot.start()
-
-        # Keep the main thread alive
-        while True:
-            time.sleep(1)
+        bot.start_bot()
 
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
@@ -76,7 +71,7 @@ def main() -> None:
         logger.error(f"Error in main loop: {e}", exc_info=True)
     finally:
         if "bot" in locals():
-            bot.stop()
+            bot.stop_bot()
         scheduler.stop_scheduler()
         gpio_handler.cleanup()
         logger.info("WaterBot shut down")

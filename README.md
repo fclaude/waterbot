@@ -1,12 +1,12 @@
-# WaterBot - Signal GPIO Controller for Raspberry Pi
+# WaterBot - Discord GPIO Controller for Raspberry Pi
 
-A Python bot that uses Signal messenger to control GPIO pins on a Raspberry
-Pi Zero W. The bot only responds to messages from a specific Signal group.
+A Python bot that uses Discord to control GPIO pins on a Raspberry
+Pi Zero W. The bot only responds to messages from a specific Discord channel.
 
 ## Features
 
-- Control GPIO pins remotely via Signal messenger
-- Secure: only responds to messages from a specified Signal group
+- Control GPIO pins remotely via Discord
+- Secure: only responds to messages from a specified Discord channel
 - Command-based interface to control devices
 - Timed operations (e.g., turn on a device for 1 hour)
 - **Automatic scheduling**: Set devices to turn on/off at specific times
@@ -18,8 +18,8 @@ Pi Zero W. The bot only responds to messages from a specific Signal group.
 
 - Python 3.7+
 - Raspberry Pi Zero W (or any Raspberry Pi)
-- Signal account for the bot
-- Signal CLI installed
+- Discord bot token
+- Discord server with a channel for the bot
 
 ## Installation
 
@@ -39,9 +39,9 @@ pip install -r requirements.txt
 1. Create a `.env` file with your configuration:
 
 ```env
-# Signal Configuration
-SIGNAL_PHONE_NUMBER="+1234567890"
-SIGNAL_GROUP_ID="group.123456789"
+# Discord Configuration
+DISCORD_BOT_TOKEN="your_discord_bot_token_here"
+DISCORD_CHANNEL_ID="123456789012345678"
 
 # Operation Mode (rpi or emulation)
 OPERATION_MODE=rpi
@@ -71,31 +71,22 @@ SCHEDULE_CONFIG_FILE=schedules.json
 # SCHEDULE_LIGHT_OFF=22:00
 ```
 
-### Signal CLI Setup
+### Discord Bot Setup
 
-This bot uses Signal CLI to communicate with the Signal network. Follow
-these steps to set up Signal CLI:
+This bot uses Discord's bot API to communicate. Follow these steps to set up
+your Discord bot:
 
-1. Install Signal CLI according to [official instructions](https://github.com/AsamK/signal-cli)
-2. Register a phone number for your bot:
-
-```bash
-signal-cli -u +1234567890 register
-```
-
-1. Verify with the code received:
-
-```bash
-signal-cli -u +1234567890 verify 123-456
-```
-
-1. Find your Signal group ID:
-
-```bash
-signal-cli -u +1234567890 listGroups
-```
-
-1. Update your `.env` file with the phone number and group ID
+1. Create a Discord Application at the
+   [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a bot user in your application
+3. Copy the bot token and add it to your `.env` file as `DISCORD_BOT_TOKEN`
+4. Invite the bot to your Discord server with appropriate permissions:
+   - Send Messages
+   - Read Message History
+   - Use Slash Commands
+5. Get your Discord channel ID (enable Developer Mode in Discord,
+   right-click channel, Copy ID)
+6. Update your `.env` file with the channel ID
 
 ## Usage
 
@@ -107,23 +98,27 @@ python -m waterbot.bot
 
 ### Available Commands
 
-Send these commands from the Signal group to control your devices:
+Send these commands from the Discord channel to control your devices:
 
 #### Device Control
 
-- `status` - Show the status of all devices
-- `on <device>` - Turn on a specific device
-- `off <device>` - Turn off a specific device
-- `on <device> <seconds>` - Turn on a device for a specified time
-- `off <device> <seconds>` - Turn off a device for a specified time
+- `!status` or `status` - Show the status of all devices
+- `!on <device>` or `on <device>` - Turn on a specific device
+- `!off <device>` or `off <device>` - Turn off a specific device
+- `!on <device> <seconds>` or `on <device> <seconds>` - Turn on a device for a
+  specified time
+- `!off <device> <seconds>` or `off <device> <seconds>` - Turn off a device for
+  a specified time
 - `on all` - Turn on all devices
 - `off all` - Turn off all devices
 
 #### Scheduling Commands
 
-- `schedules` - Show all configured schedules and next runs
-- `schedule <device> <on|off> <HH:MM>` - Add a new schedule
-- `unschedule <device> <on|off> <HH:MM>` - Remove a schedule
+- `!schedules` or `schedules` - Show all configured schedules and next runs
+- `!schedule <device> <on|off> <HH:MM>` or `schedule <device> <on|off> <HH:MM>`
+  - Add a new schedule
+- `!unschedule <device> <on|off> <HH:MM>` or `unschedule <device> <on|off> <HH:MM>`
+  - Remove a schedule
 
 #### Help
 
@@ -201,7 +196,7 @@ The test suite covers:
 - GPIO interface and hardware abstraction
 - Device control logic and timing
 - Schedule configuration and management
-- Signal bot message handling
+- Discord bot message handling
 - Command parsing and validation
 - Error handling and edge cases
 
@@ -296,15 +291,12 @@ sudo chown waterbot-service:waterbot-service /opt/waterbot/.env
 sudo chmod 600 /opt/waterbot/.env  # Secure the config file
 ```
 
-1. **Configure Signal CLI for the service user**:
+1. **Configure Discord bot credentials for the service user**:
 
 ```bash
-# Switch to service user (if using dedicated user)
-sudo -u waterbot-service -s
-
-# Or configure for pi user
-# Register and verify Signal CLI as documented in the installation section
-# Make sure Signal CLI is accessible in the service environment
+# Ensure the .env file contains proper Discord configuration
+# DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID should be set
+# The service user should have read access to this file
 ```
 
 ### Creating the Service
@@ -319,7 +311,7 @@ sudo nano /etc/systemd/system/waterbot.service
 
 ```ini
 [Unit]
-Description=WaterBot Signal GPIO Controller
+Description=WaterBot Discord GPIO Controller
 After=network.target
 Wants=network-online.target
 
@@ -404,10 +396,10 @@ sudo journalctl -u waterbot.service --no-pager
    - Check file ownership and permissions for the bot directory
    - Verify the .env file is accessible to the service user
 
-2. **Signal CLI not working**:
-   - Ensure Signal CLI is installed and configured for the service user
-   - Check that the service user can access Signal CLI commands
-   - Verify the Signal phone number is properly registered
+2. **Discord bot not working**:
+   - Ensure the Discord bot token is valid and properly configured
+   - Check that the bot has permissions in the Discord channel
+   - Verify the Discord channel ID is correct
 
 3. **Module import errors**:
    - Ensure all dependencies are installed in the correct Python environment
