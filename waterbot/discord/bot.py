@@ -54,7 +54,7 @@ class WaterBot(commands.Bot):
             if self.target_channel:
                 logger.info(f"Connected to channel: {self.target_channel.name}")
                 await self.target_channel.send(
-                    "WaterBot is now online! 💧\nSend `!status` to check device status."
+                    "WaterBot is now online! 💧\nSend `status` to check device status."
                 )
             else:
                 logger.error(f"Could not find channel with ID: {self.channel_id}")
@@ -232,23 +232,22 @@ class WaterBot(commands.Bot):
             return self._get_help_response()
 
         else:
-            return "Unknown command. Send '!help' for available commands."
+            return "Unknown command. Send 'help' for available commands."
 
     def _get_help_response(self) -> str:
         """Generate help response message."""
         return (
             "Available commands:\n"
             "```\n"
-            "!status - Show status of all devices\n"
-            "!on <device> [time] - Turn on a device\n"
-            "!off <device> [time] - Turn off a device\n"
-            "!on all - Turn on all devices\n"
-            "!off all - Turn off all devices\n"
-            "!schedules - Show all schedules\n"
-            "!schedule <device> <on|off> <HH:MM> - Add schedule\n"
-            "!unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
-            "```\n"
-            "You can also use plain text commands without the ! prefix."
+            "status - Show status of all devices\n"
+            "on <device> [time] - Turn on a device\n"
+            "off <device> [time] - Turn off a device\n"
+            "on all - Turn on all devices\n"
+            "off all - Turn off all devices\n"
+            "schedules - Show all schedules\n"
+            "schedule <device> <on|off> <HH:MM> - Add schedule\n"
+            "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
+            "```"
         )
 
     def _get_schedules_response(self) -> str:
