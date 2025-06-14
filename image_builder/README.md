@@ -32,29 +32,38 @@ waterbot/
    - Modify the settings as needed
 
 2. Build the image:
+
    ```bash
    sudo ./build_image.sh [config_name]
    ```
+
    If no config name is provided, it will use `default.env`
 
 3. Write the image to SD card:
+
    ```bash
    sudo dd if=waterbot.img of=/dev/sdX bs=4M status=progress
    ```
+
    Replace `/dev/sdX` with your SD card device (e.g., `/dev/sdb`)
 
 4. Insert the SD card into your Raspberry Pi and boot it
 
 5. After first boot, you'll need to:
    - Register your Signal phone number:
+
      ```bash
      signal-cli -u YOUR_PHONE_NUMBER register
      ```
+
    - Verify your phone number:
+
      ```bash
      signal-cli -u YOUR_PHONE_NUMBER verify CODE
      ```
+
    - Check the service status:
+
      ```bash
      systemctl status waterbot.service
      ```

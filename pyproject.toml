@@ -11,10 +11,10 @@ description = "A Signal bot to control GPIO pins on Raspberry Pi with scheduling
 readme = "README.md"
 license = "MIT"
 authors = [
-    {name = "WaterBot Team", email = "waterbot@example.com"}
+    {name = "Francisco Claude-Faust", email = "fclaude@recoded.cl"}
 ]
 maintainers = [
-    {name = "WaterBot Team", email = "waterbot@example.com"}
+    {name = "Francisco Claude-Faust", email = "fclaude@recoded.cl"}
 ]
 keywords = ["raspberry-pi", "signal", "bot", "gpio", "automation", "scheduling"]
 classifiers = [
