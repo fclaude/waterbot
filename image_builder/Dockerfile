@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 # Install required packages for image building
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     xz-utils \
     fdisk \
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     util-linux \
     parted \
     dosfstools \
+    rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # Create working directory

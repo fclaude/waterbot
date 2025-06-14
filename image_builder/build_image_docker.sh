@@ -130,7 +130,8 @@ cp scripts/* "${MOUNT_POINT}/root/"
 # Copy local WaterBot files
 print_status "Copying WaterBot files..."
 mkdir -p "${MOUNT_POINT}/root/waterbot"
-cp -r /waterbot/* "${MOUNT_POINT}/root/waterbot/"
+# Copy files while excluding img files and output directory
+rsync -av --exclude='*.img' --exclude='output/' /waterbot/ "${MOUNT_POINT}/root/waterbot/"
 
 # Copy selected configuration
 print_status "Copying configuration..."
