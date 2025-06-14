@@ -22,5 +22,7 @@ COPY build_image_docker.sh ./build_image.sh
 # Make scripts executable
 RUN chmod +x ./build_image.sh ./scripts/*.sh
 
-# Default command
-CMD ["./build_image.sh", "default"]
+# Set entrypoint to the build script
+ENTRYPOINT ["./build_image.sh"]
+# Default config if none provided
+CMD ["default"]
