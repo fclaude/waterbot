@@ -44,7 +44,7 @@ class HardwareGPIO(GPIOInterface):
 
     def output(self, pin: int, value: bool) -> None:
         """Set GPIO pin output value."""
-        gpio_value = self.GPIO.HIGH if value else self.GPIO.LOW
+        gpio_value = self.GPIO.LOW if value else self.GPIO.HIGH
         self.GPIO.output(pin, gpio_value)
 
     def cleanup(self) -> None:
