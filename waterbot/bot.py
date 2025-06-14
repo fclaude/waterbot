@@ -76,16 +76,17 @@ def main() -> None:
         except Exception as e:
             logger.error(f"Discord bot crashed: {e}", exc_info=True)
             logger.info("Attempting to restart Discord bot in 30 seconds...")
-            
+
             # Clean up current bot instance
             if "bot" in locals() and bot is not None:
                 try:
                     bot.stop_bot()
                 except Exception as cleanup_error:
                     logger.error(f"Error during bot cleanup: {cleanup_error}")
-            
+
             # Wait before restarting
             import time
+
             time.sleep(30)
             logger.info("Restarting Discord bot...")
             continue

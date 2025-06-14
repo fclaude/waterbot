@@ -302,7 +302,7 @@ class WaterBot(commands.Bot):
                 raise ValueError("Discord bot token not configured")
             if not self.channel_id:
                 raise ValueError("Discord channel ID not configured")
-            
+
             logger.info("Attempting to connect to Discord...")
             self.run(DISCORD_BOT_TOKEN)
         except Exception as e:
