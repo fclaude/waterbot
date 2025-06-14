@@ -107,14 +107,24 @@ Use a tool like [Balena Etcher](https://www.balena.io/etcher/) or [Raspberry Pi 
 
 ### 4. First Boot
 
-1. **If WiFi was configured:** The Pi will connect automatically
-2. **If no WiFi:** Connect via Ethernet or configure WiFi manually
-3. **Check service status:**
+The first boot process automatically handles several setup tasks:
 
-   ```bash
-   systemctl status waterbot.service
-   journalctl -u waterbot.service -f
-   ```
+1. **Filesystem expansion:** Automatically expands to use the full SD card capacity
+2. **WiFi connection:** If configured, connects to the specified network
+3. **WaterBot installation:** Installs and configures the service
+4. **Automatic reboot:** Reboots to complete the filesystem expansion
+
+**Timeline:**
+- First boot: ~2-5 minutes (depends on SD card speed and internet connection)
+- Automatic reboot after setup completion
+- Second boot: Service starts and WaterBot becomes operational
+
+**Check service status:**
+```bash
+systemctl status waterbot.service
+journalctl -u waterbot.service -f
+df -h  # Check available disk space
+```
 
 ## Configuration Files
 

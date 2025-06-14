@@ -136,10 +136,18 @@ cp -r /waterbot/* "${MOUNT_POINT}/root/waterbot/"
 print_status "Copying configuration..."
 cp "configs/${CONFIG_NAME}.env" "${MOUNT_POINT}/root/waterbot.env"
 
-# Create enhanced firstboot script with network resilience
+# Create enhanced firstboot script with network resilience and filesystem expansion
 cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
 #!/bin/bash
 cd /root
+
+echo "WaterBot First Boot Setup"
+echo "========================="
+
+# Expand filesystem to use full SD card
+echo "Expanding filesystem to use full SD card..."
+/usr/bin/raspi-config --expand-rootfs
+
 chmod +x setup.sh
 
 # Wait for network (with timeout)
@@ -157,6 +165,8 @@ for i in {1..30}; do
 done
 
 ./setup.sh
+
+echo "First boot setup complete. Rebooting to apply filesystem expansion..."
 rm firstboot.sh
 reboot
 EOF

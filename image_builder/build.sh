@@ -146,7 +146,7 @@ if [ -f "output/waterbot.img" ]; then
 
     print_status "Next steps:"
     echo "1. Insert your SD card"
-    
+
     # Platform-specific instructions
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "2. Find your SD card device:"
