@@ -121,7 +121,7 @@ fi
 
 # Build Docker image
 print_status "Building Docker image..."
-docker build -t waterbot-image-builder image_builder/
+docker build -t waterbot-image-builder .
 
 # Create output directory
 mkdir -p output
