@@ -15,7 +15,6 @@ cache:
 stages:
   - quality
   - test
-  - build
 
 before_script:
   - apt-get update -qq && apt-get install -y -qq git make
@@ -65,40 +64,6 @@ test-python-versions:
   only:
     - main
     - merge_requests
-
-# Build package
-build-package:
-  stage: build
-  script:
-    - make build
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 7 days
-  only:
-    - main
-    - tags
-
-# Simple Docker build (no registry push to avoid auth issues)
-build-docker:
-  stage: build
-  image: docker:24.0.5
-  services:
-    - docker:24.0.5-dind
-  variables:
-    DOCKER_DRIVER: overlay2
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-  before_script:
-    - docker info
-  script:
-    - docker build -t waterbot:latest .
-    - docker run --rm waterbot:latest python -c "import waterbot; print('Docker build successful')"
-  only:
-    - main
-    - tags
 
 # Comprehensive check for merge requests
 mr-check:
