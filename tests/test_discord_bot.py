@@ -1,6 +1,6 @@
 """Test cases for WaterBot Discord integration."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 import pytest
 
@@ -42,11 +42,16 @@ class TestWaterBot:
         mock_channel.name = "test-channel"
         mock_channel.send = AsyncMock()
 
-        self.bot.get_channel = Mock(return_value=mock_channel)
-        self.bot.user = Mock()
-        self.bot.user.__str__ = Mock(return_value="TestBot#1234")
+        mock_user = Mock()
+        mock_user.__str__ = Mock(return_value="TestBot#1234")
 
-        await self.bot.on_ready()
+        self.bot.get_channel = Mock(return_value=mock_channel)
+
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            await self.bot.on_ready()
 
         assert self.bot.target_channel == mock_channel
         mock_channel.send.assert_called_once()
@@ -63,16 +68,19 @@ class TestWaterBot:
         mock_message.channel.id = 123456789
         mock_message.channel.send = AsyncMock()
 
-        # Mock the bot user
-        self.bot.user = Mock()
+        mock_user = Mock()
 
-        with patch.object(self.bot, "_execute_command") as mock_execute:
-            mock_execute.return_value = "Test response"
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            with patch.object(self.bot, "_execute_command") as mock_execute:
+                mock_execute.return_value = "Test response"
 
-            await self.bot.on_message(mock_message)
+                await self.bot.on_message(mock_message)
 
-            mock_execute.assert_called_once()
-            mock_message.channel.send.assert_called_once_with("Test response")
+                mock_execute.assert_called_once()
+                mock_message.channel.send.assert_called_once_with("Test response")
 
     @pytest.mark.asyncio
     async def test_on_message_ignore_bot(self):
@@ -82,12 +90,14 @@ class TestWaterBot:
         mock_message.content = "status"
 
         # Set bot user to be the message author
-        self.bot.user = mock_message.author
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_message.author
+            with patch.object(self.bot, "_execute_command") as mock_execute:
+                await self.bot.on_message(mock_message)
 
-        with patch.object(self.bot, "_execute_command") as mock_execute:
-            await self.bot.on_message(mock_message)
-
-            mock_execute.assert_not_called()
+                mock_execute.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_on_message_wrong_channel(self):
@@ -98,13 +108,16 @@ class TestWaterBot:
         mock_message.channel = Mock()
         mock_message.channel.id = 999999999  # Different channel ID
 
-        # Mock the bot user
-        self.bot.user = Mock()
+        mock_user = Mock()
 
-        with patch.object(self.bot, "_execute_command") as mock_execute:
-            await self.bot.on_message(mock_message)
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            with patch.object(self.bot, "_execute_command") as mock_execute:
+                await self.bot.on_message(mock_message)
 
-            mock_execute.assert_not_called()
+                mock_execute.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_status_command(self):
@@ -115,7 +128,8 @@ class TestWaterBot:
         with patch.object(self.bot, "_get_status_response") as mock_status:
             mock_status.return_value = "Status response"
 
-            await self.bot.status_command(mock_ctx)
+            # Call the underlying callback directly to avoid Discord.py command wrapper
+            await self.bot.status_command.callback(self.bot, mock_ctx)
 
             mock_ctx.send.assert_called_once_with("Status response")
 
@@ -128,7 +142,7 @@ class TestWaterBot:
         with patch.object(self.bot, "_get_schedules_response") as mock_schedules:
             mock_schedules.return_value = "Schedules response"
 
-            await self.bot.schedules_command(mock_ctx)
+            await self.bot.schedules_command.callback(self.bot, mock_ctx)
 
             mock_ctx.send.assert_called_once_with("Schedules response")
 
@@ -141,7 +155,7 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.gpio_handler.turn_on") as mock_turn_on:
             mock_turn_on.return_value = True
 
-            await self.bot.on_command(mock_ctx, "pump", None)
+            await self.bot.on_command.callback(self.bot, mock_ctx, "pump", None)
 
             mock_turn_on.assert_called_once_with("pump", None)
             mock_ctx.send.assert_called_once()
@@ -155,7 +169,7 @@ class TestWaterBot:
         mock_ctx.send = AsyncMock()
 
         with patch("waterbot.discord.bot.gpio_handler.turn_all_on") as mock_turn_all_on:
-            await self.bot.on_command(mock_ctx, "all", None)
+            await self.bot.on_command.callback(self.bot, mock_ctx, "all", None)
 
             mock_turn_all_on.assert_called_once()
             mock_ctx.send.assert_called_once_with("All devices turned ON")
@@ -169,7 +183,7 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.gpio_handler.turn_off") as mock_turn_off:
             mock_turn_off.return_value = True
 
-            await self.bot.off_command(mock_ctx, "light", 3600)
+            await self.bot.off_command.callback(self.bot, mock_ctx, "light", 3600)
 
             mock_turn_off.assert_called_once_with("light", 3600)
             mock_ctx.send.assert_called_once()
@@ -185,7 +199,9 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.scheduler.add_schedule") as mock_add_schedule:
             mock_add_schedule.return_value = True
 
-            await self.bot.schedule_command(mock_ctx, "pump", "on", "08:00")
+            await self.bot.schedule_command.callback(
+                self.bot, mock_ctx, "pump", "on", "08:00"
+            )
 
             mock_add_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -203,7 +219,9 @@ class TestWaterBot:
         ) as mock_remove_schedule:
             mock_remove_schedule.return_value = True
 
-            await self.bot.unschedule_command(mock_ctx, "pump", "on", "08:00")
+            await self.bot.unschedule_command.callback(
+                self.bot, mock_ctx, "pump", "on", "08:00"
+            )
 
             mock_remove_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -212,11 +230,12 @@ class TestWaterBot:
 
     @pytest.mark.asyncio
     async def test_help_command(self):
-        """Test help command."""
+        """Test help command via the custom help method."""
         mock_ctx = Mock()
         mock_ctx.send = AsyncMock()
 
-        await self.bot.help_command(mock_ctx)
+        # Test the custom help_command method directly using the callback from the class
+        await self.bot.__class__.help_command.callback(self.bot, mock_ctx)
 
         mock_ctx.send.assert_called_once()
         call_args = mock_ctx.send.call_args[0][0]
