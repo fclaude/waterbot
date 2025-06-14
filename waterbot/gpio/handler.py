@@ -52,7 +52,7 @@ class DeviceController:
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
 
     def turn_on(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn on a device by setting GPIO pin HIGH (suitable for low-activated relays).
+        """Turn on a device by setting GPIO pin HIGH (for low-activated relays).
 
         Args:
             device: Name of the device to turn on
@@ -90,12 +90,14 @@ class DeviceController:
                 if timer is not None:
                     timer.daemon = True
                     timer.start()
-                logger.info(f"Device '{device}' will turn off after {timeout} seconds")
+                logger.info(
+                    f"Device '{device}' will turn off after {timeout // 60} minutes"
+                )
 
         return True
 
     def turn_off(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn off a device by setting GPIO pin LOW (suitable for low-activated relays).
+        """Turn off a device by setting GPIO pin LOW (for low-activated relays).
 
         Args:
             device: Name of the device to turn off
@@ -133,7 +135,9 @@ class DeviceController:
                 if timer is not None:
                     timer.daemon = True
                     timer.start()
-                logger.info(f"Device '{device}' will turn on after {timeout} seconds")
+                logger.info(
+                    f"Device '{device}' will turn on after {timeout // 60} minutes"
+                )
 
         return True
 

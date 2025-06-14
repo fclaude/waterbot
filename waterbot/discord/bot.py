@@ -110,7 +110,7 @@ class WaterBot(commands.Bot):
         else:
             success = gpio_handler.turn_on(device, timeout)
             if success:
-                time_msg = f" for {timeout} seconds" if timeout else ""
+                time_msg = f" for {timeout // 60} minutes" if timeout else ""
                 await ctx.send(f"Device '{device}' turned ON{time_msg}")
             else:
                 await ctx.send(f"Error: Unknown device '{device}'")
@@ -126,7 +126,7 @@ class WaterBot(commands.Bot):
         else:
             success = gpio_handler.turn_off(device, timeout)
             if success:
-                time_msg = f" for {timeout} seconds" if timeout else ""
+                time_msg = f" for {timeout // 60} minutes" if timeout else ""
                 await ctx.send(f"Device '{device}' turned OFF{time_msg}")
             else:
                 await ctx.send(f"Error: Unknown device '{device}'")
@@ -210,7 +210,7 @@ class WaterBot(commands.Bot):
             timeout = params.get("timeout")
             success = gpio_handler.turn_on(device, timeout)
             if success:
-                time_msg = f" for {timeout} seconds" if timeout else ""
+                time_msg = f" for {timeout // 60} minutes" if timeout else ""
                 return f"Device '{device}' turned ON{time_msg}"
             else:
                 return f"Error: Unknown device '{device}'"
@@ -220,7 +220,7 @@ class WaterBot(commands.Bot):
             timeout = params.get("timeout")
             success = gpio_handler.turn_off(device, timeout)
             if success:
-                time_msg = f" for {timeout} seconds" if timeout else ""
+                time_msg = f" for {timeout // 60} minutes" if timeout else ""
                 return f"Device '{device}' turned OFF{time_msg}"
             else:
                 return f"Error: Unknown device '{device}'"
@@ -240,8 +240,8 @@ class WaterBot(commands.Bot):
             "Available commands:\n"
             "```\n"
             "status - Show status of all devices\n"
-            "on <device> [time] - Turn on a device\n"
-            "off <device> [time] - Turn off a device\n"
+            "on <device> [minutes] - Turn on a device\n"
+            "off <device> [minutes] - Turn off a device\n"
             "on all - Turn on all devices\n"
             "off all - Turn off all devices\n"
             "schedules - Show all schedules\n"

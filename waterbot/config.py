@@ -18,8 +18,8 @@ DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
 IS_EMULATION = OPERATION_MODE != "rpi"
 
-# Default timeout
-DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "3600"))
+# Default timeout (in minutes)
+DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "60"))
 
 # Logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

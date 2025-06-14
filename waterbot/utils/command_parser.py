@@ -60,10 +60,10 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
 
     # All devices commands
     if text == "on all":
-        return "all_on", {"timeout": DEFAULT_TIMEOUT}
+        return "all_on", {"timeout": DEFAULT_TIMEOUT * 60}
 
     if text == "off all":
-        return "all_off", {"timeout": DEFAULT_TIMEOUT}
+        return "all_off", {"timeout": DEFAULT_TIMEOUT * 60}
 
     # Device-specific commands
     on_match = re.match(r"on\s+(\w+)(?:\s+(\d+))?", text)
@@ -73,8 +73,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use DEFAULT_TIMEOUT if no timeout specified
-        timeout = int(time_str) if time_str else DEFAULT_TIMEOUT
+        # Use DEFAULT_TIMEOUT if no timeout specified, convert minutes to seconds
+        timeout = (int(time_str) * 60) if time_str else (DEFAULT_TIMEOUT * 60)
         return "device_on", {"device": device, "timeout": timeout}
 
     off_match = re.match(r"off\s+(\w+)(?:\s+(\d+))?", text)
@@ -84,8 +84,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use DEFAULT_TIMEOUT if no timeout specified
-        timeout = int(time_str) if time_str else DEFAULT_TIMEOUT
+        # Use DEFAULT_TIMEOUT if no timeout specified, convert minutes to seconds
+        timeout = (int(time_str) * 60) if time_str else (DEFAULT_TIMEOUT * 60)
         return "device_off", {"device": device, "timeout": timeout}
 
     # Unknown command
