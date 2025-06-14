@@ -1,5 +1,7 @@
 # WaterBot - Discord GPIO Controller for Raspberry Pi
 
+![WaterBot Logo](waterbot.png)
+
 A Python bot that uses Discord to control GPIO pins on a Raspberry
 Pi Zero W. The bot only responds to messages from a specific Discord channel.
 
