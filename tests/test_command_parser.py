@@ -188,3 +188,10 @@ class TestCommandParser:
                 "schedule pump on 25:00"
             )  # Invalid hour
             assert command_type == "help"  # Should fall through to help
+
+            # Test unschedule time validation too
+            command_type, params = parse_command("unschedule pump on 25:00")
+            assert command_type == "help"
+
+            command_type, params = parse_command("unschedule pump on 12:75")
+            assert command_type == "help"

@@ -59,6 +59,22 @@ class TestWaterBot:
         assert "WaterBot is now online!" in call_args
 
     @pytest.mark.asyncio
+    async def test_on_ready_channel_not_found(self):
+        """Test on_ready event when channel is not found."""
+        mock_user = Mock()
+        mock_user.__str__ = Mock(return_value="TestBot#1234")
+
+        self.bot.get_channel = Mock(return_value=None)
+
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            await self.bot.on_ready()
+
+        assert self.bot.target_channel is None
+
+    @pytest.mark.asyncio
     async def test_on_message_command(self):
         """Test handling command message."""
         mock_message = Mock()
@@ -118,6 +134,108 @@ class TestWaterBot:
                 await self.bot.on_message(mock_message)
 
                 mock_execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_on_message_with_command_prefix(self):
+        """Test message handling with command prefix."""
+        mock_message = Mock()
+        mock_message.author = Mock()
+        mock_message.content = "!status"
+        mock_message.channel = Mock()
+        mock_message.channel.id = 123456789
+
+        mock_user = Mock()
+
+        with patch.object(
+            type(self.bot), "user", new_callable=PropertyMock
+        ) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            with patch.object(
+                self.bot, "process_commands", new_callable=AsyncMock
+            ) as mock_process:
+                await self.bot.on_message(mock_message)
+
+                mock_process.assert_called_once_with(mock_message)
+
+    @pytest.mark.asyncio
+    async def test_on_command_device_failure(self):
+        """Test on command for device with failure."""
+        mock_ctx = Mock()
+        mock_ctx.send = AsyncMock()
+
+        with patch("waterbot.discord.bot.gpio_handler.turn_on") as mock_turn_on:
+            mock_turn_on.return_value = False
+
+            await self.bot.on_command.callback(self.bot, mock_ctx, "unknown", None)
+
+            mock_turn_on.assert_called_once_with("unknown", None)
+            mock_ctx.send.assert_called_once()
+            call_args = mock_ctx.send.call_args[0][0]
+            assert "Error: Unknown device 'unknown'" in call_args
+
+    @pytest.mark.asyncio
+    async def test_off_command_device_failure(self):
+        """Test off command for device with failure."""
+        mock_ctx = Mock()
+        mock_ctx.send = AsyncMock()
+
+        with patch("waterbot.discord.bot.gpio_handler.turn_off") as mock_turn_off:
+            mock_turn_off.return_value = False
+
+            await self.bot.off_command.callback(self.bot, mock_ctx, "unknown", None)
+
+            mock_turn_off.assert_called_once_with("unknown", None)
+            mock_ctx.send.assert_called_once()
+            call_args = mock_ctx.send.call_args[0][0]
+            assert "Error: Unknown device 'unknown'" in call_args
+
+    @pytest.mark.asyncio
+    async def test_schedule_command_failure(self):
+        """Test schedule command with failure."""
+        mock_ctx = Mock()
+        mock_ctx.send = AsyncMock()
+
+        with patch("waterbot.discord.bot.scheduler.add_schedule") as mock_add_schedule:
+            mock_add_schedule.return_value = False
+
+            await self.bot.schedule_command.callback(
+                self.bot, mock_ctx, "pump", "on", "08:00"
+            )
+
+            mock_add_schedule.assert_called_once_with("pump", "on", "08:00")
+            mock_ctx.send.assert_called_once()
+            call_args = mock_ctx.send.call_args[0][0]
+            assert "Failed to add schedule for pump" in call_args
+
+    @pytest.mark.asyncio
+    async def test_unschedule_command_failure(self):
+        """Test unschedule command with failure."""
+        mock_ctx = Mock()
+        mock_ctx.send = AsyncMock()
+
+        with patch(
+            "waterbot.discord.bot.scheduler.remove_schedule"
+        ) as mock_remove_schedule:
+            mock_remove_schedule.return_value = False
+
+            await self.bot.unschedule_command.callback(
+                self.bot, mock_ctx, "pump", "on", "08:00"
+            )
+
+            mock_remove_schedule.assert_called_once_with("pump", "on", "08:00")
+            mock_ctx.send.assert_called_once()
+            call_args = mock_ctx.send.call_args[0][0]
+            assert "No such schedule found: pump on at 08:00" in call_args
+
+    @pytest.mark.asyncio
+    async def test_start_bot_error(self):
+        """Test start_bot with error."""
+        with patch("waterbot.discord.bot.DISCORD_BOT_TOKEN", "test_token"):
+            with patch.object(self.bot, "run") as mock_run:
+                mock_run.side_effect = Exception("Connection error")
+
+                with pytest.raises(Exception, match="Connection error"):
+                    self.bot.start_bot()
 
     @pytest.mark.asyncio
     async def test_status_command(self):
