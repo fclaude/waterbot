@@ -17,17 +17,38 @@ print_error() {
 
 # Sync system time before package operations
 print_status "Syncing system time..."
+# Set timezone to Pacific Time (common for SF/West Coast)
+timedatectl set-timezone America/Los_Angeles
+# Enable NTP and restart time sync service
 timedatectl set-ntp true
-for i in {1..10}; do
+systemctl restart systemd-timesyncd
+
+# Wait for time sync with longer timeout and fallback
+TIME_SYNCED=false
+for ((i=1; i<=20; i++)); do
     if timedatectl status | grep -q "System clock synchronized: yes"; then
         print_status "System time synchronized successfully"
+        TIME_SYNCED=true
         break
-    fi
-    if [ "$i" -eq 10 ]; then
-        print_status "Warning: Time sync timeout, proceeding anyway"
     fi
     sleep 3
 done
+
+# If NTP fails, try manual sync with common time servers
+if [ "$TIME_SYNCED" = "false" ]; then
+    print_status "NTP sync failed, trying manual time sync..."
+    for server in "pool.ntp.org" "time.nist.gov" "0.pool.ntp.org"; do
+        if ntpdate -s "$server" 2>/dev/null; then
+            print_status "Time synchronized manually with $server"
+            TIME_SYNCED=true
+            break
+        fi
+    done
+fi
+
+if [ "$TIME_SYNCED" = "false" ]; then
+    print_status "Warning: Time sync failed completely, packages may have certificate issues"
+fi
 
 # Update and install all packages
 print_status "Updating system and installing packages..."
@@ -38,7 +59,8 @@ apt-get install -y \
     python3-venv \
     git \
     python3-rpi.gpio \
-    build-essential
+    build-essential \
+    ntpdate
 
 # Create user
 print_status "Creating waterbot user..."

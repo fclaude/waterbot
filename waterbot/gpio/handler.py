@@ -31,9 +31,13 @@ class DeviceController:
         """Initialize GPIO interface based on operation mode."""
         if not IS_EMULATION:
             try:
+                # Clean up any previous GPIO state first
+                import RPi.GPIO as GPIO
+
+                GPIO.cleanup()
+
+                # Now initialize with proper mode
                 self.gpio = HardwareGPIO()
-                # Clean up any previous GPIO state
-                self.gpio.cleanup()
                 logger.info(
                     "GPIO initialized in hardware mode (previous state cleaned)"
                 )

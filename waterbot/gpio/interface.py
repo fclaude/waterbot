@@ -32,7 +32,7 @@ class HardwareGPIO(GPIOInterface):
             import RPi.GPIO as GPIO
 
             self.GPIO = GPIO
-            self.GPIO.setmode(GPIO.BCM)
+            self.GPIO.setmode(GPIO.BOARD)  # Use physical pin numbers
             self.GPIO.setwarnings(False)
         except ImportError:
             raise RuntimeError("RPi.GPIO not available")
