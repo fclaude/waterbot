@@ -1,7 +1,8 @@
 """Discord bot implementation for WaterBot."""
 
 import logging
-from typing import Optional
+import subprocess  # nosec B404
+from typing import Dict, Optional
 
 import discord
 from discord.ext import commands
@@ -45,6 +46,44 @@ class WaterBot(commands.Bot):
 
         logger.info(f"Discord bot initialized for channel ID: {self.channel_id}")
 
+    def _get_ip_addresses(self) -> Dict[str, str]:
+        """Get IP addresses for all network interfaces."""
+        ip_info = {}
+        try:
+            # Get all network interfaces except loopback
+            result = subprocess.run(  # nosec
+                ["ls", "/sys/class/net/"], capture_output=True, text=True, check=True
+            )
+            interfaces = [
+                iface for iface in result.stdout.strip().split() if iface != "lo"
+            ]
+
+            for interface in interfaces:
+                try:
+                    # Get IP address for this interface
+                    result = subprocess.run(  # nosec
+                        ["ip", "addr", "show", interface],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+
+                    # Parse IP address from output
+                    for line in result.stdout.split("\n"):
+                        if "inet " in line and "127.0.0.1" not in line:
+                            ip = line.strip().split()[1].split("/")[0]
+                            if ip:
+                                ip_info[interface] = ip
+                                break
+
+                except subprocess.CalledProcessError:
+                    continue
+
+        except subprocess.CalledProcessError:
+            logger.warning("Failed to get network interface information")
+
+        return ip_info
+
     async def on_ready(self) -> None:
         """Get called when the bot is ready."""
         logger.info(f"Discord bot logged in as {self.user}")
@@ -53,9 +92,25 @@ class WaterBot(commands.Bot):
             self.target_channel = self.get_channel(self.channel_id)
             if self.target_channel:
                 logger.info(f"Connected to channel: {self.target_channel.name}")
-                await self.target_channel.send(
-                    "WaterBot is now online! 💧\nSend `status` to check device status."
-                )
+
+                # Get IP address information
+                ip_info = self._get_ip_addresses()
+
+                startup_message = "WaterBot is now online! 💧\n"
+                startup_message += "Send `status` to check device status.\n\n"
+
+                if ip_info:
+                    startup_message += "📡 **SSH Access:**\n"
+                    for interface, ip in ip_info.items():
+                        startup_message += f"• `ssh pi@{ip}` (via {interface})\n"
+                    startup_message += "\n🔑 Default credentials: `pi` / `raspberry`\n"
+                    startup_message += "⚠️ **Please change the default password!**"
+                else:
+                    startup_message += (
+                        "⚠️ No network interfaces found with IP addresses."
+                    )
+
+                await self.target_channel.send(startup_message)
             else:
                 logger.error(f"Could not find channel with ID: {self.channel_id}")
 
@@ -153,6 +208,25 @@ class WaterBot(commands.Bot):
         else:
             await ctx.send(f"No such schedule found: {device} {action} at {time}")
 
+    @commands.command(name="ip")
+    async def ip_command(self, ctx: Context) -> None:
+        """Show IP address information for SSH access."""
+        ip_info = self._get_ip_addresses()
+
+        if ip_info:
+            response = "📡 **SSH Access Information:**\n\n"
+            for interface, ip in ip_info.items():
+                response += f"• `ssh pi@{ip}` (via {interface})\n"
+            response += "\n🔑 **Default credentials:** `pi` / `raspberry`\n"
+            response += "⚠️ **Please change the default password for security!**"
+        else:
+            response = (
+                "⚠️ No network interfaces found with IP addresses.\n"
+                "Please check your network connection."
+            )
+
+        await ctx.send(response)
+
     @commands.command(name="help")
     async def help_command(self, ctx: Context) -> None:
         """Show help message."""
@@ -247,6 +321,7 @@ class WaterBot(commands.Bot):
             "schedules - Show all schedules\n"
             "schedule <device> <on|off> <HH:MM> - Add schedule\n"
             "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
+            "ip - Show SSH access information\n"
             "```"
         )
 

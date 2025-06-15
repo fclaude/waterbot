@@ -149,6 +149,11 @@ cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
 #!/bin/bash
 cd /root
 
+# Check if firstboot has already run
+if [ -f /root/.firstboot_complete ]; then
+    exit 0
+fi
+
 echo "WaterBot First Boot Setup"
 echo "========================="
 
@@ -174,15 +179,23 @@ done
 
 ./setup.sh
 
+# Mark firstboot as complete
+touch /root/.firstboot_complete
 echo "First boot setup complete. Rebooting to apply filesystem expansion..."
-rm firstboot.sh
+
+# Remove firstboot from rc.local
+sed -i '/firstboot.sh/d' /etc/rc.local
+
+# Remove the firstboot script
+rm /root/firstboot.sh
+
 reboot
 EOF
 
 chmod +x "${MOUNT_POINT}/root/firstboot.sh"
 
-# Add firstboot to rc.local
-sed -i '/exit 0/i /root/firstboot.sh &' "${MOUNT_POINT}/etc/rc.local"
+# Add firstboot to rc.local with proper error handling
+sed -i '/exit 0/i [ -f /root/firstboot.sh ] && /root/firstboot.sh &' "${MOUNT_POINT}/etc/rc.local"
 
 # Unmount the image
 print_status "Unmounting image..."

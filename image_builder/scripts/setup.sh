@@ -139,9 +139,78 @@ SyslogIdentifier=waterbot
 WantedBy=multi-user.target
 EOF
 
+# Create IP display script
+print_status "Creating IP display script..."
+cat > /usr/local/bin/show-ip.sh << 'EOF'
+#!/bin/bash
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo ""
+echo -e "${GREEN}================================${NC}"
+echo -e "${GREEN}      WaterBot IP Information${NC}"
+echo -e "${GREEN}================================${NC}"
+echo ""
+
+# Display IP addresses
+found_ip=false
+for iface in /sys/class/net/*; do
+    iface=$(basename "$iface")
+    [ "$iface" = "lo" ] && continue
+    ip_addr=$(ip addr show "$iface" 2>/dev/null | grep -o 'inet [0-9.]*' | head -1 | cut -d' ' -f2)
+    if [ -n "$ip_addr" ] && [ "$ip_addr" != "127.0.0.1" ]; then
+        echo -e "${BLUE}SSH to this device:${NC}"
+        echo -e "  ssh pi@${ip_addr}"
+        echo -e "${BLUE}Interface:${NC} $iface"
+        echo ""
+        found_ip=true
+    fi
+done
+
+if [ "$found_ip" = false ]; then
+    echo "No network interfaces found with IP addresses."
+    echo "Please check your network connection."
+    echo ""
+fi
+
+echo -e "${GREEN}Default credentials:${NC}"
+echo "  Username: pi"
+echo "  Password: raspberry"
+echo ""
+echo -e "${GREEN}Service status:${NC}"
+systemctl is-active --quiet waterbot.service && echo "  WaterBot service: Running" || echo "  WaterBot service: Not running"
+echo ""
+echo -e "${GREEN}================================${NC}"
+echo ""
+EOF
+
+chmod +x /usr/local/bin/show-ip.sh
+
+# Create systemd service for IP display
+cat > /etc/systemd/system/show-ip.service << 'EOF'
+[Unit]
+Description=Display IP Address Information
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/show-ip.sh
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable IP display service
+systemctl daemon-reload
+systemctl enable show-ip.service
+
 # Enable service (but don't start it during setup)
 print_status "Enabling service..."
-systemctl daemon-reload
 systemctl enable waterbot.service
 
 print_status "Setup complete!"
@@ -153,6 +222,19 @@ print_status "System information:"
 echo "- Filesystem expanded to use full SD card capacity"
 echo "- SSH enabled for remote access"
 echo "- Service will start after reboot"
+echo ""
+
+# Display IP addresses
+print_status "Network information:"
+for iface in /sys/class/net/*; do
+    iface=$(basename "$iface")
+    [ "$iface" = "lo" ] && continue
+    ip_addr=$(ip addr show "$iface" 2>/dev/null | grep -o 'inet [0-9.]*' | head -1 | cut -d' ' -f2)
+    if [ -n "$ip_addr" ] && [ "$ip_addr" != "127.0.0.1" ]; then
+        echo "- $iface: $ip_addr"
+    fi
+done
+
 echo ""
 print_status "Network resilience features:"
 echo "- Service continues running even without internet connection"
