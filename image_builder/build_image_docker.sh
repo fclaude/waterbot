@@ -199,6 +199,16 @@ cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
 #!/bin/bash
 cd /root
 
+# Prevent concurrent execution with a lock file
+LOCKFILE="/tmp/firstboot.lock"
+if ! (set -C; echo $$ > "$LOCKFILE") 2>/dev/null; then
+    echo "Another instance of firstboot is already running (PID: $(cat "$LOCKFILE"))"
+    exit 1
+fi
+
+# Clean up lock file on exit
+trap 'rm -f "$LOCKFILE"' EXIT
+
 # Check if we've already completed everything
 if [ -f /root/.setup_complete ]; then
     exit 0
@@ -257,8 +267,8 @@ EOF
 
 chmod +x "${MOUNT_POINT}/root/firstboot.sh"
 
-# Add firstboot to rc.local with proper error handling
-sed -i '/exit 0/i [ -f /root/firstboot.sh ] && /root/firstboot.sh &' "${MOUNT_POINT}/etc/rc.local"
+# Add firstboot to rc.local with proper error handling (no background execution)
+sed -i '/exit 0/i [ -f /root/firstboot.sh ] && /root/firstboot.sh' "${MOUNT_POINT}/etc/rc.local"
 
 # Final verification before unmounting
 print_status "Final verification - files in /root before unmounting:"
