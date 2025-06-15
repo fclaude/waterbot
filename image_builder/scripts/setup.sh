@@ -23,8 +23,7 @@ apt-get install -y \
     python3-pip \
     python3-venv \
     git \
-    pigpio \
-    python3-pigpio \
+    python3-rpi.gpio \
     build-essential
 
 # Create user
@@ -62,7 +61,7 @@ cat > /etc/systemd/system/waterbot.service << 'EOF'
 [Unit]
 Description=WaterBot Discord GPIO Controller
 After=network.target
-Wants=network-online.target pigpiod.service
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -83,7 +82,6 @@ EOF
 # Enable services
 print_status "Enabling services..."
 systemctl daemon-reload
-systemctl enable pigpiod
 systemctl enable waterbot.service
 
 print_status "Setup complete! Service will start on next boot."

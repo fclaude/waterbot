@@ -4,7 +4,6 @@ pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
 python-dotenv
 requests
+RPi.GPIO>=0.7.0
 schedule
 tzlocal
-gpiozero>=1.6.0
-pigpio>=1.78
