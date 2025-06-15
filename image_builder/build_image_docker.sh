@@ -67,7 +67,10 @@ mkdir -p "${MOUNT_POINT}"
 # Download Raspberry Pi OS if not exists
 if [ ! -f "${IMAGE_NAME}.xz" ]; then
     print_status "Downloading Raspberry Pi OS..."
-    wget "${RASPBERRY_PI_OS_URL}" -O "${IMAGE_NAME}.xz"
+    if ! wget "${RASPBERRY_PI_OS_URL}" -O "${IMAGE_NAME}.xz"; then
+        print_warning "Certificate verification failed, retrying with --no-check-certificate..."
+        wget --no-check-certificate "${RASPBERRY_PI_OS_URL}" -O "${IMAGE_NAME}.xz"
+    fi
 fi
 
 # Extract image if not already extracted
