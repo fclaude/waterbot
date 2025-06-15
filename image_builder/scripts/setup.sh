@@ -127,6 +127,11 @@ else
     OFFLINE_MODE=true
 fi
 
+# Install system dependencies for GPIO
+print_status "Installing system dependencies for GPIO..."
+apt-get update
+apt-get install -y pigpio python3-pigpio
+
 # Install dependencies
 if [ "${OFFLINE_MODE:-}" = "true" ]; then
     print_warning "Offline mode: Skipping pip install. Dependencies must be pre-installed."
@@ -182,8 +187,8 @@ fi
 cat > /etc/systemd/system/waterbot.service << EOF
 [Unit]
 Description=WaterBot Discord GPIO Controller
-After=network.target
-Wants=network-online.target
+After=network.target pigpiod.service
+Wants=network-online.target pigpiod.service
 
 [Service]
 Type=simple
@@ -214,6 +219,10 @@ SyslogIdentifier=waterbot
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# Enable and configure pigpiod service
+print_status "Configuring pigpiod service..."
+systemctl enable pigpiod
 
 # Create IP display script
 print_status "Creating IP display script..."

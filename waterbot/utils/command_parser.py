@@ -84,8 +84,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use DEFAULT_TIMEOUT if no timeout specified, convert minutes to seconds
-        timeout = (int(time_str) * 60) if time_str else (DEFAULT_TIMEOUT * 60)
+        # Off command should be permanent - no timeout
+        timeout = None
         return "device_off", {"device": device, "timeout": timeout}
 
     # Unknown command

@@ -138,6 +138,8 @@ class DeviceController:
                 logger.info(
                     f"Device '{device}' will turn on after {timeout // 60} minutes"
                 )
+            else:
+                logger.info(f"Device '{device}' turned off permanently")
 
         return True
 

@@ -179,10 +179,9 @@ class WaterBot(commands.Bot):
             gpio_handler.turn_all_off()
             await ctx.send("All devices turned OFF")
         else:
-            success = gpio_handler.turn_off(device, timeout)
+            success = gpio_handler.turn_off(device, None)
             if success:
-                time_msg = f" for {timeout // 60} minutes" if timeout else ""
-                await ctx.send(f"Device '{device}' turned OFF{time_msg}")
+                await ctx.send(f"Device '{device}' turned OFF permanently")
             else:
                 await ctx.send(f"Error: Unknown device '{device}'")
 
@@ -294,8 +293,7 @@ class WaterBot(commands.Bot):
             timeout = params.get("timeout")
             success = gpio_handler.turn_off(device, timeout)
             if success:
-                time_msg = f" for {timeout // 60} minutes" if timeout else ""
-                return f"Device '{device}' turned OFF{time_msg}"
+                return f"Device '{device}' turned OFF permanently"
             else:
                 return f"Error: Unknown device '{device}'"
 
