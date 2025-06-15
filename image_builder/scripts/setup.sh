@@ -55,6 +55,17 @@ else
     exit 1
 fi
 
+# Copy schedules if available
+print_status "Setting up schedules..."
+if [ -f /root/schedules.json ]; then
+    mv /root/schedules.json /opt/waterbot/schedules.json
+    chown waterbot-service:waterbot-service /opt/waterbot/schedules.json
+    chmod 644 /opt/waterbot/schedules.json
+    print_status "Schedules file copied successfully"
+else
+    print_status "No schedules.json found, will start with empty schedules"
+fi
+
 # Create systemd service
 print_status "Creating systemd service..."
 cat > /etc/systemd/system/waterbot.service << 'EOF'

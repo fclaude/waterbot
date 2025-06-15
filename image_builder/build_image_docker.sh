@@ -184,6 +184,16 @@ else
     exit 1
 fi
 
+# Copy schedules.json if it exists
+print_status "Copying schedules configuration..."
+if [ -f "/waterbot/image_builder/configs/schedules.json" ]; then
+    print_status "Copying schedules.json to image..."
+    cp "/waterbot/image_builder/configs/schedules.json" "${MOUNT_POINT}/root/schedules.json"
+    print_status "Schedules file copied successfully"
+else
+    print_status "No schedules.json found, will start with empty schedules"
+fi
+
 # Create two-phase firstboot script
 cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
 #!/bin/bash

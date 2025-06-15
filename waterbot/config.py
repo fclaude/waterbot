@@ -46,57 +46,23 @@ DEVICE_SCHEDULES = {}
 
 
 def load_schedules() -> None:
-    """Load device schedules from configuration file or env variables."""
+    """Load device schedules from JSON configuration file."""
     global DEVICE_SCHEDULES
 
-    # First try to load from JSON file
+    # Load from JSON file only
     if os.path.exists(SCHEDULE_CONFIG_FILE):
         try:
             with open(SCHEDULE_CONFIG_FILE, "r") as f:
                 DEVICE_SCHEDULES = json.load(f)
-            return
         except (json.JSONDecodeError, IOError) as e:
             print(
                 f"Warning: Could not load schedule config file "
                 f"{SCHEDULE_CONFIG_FILE}: {e}"
             )
-
-    # Fallback to environment variables
-    # Format: SCHEDULE_<DEVICE>_<ACTION>=HH:MM[,HH:MM,...]
-    # Example: SCHEDULE_PUMP_ON=08:00,20:00
-    #          SCHEDULE_PUMP_OFF=12:00,23:00
-    for key, value in os.environ.items():
-        if key.startswith("SCHEDULE_"):
-            parts = key.split("_")
-            if len(parts) >= 3:
-                device = "_".join(parts[1:-1]).lower()
-                action = parts[-1].lower()
-
-                if device in DEVICE_TO_PIN and action in ["on", "off"]:
-                    # Parse time values (comma-separated)
-                    times = []
-                    for time_str in value.split(","):
-                        time_str = time_str.strip()
-                        if re.match(r"^\d{2}:\d{2}$", time_str):
-                            # Validate time format (HH:MM where HH is 00-23
-                            # and MM is 00-59)
-                            hour, minute = time_str.split(":")
-                            if int(hour) <= 23 and int(minute) <= 59:
-                                times.append(time_str)
-                            else:
-                                print(
-                                    f"Warning: Invalid time format in "
-                                    f"{key}: {time_str}"
-                                )
-                        else:
-                            print(  # type: ignore[unreachable]
-                                f"Warning: Invalid time format in {key}: " f"{time_str}"
-                            )
-
-                    if times:
-                        if device not in DEVICE_SCHEDULES:
-                            DEVICE_SCHEDULES[device] = {}
-                        DEVICE_SCHEDULES[device][action] = times
+            DEVICE_SCHEDULES = {}
+    else:
+        # No config file exists, start with empty schedules
+        DEVICE_SCHEDULES = {}
 
 
 def save_schedules() -> bool:
