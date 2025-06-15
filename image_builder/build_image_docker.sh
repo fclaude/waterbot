@@ -215,5 +215,5 @@ else
 fi
 
 print_status "After first boot, the WaterBot service will start automatically."
-print_info "You can check service status with: systemctl status waterbot.service"
+echo "You can check service status with: systemctl status waterbot.service"
 print_warning "IMPORTANT: Change the default password after first login for security!"
