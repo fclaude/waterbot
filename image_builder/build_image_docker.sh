@@ -90,12 +90,19 @@ print_status "Mounting boot partition..."
 mkdir -p "${MOUNT_POINT}/boot"
 mount -o loop,offset=$((BOOT_PARTITION_START * 512)) "${IMAGE_NAME}" "${MOUNT_POINT}/boot"
 
+# Configure default user (bypass initial setup)
+print_status "Configuring default user account..."
+# Create default user 'pi' with password 'raspberry' (generate hash dynamically)
+PASSWORD_HASH=$(echo 'raspberry' | openssl passwd -6 -stdin)
+echo "pi:${PASSWORD_HASH}" > "${MOUNT_POINT}/boot/userconf.txt"
+print_status "Default user 'pi' configured with password 'raspberry'"
+
+# Enable SSH
+touch "${MOUNT_POINT}/boot/ssh"
+
 # Configure WiFi if credentials provided
 if [ -n "$WIFI_SSID" ] && [ -n "$WIFI_PASSWORD" ]; then
     print_status "Configuring WiFi network: $WIFI_SSID"
-
-    # Enable SSH
-    touch "${MOUNT_POINT}/boot/ssh"
 
     # Create wpa_supplicant.conf
     cat > "${MOUNT_POINT}/boot/wpa_supplicant.conf" << EOF
@@ -114,9 +121,6 @@ EOF
 else
     print_warning "No WiFi credentials provided. Set WIFI_SSID and WIFI_PASSWORD environment variables to configure WiFi."
     print_warning "The Pi will need manual WiFi configuration or ethernet connection."
-
-    # Still enable SSH for manual configuration
-    touch "${MOUNT_POINT}/boot/ssh"
 fi
 
 # Unmount boot partition
@@ -196,6 +200,10 @@ print_status ""
 print_status "You can now write this image to your SD card using:"
 echo "  sudo dd if=${IMAGE_NAME} of=/dev/sdX bs=4M status=progress"
 echo "  Replace /dev/sdX with your SD card device"
+print_status "Login credentials:"
+echo "  Username: pi"
+echo "  Password: raspberry"
+echo "  SSH is enabled by default"
 print_status ""
 if [ -n "$WIFI_SSID" ]; then
     print_status "WiFi is pre-configured for network: $WIFI_SSID"
@@ -205,3 +213,7 @@ else
     echo "  1. Connect via Ethernet, or"
     echo "  2. Manually configure WiFi after booting"
 fi
+
+print_status "After first boot, the WaterBot service will start automatically."
+print_info "You can check service status with: systemctl status waterbot.service"
+print_warning "IMPORTANT: Change the default password after first login for security!"
