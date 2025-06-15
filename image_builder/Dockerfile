@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dosfstools \
     rsync \
     openssl \
+    uuid-runtime \
     && rm -rf /var/lib/apt/lists/*
 
 # Create working directory

@@ -121,28 +121,10 @@ print_status "Default user 'pi' configured with password 'raspberry'"
 touch "${MOUNT_POINT}/boot/ssh"
 
 # Configure WiFi if credentials provided
+WIFI_CONFIGURED=false
 if [ -n "$WIFI_SSID" ] && [ -n "$WIFI_PASSWORD" ]; then
     print_status "Configuring WiFi network: $WIFI_SSID"
-
-    # Create wpa_supplicant.conf (Bookworm compatible)
-    cat > "${MOUNT_POINT}/boot/wpa_supplicant.conf" << EOF
-country=US
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-ap_scan=1
-
-network={
-    ssid="$WIFI_SSID"
-    psk="$WIFI_PASSWORD"
-    key_mgmt=WPA-PSK
-    scan_ssid=1
-}
-EOF
-
-    print_status "WiFi configuration added for network: $WIFI_SSID"
-else
-    print_warning "No WiFi credentials provided. Set WIFI_SSID and WIFI_PASSWORD environment variables to configure WiFi."
-    print_warning "The Pi will need manual WiFi configuration or ethernet connection."
+    WIFI_CONFIGURED=true
 fi
 
 # Unmount boot partition
@@ -152,13 +134,64 @@ umount "${MOUNT_POINT}/boot"
 print_status "Mounting root partition..."
 mount -o loop,offset=$((ROOT_PARTITION_START * 512)) "${IMAGE_NAME}" "${MOUNT_POINT}"
 
-# Ensure dhcpcd is used for networking (Bookworm compatibility)
+# Configure WiFi using NetworkManager (Bookworm method)
+if [ "$WIFI_CONFIGURED" = "true" ]; then
+    print_status "Setting up NetworkManager WiFi configuration..."
+
+    # Create NetworkManager system connection
+    mkdir -p "${MOUNT_POINT}/etc/NetworkManager/system-connections"
+
+    # Generate a UUID for the connection
+    WIFI_UUID=$(uuidgen)
+
+    cat > "${MOUNT_POINT}/etc/NetworkManager/system-connections/waterbot-wifi.nmconnection" << EOF
+[connection]
+id=waterbot-wifi
+uuid=${WIFI_UUID}
+type=wifi
+autoconnect=true
+autoconnect-priority=100
+
+[wifi]
+mode=infrastructure
+ssid=${WIFI_SSID}
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk=${WIFI_PASSWORD}
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=stable-privacy
+method=auto
+EOF
+
+    # Set proper permissions (NetworkManager requires 600)
+    chmod 600 "${MOUNT_POINT}/etc/NetworkManager/system-connections/waterbot-wifi.nmconnection"
+
+    # Set country code for WiFi (required in Bookworm)
+    if [ -f "${MOUNT_POINT}/etc/wpa_supplicant/wpa_supplicant.conf" ]; then
+        sed -i '/^country=/d' "${MOUNT_POINT}/etc/wpa_supplicant/wpa_supplicant.conf"
+        echo "country=US" >> "${MOUNT_POINT}/etc/wpa_supplicant/wpa_supplicant.conf"
+    fi
+
+    print_status "NetworkManager WiFi configuration created for: $WIFI_SSID"
+else
+    print_warning "No WiFi credentials provided. Set WIFI_SSID and WIFI_PASSWORD environment variables to configure WiFi."
+    print_warning "The Pi will need manual WiFi configuration or ethernet connection."
+fi
+
+# Ensure NetworkManager is enabled (Bookworm default)
 print_status "Configuring network services for Bookworm..."
 if [ -f "${MOUNT_POINT}/usr/bin/systemctl" ]; then
-    # Disable NetworkManager if present and enable dhcpcd
-    chroot "${MOUNT_POINT}" systemctl disable NetworkManager 2>/dev/null || true
-    chroot "${MOUNT_POINT}" systemctl enable dhcpcd 2>/dev/null || true
-    print_status "Network services configured (dhcpcd enabled)"
+    # Enable NetworkManager (Bookworm default) and disable conflicting services
+    chroot "${MOUNT_POINT}" systemctl enable NetworkManager 2>/dev/null || true
+    chroot "${MOUNT_POINT}" systemctl disable dhcpcd 2>/dev/null || true
+    chroot "${MOUNT_POINT}" systemctl disable wpa_supplicant 2>/dev/null || true
+    print_status "Network services configured (NetworkManager enabled)"
 fi
 
 # Copy setup scripts
