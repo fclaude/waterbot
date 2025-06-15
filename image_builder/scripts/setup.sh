@@ -5,11 +5,17 @@ set -e
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Function to print status messages
 print_status() {
     echo -e "${GREEN}[+] $1${NC}"
+}
+
+# Function to print warning messages
+print_warning() {
+    echo -e "${YELLOW}[!] $1${NC}"
 }
 
 # Function to print error messages
@@ -51,8 +57,10 @@ fi
 
 # Create waterbot user
 print_status "Creating waterbot user..."
-useradd -r -s /bin/false -d /opt/waterbot waterbot-service
-usermod -a -G gpio waterbot-service
+if ! id "waterbot-service" &>/dev/null; then
+    useradd -r -s /bin/false -d /opt/waterbot waterbot-service
+fi
+usermod -a -G gpio,dialout waterbot-service
 
 # Create application directory
 print_status "Setting up application directory..."
@@ -66,6 +74,7 @@ chown -R waterbot-service:waterbot-service /opt/waterbot
 
 # Create and activate virtual environment
 print_status "Setting up Python virtual environment..."
+cd /opt/waterbot
 python3 -m venv venv
 chown -R waterbot-service:waterbot-service venv
 # shellcheck disable=SC1091
@@ -76,7 +85,7 @@ if [ "${OFFLINE_MODE:-}" = "true" ]; then
     print_warning "Offline mode: Skipping pip install. Dependencies must be pre-installed."
 else
     print_status "Installing Python dependencies..."
-    if ! pip install -r requirements.txt; then
+    if ! pip install -r /opt/waterbot/requirements.txt; then
         print_warning "Failed to install Python dependencies - service may not work properly"
     fi
 fi
@@ -130,11 +139,10 @@ SyslogIdentifier=waterbot
 WantedBy=multi-user.target
 EOF
 
-# Enable and start service
-print_status "Enabling and starting service..."
+# Enable service (but don't start it during setup)
+print_status "Enabling service..."
 systemctl daemon-reload
 systemctl enable waterbot.service
-systemctl start waterbot.service
 
 print_status "Setup complete!"
 echo ""
