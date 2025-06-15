@@ -3,7 +3,7 @@
 set -e
 
 # Configuration
-RASPBERRY_PI_OS_URL="https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
+RASPBERRY_PI_OS_URL="https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-07-04/2024-07-04-raspios-bookworm-arm64-lite.img.xz"
 IMAGE_NAME="waterbot.img"
 MOUNT_POINT="/tmp/waterbot_mount"
 CONFIG_NAME="${1:-default}"  # Use default config if none specified
