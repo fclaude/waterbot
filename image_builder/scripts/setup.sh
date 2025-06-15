@@ -107,10 +107,12 @@ cd /opt/waterbot
 if ! python3 -m venv --help >/dev/null 2>&1; then
     print_warning "python3-venv not available, trying alternative installation..."
 
-    # Try to install python3-venv specifically
-    if ! apt-get install -y python3-venv; then
-        print_error "Cannot install python3-venv. Virtual environment creation will fail."
-        print_error "WaterBot may not work properly without a virtual environment."
+    # Try to install python3-venv specifically - but don't fail if offline
+    if apt-get update && apt-get install -y python3-venv; then
+        print_status "python3-venv installed successfully"
+    else
+        print_warning "Cannot install python3-venv (possibly offline). Virtual environment creation may fail."
+        print_warning "WaterBot may not work properly without a virtual environment."
         OFFLINE_MODE=true
     fi
 fi
@@ -129,8 +131,15 @@ fi
 
 # Install system dependencies for GPIO
 print_status "Installing system dependencies for GPIO..."
-apt-get update
-apt-get install -y pigpio python3-pigpio
+if [ "${OFFLINE_MODE:-}" != "true" ]; then
+    if apt-get update && apt-get install -y pigpio python3-pigpio; then
+        print_status "GPIO dependencies installed successfully"
+    else
+        print_warning "Failed to install GPIO dependencies - GPIO may not work properly"
+    fi
+else
+    print_warning "Offline mode: Skipping GPIO dependency installation"
+fi
 
 # Install dependencies
 if [ "${OFFLINE_MODE:-}" = "true" ]; then
@@ -187,7 +196,7 @@ fi
 cat > /etc/systemd/system/waterbot.service << EOF
 [Unit]
 Description=WaterBot Discord GPIO Controller
-After=network.target pigpiod.service
+After=network.target
 Wants=network-online.target pigpiod.service
 
 [Service]
@@ -222,7 +231,11 @@ EOF
 
 # Enable and configure pigpiod service
 print_status "Configuring pigpiod service..."
-systemctl enable pigpiod
+if systemctl enable pigpiod; then
+    print_status "pigpiod service enabled successfully"
+else
+    print_warning "Failed to enable pigpiod service - may need manual configuration"
+fi
 
 # Create IP display script
 print_status "Creating IP display script..."
