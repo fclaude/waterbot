@@ -162,7 +162,27 @@ rsync -av --exclude='*.img' --exclude='output/' /waterbot/ "${MOUNT_POINT}/root/
 
 # Copy selected configuration
 print_status "Copying configuration..."
-cp "/waterbot/image_builder/configs/${CONFIG_NAME}.env" "${MOUNT_POINT}/root/waterbot.env"
+print_status "Source config: /waterbot/image_builder/configs/${CONFIG_NAME}.env"
+print_status "Destination: ${MOUNT_POINT}/root/waterbot.env"
+
+if [ -f "/waterbot/image_builder/configs/${CONFIG_NAME}.env" ]; then
+    print_status "Source config file exists, copying..."
+    cp "/waterbot/image_builder/configs/${CONFIG_NAME}.env" "${MOUNT_POINT}/root/waterbot.env"
+
+    # Verify the copy worked
+    if [ -f "${MOUNT_POINT}/root/waterbot.env" ]; then
+        print_status "Configuration file copied successfully"
+        print_status "File size: $(wc -c < "${MOUNT_POINT}/root/waterbot.env") bytes"
+        print_status "First few lines of config:"
+        head -3 "${MOUNT_POINT}/root/waterbot.env" || true
+    else
+        print_error "Configuration file copy failed!"
+        exit 1
+    fi
+else
+    print_error "Source configuration file not found!"
+    exit 1
+fi
 
 # Create two-phase firstboot script
 cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
@@ -229,6 +249,17 @@ chmod +x "${MOUNT_POINT}/root/firstboot.sh"
 
 # Add firstboot to rc.local with proper error handling
 sed -i '/exit 0/i [ -f /root/firstboot.sh ] && /root/firstboot.sh &' "${MOUNT_POINT}/etc/rc.local"
+
+# Final verification before unmounting
+print_status "Final verification - files in /root before unmounting:"
+ls -la "${MOUNT_POINT}/root/"
+if [ -f "${MOUNT_POINT}/root/waterbot.env" ]; then
+    print_status "✓ waterbot.env present in final image"
+    print_status "File size: $(wc -c < "${MOUNT_POINT}/root/waterbot.env") bytes"
+else
+    print_error "✗ waterbot.env missing from final image!"
+    print_error "This will cause the service to fail on boot"
+fi
 
 # Unmount the image
 print_status "Unmounting image..."

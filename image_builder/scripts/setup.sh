@@ -139,15 +139,25 @@ fi
 
 # Copy configuration
 print_status "Setting up configuration..."
+print_status "DEBUG: Contents of /root directory:"
+ls -la /root/
+
+print_status "DEBUG: Looking for waterbot.env..."
 if [ -f /root/waterbot.env ]; then
+    print_status "Found waterbot.env, size: $(wc -c < /root/waterbot.env) bytes"
+    print_status "First few lines:"
+    head -3 /root/waterbot.env || true
+
     mv /root/waterbot.env /opt/waterbot/.env
     chown waterbot-service:waterbot-service /opt/waterbot/.env
     chmod 600 /opt/waterbot/.env
     print_status "Configuration file copied successfully"
 else
     print_error "Configuration file /root/waterbot.env not found!"
-    print_error "Available files in /root:"
-    find /root -maxdepth 1 -name "*.env" -o -name "*.txt" 2>/dev/null || echo "No .env or .txt files found"
+    print_error "Available .env and .txt files in /root:"
+    find /root -maxdepth 1 \( -name "*.env" -o -name "*.txt" \) -exec ls -la {} \; 2>/dev/null || echo "No .env or .txt files found"
+    print_error "All files in /root:"
+    find /root -maxdepth 1 -type f -exec ls -la {} \;
     exit 1
 fi
 

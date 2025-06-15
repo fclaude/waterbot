@@ -1,7 +1,7 @@
 """GPIO interface abstractions for WaterBot."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 
 class GPIOInterface(ABC):
@@ -24,32 +24,39 @@ class GPIOInterface(ABC):
 
 
 class HardwareGPIO(GPIOInterface):
-    """Hardware GPIO implementation using RPi.GPIO."""
+    """Hardware GPIO implementation using gpiozero."""
 
     def __init__(self) -> None:
         """Initialize hardware GPIO interface."""
         try:
-            import RPi.GPIO as GPIO
-
-            self.GPIO = GPIO
-            self.GPIO.setmode(GPIO.BCM)
-            self.GPIO.setwarnings(False)
+            from gpiozero import Device
+            from gpiozero.pins.pigpio import PiGPIOFactory
+            
+            # Use pigpio for better performance
+            Device.pin_factory = PiGPIOFactory()
+            self._pins: Dict[int, Any] = {}
         except ImportError:
-            raise RuntimeError("RPi.GPIO not available")
+            raise RuntimeError("gpiozero not available")
 
     def setup(self, pin: int, mode: str) -> None:
         """Set up a GPIO pin."""
-        gpio_mode = self.GPIO.OUT if mode == "OUT" else self.GPIO.IN
-        self.GPIO.setup(pin, gpio_mode)
+        if mode == "OUT":
+            from gpiozero import OutputDevice
+            self._pins[pin] = OutputDevice(pin, active_high=False)
 
     def output(self, pin: int, value: bool) -> None:
         """Set GPIO pin output value."""
-        gpio_value = self.GPIO.LOW if value else self.GPIO.HIGH
-        self.GPIO.output(pin, gpio_value)
+        if pin in self._pins:
+            if value:
+                self._pins[pin].on()
+            else:
+                self._pins[pin].off()
 
     def cleanup(self) -> None:
         """Cleanup GPIO resources."""
-        self.GPIO.cleanup()
+        for pin_device in self._pins.values():
+            pin_device.close()
+        self._pins.clear()
 
 
 class EmulationGPIO(GPIOInterface):
