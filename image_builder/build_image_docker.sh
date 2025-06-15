@@ -124,16 +124,18 @@ touch "${MOUNT_POINT}/boot/ssh"
 if [ -n "$WIFI_SSID" ] && [ -n "$WIFI_PASSWORD" ]; then
     print_status "Configuring WiFi network: $WIFI_SSID"
 
-    # Create wpa_supplicant.conf
+    # Create wpa_supplicant.conf (Bookworm compatible)
     cat > "${MOUNT_POINT}/boot/wpa_supplicant.conf" << EOF
 country=US
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
+ap_scan=1
 
 network={
     ssid="$WIFI_SSID"
     psk="$WIFI_PASSWORD"
     key_mgmt=WPA-PSK
+    scan_ssid=1
 }
 EOF
 
@@ -149,6 +151,15 @@ umount "${MOUNT_POINT}/boot"
 # Mount the root partition
 print_status "Mounting root partition..."
 mount -o loop,offset=$((ROOT_PARTITION_START * 512)) "${IMAGE_NAME}" "${MOUNT_POINT}"
+
+# Ensure dhcpcd is used for networking (Bookworm compatibility)
+print_status "Configuring network services for Bookworm..."
+if [ -f "${MOUNT_POINT}/usr/bin/systemctl" ]; then
+    # Disable NetworkManager if present and enable dhcpcd
+    chroot "${MOUNT_POINT}" systemctl disable NetworkManager 2>/dev/null || true
+    chroot "${MOUNT_POINT}" systemctl enable dhcpcd 2>/dev/null || true
+    print_status "Network services configured (dhcpcd enabled)"
+fi
 
 # Copy setup scripts
 print_status "Copying setup scripts..."
