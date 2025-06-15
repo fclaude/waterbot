@@ -15,6 +15,20 @@ print_error() {
     echo -e "${RED}[!] $1${NC}"
 }
 
+# Sync system time before package operations
+print_status "Syncing system time..."
+timedatectl set-ntp true
+for i in {1..10}; do
+    if timedatectl status | grep -q "System clock synchronized: yes"; then
+        print_status "System time synchronized successfully"
+        break
+    fi
+    if [ "$i" -eq 10 ]; then
+        print_status "Warning: Time sync timeout, proceeding anyway"
+    fi
+    sleep 3
+done
+
 # Update and install all packages
 print_status "Updating system and installing packages..."
 apt-get update
