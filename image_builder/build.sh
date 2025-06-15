@@ -123,14 +123,16 @@ fi
 print_status "Building Docker image..."
 docker build -t waterbot-image-builder .
 
-# Create output directory
+# Create output and cache directories
 mkdir -p output
+mkdir -p cache
 
 # Run the image builder in Docker
 print_status "Running image builder in Docker container..."
 docker run --rm --privileged \
     -v "${PROJECT_ROOT}:/waterbot:ro" \
     -v "$(pwd)/output:/builder/output" \
+    -v "$(pwd)/cache:/builder/cache" \
     -e WIFI_SSID="$WIFI_SSID" \
     -e WIFI_PASSWORD="$WIFI_PASSWORD" \
     waterbot-image-builder "$CONFIG_NAME"
@@ -176,7 +178,16 @@ if [ -f "output/waterbot.img" ]; then
     fi
 
     print_status "After first boot, the WaterBot service will start automatically."
-    print_info "You can check service status with: systemctl status waterbot.service"
+    echo "You can check service status with: systemctl status waterbot.service"
+
+    print_status "Build cache information:"
+    if [ -d "cache" ] && [ -n "$(ls -A cache 2>/dev/null)" ]; then
+        CACHE_SIZE=$(du -sh cache 2>/dev/null | cut -f1 || echo "unknown")
+        echo "Cache directory: $(pwd)/cache (${CACHE_SIZE})"
+        echo "To clear cache: rm -rf $(pwd)/cache"
+    else
+        echo "No cached files found"
+    fi
 
 else
     print_error "Image generation failed. Check the output above for errors."

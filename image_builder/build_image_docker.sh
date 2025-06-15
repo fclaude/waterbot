@@ -49,8 +49,11 @@ cleanup() {
 trap cleanup EXIT
 
 # Check if config exists
-if [ ! -f "configs/${CONFIG_NAME}.env" ]; then
+if [ ! -f "/waterbot/image_builder/configs/${CONFIG_NAME}.env" ]; then
     print_error "Configuration ${CONFIG_NAME} not found in configs directory"
+    print_error "Looking for: /waterbot/image_builder/configs/${CONFIG_NAME}.env"
+    print_error "Available configs:"
+    ls -la /waterbot/image_builder/configs/ 2>/dev/null || echo "Configs directory not found!"
     exit 1
 fi
 
@@ -64,13 +67,30 @@ fi
 # Create mount point
 mkdir -p "${MOUNT_POINT}"
 
-# Download Raspberry Pi OS if not exists
-if [ ! -f "${IMAGE_NAME}.xz" ]; then
-    print_status "Downloading Raspberry Pi OS..."
-    if ! wget "${RASPBERRY_PI_OS_URL}" -O "${IMAGE_NAME}.xz"; then
+# Set up image cache directory (persistent across builds)
+CACHE_DIR="/builder/cache"
+mkdir -p "${CACHE_DIR}"
+
+# Get the base filename from URL for caching
+BASE_IMAGE_NAME=$(basename "${RASPBERRY_PI_OS_URL}")
+CACHED_IMAGE="${CACHE_DIR}/${BASE_IMAGE_NAME}"
+
+# Download Raspberry Pi OS to cache if not exists
+if [ ! -f "${CACHED_IMAGE}" ]; then
+    print_status "Downloading Raspberry Pi OS to cache..."
+    if ! wget "${RASPBERRY_PI_OS_URL}" -O "${CACHED_IMAGE}"; then
         print_warning "Certificate verification failed, retrying with --no-check-certificate..."
-        wget --no-check-certificate "${RASPBERRY_PI_OS_URL}" -O "${IMAGE_NAME}.xz"
+        wget --no-check-certificate "${RASPBERRY_PI_OS_URL}" -O "${CACHED_IMAGE}"
     fi
+    print_status "Image cached at: ${CACHED_IMAGE}"
+else
+    print_status "Using cached Raspberry Pi OS image"
+fi
+
+# Copy cached image to working directory if needed
+if [ ! -f "${IMAGE_NAME}.xz" ]; then
+    print_status "Copying cached image to working directory..."
+    cp "${CACHED_IMAGE}" "${IMAGE_NAME}.xz"
 fi
 
 # Extract image if not already extracted
@@ -142,24 +162,36 @@ rsync -av --exclude='*.img' --exclude='output/' /waterbot/ "${MOUNT_POINT}/root/
 
 # Copy selected configuration
 print_status "Copying configuration..."
-cp "configs/${CONFIG_NAME}.env" "${MOUNT_POINT}/root/waterbot.env"
+cp "/waterbot/image_builder/configs/${CONFIG_NAME}.env" "${MOUNT_POINT}/root/waterbot.env"
 
-# Create enhanced firstboot script with network resilience and filesystem expansion
+# Create two-phase firstboot script
 cat > "${MOUNT_POINT}/root/firstboot.sh" << 'EOF'
 #!/bin/bash
 cd /root
 
-# Check if firstboot has already run
-if [ -f /root/.firstboot_complete ]; then
+# Check if we've already completed everything
+if [ -f /root/.setup_complete ]; then
     exit 0
 fi
 
-echo "WaterBot First Boot Setup"
-echo "========================="
+echo "WaterBot Boot Setup"
+echo "=================="
 
-# Expand filesystem to use full SD card
-echo "Expanding filesystem to use full SD card..."
-/usr/bin/raspi-config --expand-rootfs
+# Phase 1: Filesystem expansion (first boot)
+if [ ! -f /root/.filesystem_expanded ]; then
+    echo "Phase 1: Expanding filesystem to use full SD card..."
+    /usr/bin/raspi-config --expand-rootfs
+
+    # Mark filesystem expansion as done
+    touch /root/.filesystem_expanded
+
+    echo "Filesystem expansion complete. Rebooting..."
+    reboot
+    exit 0
+fi
+
+# Phase 2: Software installation and configuration (second boot)
+echo "Phase 2: Installing and configuring WaterBot..."
 
 chmod +x setup.sh
 
@@ -179,17 +211,18 @@ done
 
 ./setup.sh
 
-# Mark firstboot as complete
-touch /root/.firstboot_complete
-echo "First boot setup complete. Rebooting to apply filesystem expansion..."
+# Mark setup as complete
+touch /root/.setup_complete
+echo "WaterBot setup complete!"
 
 # Remove firstboot from rc.local
 sed -i '/firstboot.sh/d' /etc/rc.local
 
-# Remove the firstboot script
-rm /root/firstboot.sh
+# Remove the firstboot script and markers
+rm -f /root/firstboot.sh
+rm -f /root/.filesystem_expanded
 
-reboot
+echo "System ready. WaterBot service will start on next boot."
 EOF
 
 chmod +x "${MOUNT_POINT}/root/firstboot.sh"

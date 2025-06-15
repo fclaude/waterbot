@@ -28,30 +28,57 @@ if [ "${OFFLINE_MODE:-}" = "true" ]; then
     print_warning "Running in offline mode - skipping system updates and package installation"
     print_warning "Make sure all required packages are pre-installed in the base image"
 else
-    # Update system
+    # Update system with retries
     print_status "Updating system..."
-    if ! apt-get update; then
-        print_warning "System update failed - continuing in offline mode"
+    UPDATE_SUCCESS=false
+    for i in {1..3}; do
+        if apt-get update; then
+            UPDATE_SUCCESS=true
+            break
+        else
+            print_warning "System update attempt $i failed, retrying..."
+            sleep 5
+        fi
+    done
+
+    if [ "$UPDATE_SUCCESS" = "false" ]; then
+        print_warning "All system update attempts failed - continuing in offline mode"
         OFFLINE_MODE=true
     else
-        apt-get upgrade -y
+        # Upgrade system packages
+        print_status "Upgrading system packages..."
+        apt-get upgrade -y || print_warning "System upgrade had some issues, continuing..."
 
-        # Install required packages
+        # Install required packages with error handling
         print_status "Installing required packages..."
-        apt-get install -y \
-            python3-pip \
-            python3-venv \
-            git \
-            libasound2-dev \
-            libdbus-1-dev \
-            libglib2.0-dev \
-            libpulse-dev \
-            libssl-dev \
-            libsystemd-dev \
-            libunwind-dev \
-            libzstd-dev \
-            pkg-config \
-            build-essential
+        PACKAGES=(
+            "python3-pip"
+            "python3-venv"
+            "git"
+            "libasound2-dev"
+            "libdbus-1-dev"
+            "libglib2.0-dev"
+            "libpulse-dev"
+            "libssl-dev"
+            "libsystemd-dev"
+            "libunwind-dev"
+            "libzstd-dev"
+            "pkg-config"
+            "build-essential"
+        )
+
+        FAILED_PACKAGES=()
+        for package in "${PACKAGES[@]}"; do
+            if ! apt-get install -y "$package"; then
+                print_warning "Failed to install $package"
+                FAILED_PACKAGES+=("$package")
+            fi
+        done
+
+        if [ ${#FAILED_PACKAGES[@]} -gt 0 ]; then
+            print_warning "Some packages failed to install: ${FAILED_PACKAGES[*]}"
+            print_warning "Service may not work properly"
+        fi
     fi
 fi
 
@@ -75,10 +102,30 @@ chown -R waterbot-service:waterbot-service /opt/waterbot
 # Create and activate virtual environment
 print_status "Setting up Python virtual environment..."
 cd /opt/waterbot
-python3 -m venv venv
-chown -R waterbot-service:waterbot-service venv
-# shellcheck disable=SC1091
-. venv/bin/activate
+
+# Check if python3-venv is available
+if ! python3 -m venv --help >/dev/null 2>&1; then
+    print_warning "python3-venv not available, trying alternative installation..."
+
+    # Try to install python3-venv specifically
+    if ! apt-get install -y python3-venv; then
+        print_error "Cannot install python3-venv. Virtual environment creation will fail."
+        print_error "WaterBot may not work properly without a virtual environment."
+        OFFLINE_MODE=true
+    fi
+fi
+
+# Create virtual environment with error handling
+if python3 -m venv venv; then
+    print_status "Virtual environment created successfully"
+    chown -R waterbot-service:waterbot-service venv
+    # shellcheck disable=SC1091
+    . venv/bin/activate
+else
+    print_warning "Failed to create virtual environment"
+    print_warning "Continuing without virtual environment (dependencies may conflict)"
+    OFFLINE_MODE=true
+fi
 
 # Install dependencies
 if [ "${OFFLINE_MODE:-}" = "true" ]; then
@@ -92,9 +139,17 @@ fi
 
 # Copy configuration
 print_status "Setting up configuration..."
-mv /root/waterbot.env /opt/waterbot/.env
-chown waterbot-service:waterbot-service /opt/waterbot/.env
-chmod 600 /opt/waterbot/.env
+if [ -f /root/waterbot.env ]; then
+    mv /root/waterbot.env /opt/waterbot/.env
+    chown waterbot-service:waterbot-service /opt/waterbot/.env
+    chmod 600 /opt/waterbot/.env
+    print_status "Configuration file copied successfully"
+else
+    print_error "Configuration file /root/waterbot.env not found!"
+    print_error "Available files in /root:"
+    find /root -maxdepth 1 -name "*.env" -o -name "*.txt" 2>/dev/null || echo "No .env or .txt files found"
+    exit 1
+fi
 
 # Setup Signal CLI
 print_status "Setting up Signal CLI..."
@@ -103,7 +158,18 @@ print_status "Setting up Signal CLI..."
 
 # Create systemd service with network resilience
 print_status "Creating systemd service..."
-cat > /etc/systemd/system/waterbot.service << 'EOF'
+
+# Determine Python executable and path
+if [ -d "/opt/waterbot/venv" ]; then
+    PYTHON_EXEC="/opt/waterbot/venv/bin/python"
+    PYTHON_PATH="/opt/waterbot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+else
+    PYTHON_EXEC="/usr/bin/python3"
+    PYTHON_PATH="/usr/local/bin:/usr/bin:/bin"
+    print_warning "Using system Python (no virtual environment available)"
+fi
+
+cat > /etc/systemd/system/waterbot.service << EOF
 [Unit]
 Description=WaterBot Discord GPIO Controller
 After=network.target
@@ -114,8 +180,8 @@ Type=simple
 User=waterbot-service
 Group=waterbot-service
 WorkingDirectory=/opt/waterbot
-Environment=PATH=/opt/waterbot/venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/opt/waterbot/venv/bin/python -m waterbot.bot
+Environment=PATH=${PYTHON_PATH}
+ExecStart=${PYTHON_EXEC} -m waterbot.bot
 
 # Restart configuration for network resilience
 Restart=always
@@ -193,12 +259,12 @@ chmod +x /usr/local/bin/show-ip.sh
 cat > /etc/systemd/system/show-ip.service << 'EOF'
 [Unit]
 Description=Display IP Address Information
-After=network.target
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/show-ip.sh
+ExecStart=/bin/bash -c 'sleep 10 && /usr/local/bin/show-ip.sh'
 StandardOutput=journal+console
 
 [Install]
