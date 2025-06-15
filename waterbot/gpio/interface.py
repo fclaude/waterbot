@@ -39,13 +39,22 @@ class HardwareGPIO(GPIOInterface):
 
     def setup(self, pin: int, mode: str) -> None:
         """Set up a GPIO pin."""
+        self._ensure_mode_set()
         gpio_mode = self.GPIO.OUT if mode == "OUT" else self.GPIO.IN
         self.GPIO.setup(pin, gpio_mode)
 
     def output(self, pin: int, value: bool) -> None:
         """Set GPIO pin output value."""
+        self._ensure_mode_set()
         gpio_value = self.GPIO.LOW if value else self.GPIO.HIGH
         self.GPIO.output(pin, gpio_value)
+
+    def _ensure_mode_set(self) -> None:
+        """Ensure GPIO mode is set before operations."""
+        if self.GPIO.getmode() is None:
+            # Mode not set, set it to BOARD
+            self.GPIO.setmode(self.GPIO.BOARD)
+            self.GPIO.setwarnings(False)
 
     def cleanup(self) -> None:
         """Cleanup GPIO resources."""
