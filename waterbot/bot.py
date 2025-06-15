@@ -38,6 +38,10 @@ def handle_shutdown(signum: int, frame: Any) -> None:
     if hasattr(handle_shutdown, "bot") and handle_shutdown.bot is not None:
         handle_shutdown.bot.stop_bot()
     scheduler.stop_scheduler()
+    # Clean up GPIO on forced shutdown
+    from waterbot.gpio import handler as gpio_handler
+
+    gpio_handler.cleanup()
     sys.exit(0)
 
 

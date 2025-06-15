@@ -32,7 +32,11 @@ class DeviceController:
         if not IS_EMULATION:
             try:
                 self.gpio = HardwareGPIO()
-                logger.info("GPIO initialized in hardware mode")
+                # Clean up any previous GPIO state
+                self.gpio.cleanup()
+                logger.info(
+                    "GPIO initialized in hardware mode (previous state cleaned)"
+                )
             except (ImportError, RuntimeError) as e:
                 logger.error(f"Failed to initialize GPIO in hardware mode: {e}")
                 raise
