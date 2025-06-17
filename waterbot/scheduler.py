@@ -214,6 +214,12 @@ class DeviceScheduler:
             from .discord.bot import get_bot_instance
 
             bot = get_bot_instance()
+            logger.info(f"Bot instance available: {bot is not None}")
+            if bot:
+                logger.info(
+                    f"Target channel available: {bot.target_channel is not None}"
+                )
+
             if bot and bot.target_channel:
                 if success:
                     emoji = "💧" if action == "on" else "🛑"
@@ -234,20 +240,28 @@ class DeviceScheduler:
                 def send_message() -> None:
                     """Send message in a thread-safe way."""
                     try:
+                        logger.info(f"Attempting to send message: {message}")
                         # Create a new event loop for this thread
                         new_loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(new_loop)
-                        new_loop.run_until_complete(bot.target_channel.send(message))
+
+                        # Send the message
+                        result = new_loop.run_until_complete(
+                            bot.target_channel.send(message)
+                        )
+                        logger.info(f"Discord notification sent successfully: {result}")
+
                         new_loop.close()
-                        logger.info(f"Discord notification sent: {message}")
                     except Exception as e:
-                        logger.error(f"Failed to send Discord message: {e}")
+                        logger.error(
+                            f"Failed to send Discord message: {e}", exc_info=True
+                        )
 
                 # Run in a separate thread to avoid event loop conflicts
                 thread = threading.Thread(target=send_message, daemon=True)
                 thread.start()
 
-                logger.debug(f"Queued Discord notification: {message}")
+                logger.info(f"Queued Discord notification thread: {message}")
             else:
                 logger.warning("Discord bot not available for notifications")
         except Exception as e:

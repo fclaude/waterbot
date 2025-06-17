@@ -357,6 +357,69 @@ class WaterBot(commands.Bot):
         elif command_type == "error":
             return str(params["message"])
 
+        elif command_type == "test":
+            # Execute test notification
+            from .. import scheduler
+
+            scheduler_instance = scheduler.get_scheduler()
+            scheduler_instance._send_discord_notification("test_device", "on", True)
+            return "💧 **Test Notification** - Test via plain text command completed"
+
+        elif command_type == "time":
+            # Execute time command
+            from datetime import datetime
+
+            current_time = datetime.now()
+            response = (
+                f"🕐 **Current Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+            )
+
+            # Also show timezone info if available
+            try:
+                import subprocess  # nosec B404
+
+                tz_result = subprocess.run(  # nosec B603, B607
+                    ["timedatectl", "show", "--property=Timezone", "--value"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if tz_result.returncode == 0 and tz_result.stdout.strip():
+                    timezone = tz_result.stdout.strip()
+                    response += f"\n📍 **Timezone:** {timezone}"
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+                FileNotFoundError,
+            ):
+                # timedatectl not available or failed, try alternative
+                try:
+                    import time
+
+                    response += f"\n📍 **Timezone:** {time.tzname[time.daylight]}"
+                except Exception:  # nosec B110
+                    pass
+
+            return response
+
+        elif command_type == "ip":
+            # Execute ip command
+            ip_info = self._get_ip_addresses()
+
+            if ip_info:
+                response = "📡 **SSH Access Information:**\n\n"
+                for interface, ip in ip_info.items():
+                    response += f"• `ssh pi@{ip}` (via {interface})\n"
+                response += "\n🔑 **Default credentials:** `pi` / `raspberry`\n"
+                response += "⚠️ **Please change the default password for security!**"
+            else:
+                response = (
+                    "⚠️ No network interfaces found with IP addresses.\n"
+                    "Please check your network connection."
+                )
+
+            return response
+
         elif command_type == "help":
             return self._get_help_response()
 

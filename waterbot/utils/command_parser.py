@@ -24,6 +24,16 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
     if text == "status":
         return "status", {}
 
+    # Test, time, and ip commands
+    if text == "test":
+        return "test", {}
+
+    if text == "time":
+        return "time", {}
+
+    if text == "ip":
+        return "ip", {}
+
     # Scheduling commands
     if text == "schedules" or text == "schedule":
         return "show_schedules", {}
