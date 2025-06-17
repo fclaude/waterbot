@@ -3,6 +3,7 @@
 import logging
 import threading
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import schedule
@@ -42,6 +43,21 @@ class DeviceScheduler:
     def _schedule_device_action(self, device: str, action: str, time_str: str) -> None:
         """Schedule a single device action."""
         try:
+            # Check if this time has already passed today
+            now = datetime.now()
+            try:
+                schedule_time = datetime.strptime(time_str, "%H:%M").time()
+                today_schedule = datetime.combine(now.date(), schedule_time)
+
+                # If the scheduled time has already passed today, start from tomorrow
+                if today_schedule <= now:
+                    logger.info(
+                        f"Schedule {device} {action} at {time_str} has already "
+                        f"passed today, will start from tomorrow"
+                    )
+            except ValueError:
+                logger.error(f"Invalid time format: {time_str}")
+                return
 
             def job() -> None:
                 logger.info(
@@ -60,10 +76,14 @@ class DeviceScheduler:
                         f"Successfully executed scheduled {action} for "
                         f"device '{device}'"
                     )
+                    # Send Discord notification
+                    self._send_discord_notification(device, action, True)
                 else:
                     logger.error(
                         f"Failed to execute scheduled {action} for device '{device}'"
                     )
+                    # Send Discord notification about failure
+                    self._send_discord_notification(device, action, False)
 
             # Schedule the job
             scheduled_job = schedule.every().day.at(time_str).do(job)
@@ -184,6 +204,51 @@ class DeviceScheduler:
         self.scheduled_jobs.clear()
 
         logger.info("Device scheduler stopped")
+
+    def _send_discord_notification(
+        self, device: str, action: str, success: bool
+    ) -> None:
+        """Send Discord notification for schedule execution."""
+        try:
+            # Import here to avoid circular imports
+            from .discord.bot import get_bot_instance
+
+            bot = get_bot_instance()
+            if bot and bot.target_channel:
+                if success:
+                    emoji = "💧" if action == "on" else "🛑"
+                    message = (
+                        f"{emoji} **Scheduled {action.upper()}** - "
+                        f"Device '{device}' turned {action.upper()}"
+                    )
+                else:
+                    message = (
+                        f"❌ **Schedule Failed** - "
+                        f"Could not turn {action} device '{device}'"
+                    )
+
+                # Use asyncio to send the message
+                import asyncio
+
+                try:
+                    # Try to get the current event loop, or create a new one
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # Create a task to send the message
+                        asyncio.create_task(bot.target_channel.send(message))
+                    else:
+                        # Run in the loop
+                        loop.run_until_complete(bot.target_channel.send(message))
+                except RuntimeError:
+                    # No event loop in current thread, create a new one
+                    asyncio.run(bot.target_channel.send(message))
+
+                logger.debug(f"Sent Discord notification: {message}")
+            else:
+                logger.debug("Discord bot not available for notifications")
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification: {e}")
+            # Don't raise, as notification failure shouldn't break scheduling
 
 
 # Global scheduler instance

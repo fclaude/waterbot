@@ -198,6 +198,7 @@ def _get_controller() -> DeviceController:
     """Get the global device controller instance."""
     global _controller
     if _controller is None:
+        logger.info("Initializing new GPIO controller instance")
         _controller = DeviceController()
     return _controller
 

@@ -44,6 +44,9 @@ class WaterBot(commands.Bot):
         self.channel_id = int(DISCORD_CHANNEL_ID) if DISCORD_CHANNEL_ID else None
         self.target_channel: Optional[discord.TextChannel] = None
 
+        # Register this bot instance globally for notifications
+        set_bot_instance(self)
+
         logger.info(f"Discord bot initialized for channel ID: {self.channel_id}")
 
     def _get_ip_addresses(self) -> Dict[str, str]:
@@ -388,3 +391,18 @@ class WaterBot(commands.Bot):
         # Clean up GPIO
         gpio_handler.cleanup()
         logger.info("Bot stopped")
+
+
+# Global bot instance for notifications
+_bot_instance: Optional[WaterBot] = None
+
+
+def get_bot_instance() -> Optional[WaterBot]:
+    """Get the current bot instance for sending notifications."""
+    return _bot_instance
+
+
+def set_bot_instance(bot: WaterBot) -> None:
+    """Set the bot instance for notifications."""
+    global _bot_instance
+    _bot_instance = bot
