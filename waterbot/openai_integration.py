@@ -233,72 +233,80 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
         if function_name == "replace_device_schedule":
             device = arguments["device"]
             schedule_periods = arguments["schedule_periods"]
-            
+
             # First, clear all existing schedules for this device
             from .config import get_schedules
+
             existing_schedules = get_schedules(device)
             removed_count = 0
-            
+
             # Remove all existing schedules
             for action in ["on", "off"]:
                 if action in existing_schedules:
-                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
+                    for time_str in existing_schedules[action][
+                        :
+                    ]:  # Copy list to avoid modification during iteration
                         success = scheduler.remove_schedule(device, action, time_str)
                         if success:
                             removed_count += 1
-            
+
             # Add new schedules
             added_count = 0
             failed_schedules = []
-            
+
             for period in schedule_periods:
                 start_time = period["start_time"]
                 end_time = period["end_time"]
-                
+
                 # Add ON schedule
                 success_on = scheduler.add_schedule(device, "on", start_time)
                 if success_on:
                     added_count += 1
                 else:
                     failed_schedules.append(f"on at {start_time}")
-                
+
                 # Add OFF schedule
                 success_off = scheduler.add_schedule(device, "off", end_time)
                 if success_off:
                     added_count += 1
                 else:
                     failed_schedules.append(f"off at {end_time}")
-            
+
             result = f"Schedule replacement for '{device}' completed:\n"
             result += f"- Removed {removed_count} existing schedules\n"
             result += f"- Added {added_count} new schedules\n"
-            
+
             if failed_schedules:
                 result += f"- Failed to add: {', '.join(failed_schedules)}\n"
-            
+
             # Show the new schedule
             result += f"\nNew schedule for {device}:\n"
             for i, period in enumerate(schedule_periods, 1):
-                result += f"  Period {i}: {period['start_time']} to {period['end_time']}\n"
-            
+                result += (
+                    f"  Period {i}: {period['start_time']} to {period['end_time']}\n"
+                )
+
             return result
 
         elif function_name == "clear_device_schedule":
             device = arguments["device"]
-            
+
             # Get existing schedules
             from .config import get_schedules
+
             existing_schedules = get_schedules(device)
             removed_count = 0
-            
+
             # Remove all existing schedules
             for action in ["on", "off"]:
                 if action in existing_schedules:
-                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
+                    for time_str in existing_schedules[action][
+                        :
+                    ]:  # Copy list to avoid modification during iteration
                         success = scheduler.remove_schedule(device, action, time_str)
                         if success:
                             removed_count += 1
-            
+
             return f"Cleared all schedules for '{device}' - removed {removed_count} schedule entries"
 
         elif function_name == "get_device_status":
@@ -505,7 +513,7 @@ async def process_with_openai(message: str) -> str:
         system_message = """You are WaterBot, an intelligent agentic assistant that controls water devices (pumps, lights, fans, heaters) via GPIO pins on a Raspberry Pi. You can plan and execute complex multi-step operations.
 
 CORE CAPABILITIES:
-- Device Control: turn on/off individual devices or all devices  
+- Device Control: turn on/off individual devices or all devices
 - Intelligent Scheduling: create, modify, and manage complex schedules
 - Status Monitoring: check current device states and schedules
 - System Info: get current time, IP addresses for SSH access
@@ -521,6 +529,7 @@ AGENTIC BEHAVIOR:
 EXAMPLES:
 - "change bed1 schedule to run 6:01-6:06 and 21:21-21:26" → Plan: Replace all bed1 schedules with two periods: (ON at 6:01, OFF at 6:06) and (ON at 21:21, OFF at 21:26)
 - "add schedule for pump at 9:00" → Plan: Add single ON schedule (clarify if OFF time needed)
+- "schedules" → Show current schedules for all devices
 
 Always be helpful, clear about your plans, and execute efficiently using the available tools."""
 
