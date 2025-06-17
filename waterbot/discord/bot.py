@@ -235,6 +235,22 @@ class WaterBot(commands.Bot):
         response = self._get_help_response()
         await ctx.send(response)
 
+    @commands.command(name="test")
+    async def test_command(self, ctx: Context) -> None:
+        """Test notification system."""
+        # Test a notification
+        await ctx.send(
+            "💧 **Test Notification** - This is a test scheduled notification"
+        )
+
+        # Also test the scheduler notification function
+        from .. import scheduler
+
+        scheduler_instance = scheduler.get_scheduler()
+        scheduler_instance._send_discord_notification("test_device", "on", True)
+
+        await ctx.send("Test notification sent via scheduler system")
+
     async def _execute_command(
         self, command_type: Optional[str], params: dict
     ) -> Optional[str]:

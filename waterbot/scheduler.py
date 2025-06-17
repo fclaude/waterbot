@@ -227,25 +227,29 @@ class DeviceScheduler:
                         f"Could not turn {action} device '{device}'"
                     )
 
-                # Use asyncio to send the message
+                # Use asyncio to send the message from scheduler thread
                 import asyncio
+                import threading
 
-                try:
-                    # Try to get the current event loop, or create a new one
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # Create a task to send the message
-                        asyncio.create_task(bot.target_channel.send(message))
-                    else:
-                        # Run in the loop
-                        loop.run_until_complete(bot.target_channel.send(message))
-                except RuntimeError:
-                    # No event loop in current thread, create a new one
-                    asyncio.run(bot.target_channel.send(message))
+                def send_message() -> None:
+                    """Send message in a thread-safe way."""
+                    try:
+                        # Create a new event loop for this thread
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        new_loop.run_until_complete(bot.target_channel.send(message))
+                        new_loop.close()
+                        logger.info(f"Discord notification sent: {message}")
+                    except Exception as e:
+                        logger.error(f"Failed to send Discord message: {e}")
 
-                logger.debug(f"Sent Discord notification: {message}")
+                # Run in a separate thread to avoid event loop conflicts
+                thread = threading.Thread(target=send_message, daemon=True)
+                thread.start()
+
+                logger.debug(f"Queued Discord notification: {message}")
             else:
-                logger.debug("Discord bot not available for notifications")
+                logger.warning("Discord bot not available for notifications")
         except Exception as e:
             logger.error(f"Failed to send Discord notification: {e}")
             # Don't raise, as notification failure shouldn't break scheduling
