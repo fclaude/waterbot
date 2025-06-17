@@ -23,7 +23,8 @@ def get_available_tools() -> List[Dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "replace_device_schedule",
-                "description": "Replace all schedules for a device with new schedule periods. This removes all existing schedules for the device and adds new ones.",
+                "description": "Replace all schedules for a device with new schedule periods. "
+                "This removes all existing schedules for the device and adds new ones.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -83,7 +84,8 @@ def get_available_tools() -> List[Dict[str, Any]]:
                     "properties": {
                         "device": {
                             "type": "string",
-                            "description": "Optional device name to get status for. If not provided, returns status for all devices",
+                            "description": "Optional device name to get status for. "
+                            "If not provided, returns status for all devices",
                         }
                     },
                     "required": [],
@@ -242,9 +244,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             # Remove all existing schedules
             for action in ["on", "off"]:
                 if action in existing_schedules:
-                    for time_str in existing_schedules[action][
-                        :
-                    ]:  # Copy list to avoid modification during iteration
+                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
                         success = scheduler.remove_schedule(device, action, time_str)
                         if success:
                             removed_count += 1
@@ -281,9 +281,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             # Show the new schedule
             result += f"\nNew schedule for {device}:\n"
             for i, period in enumerate(schedule_periods, 1):
-                result += (
-                    f"  Period {i}: {period['start_time']} to {period['end_time']}\n"
-                )
+                result += f"  Period {i}: {period['start_time']} to {period['end_time']}\n"
 
             return result
 
@@ -299,9 +297,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             # Remove all existing schedules
             for action in ["on", "off"]:
                 if action in existing_schedules:
-                    for time_str in existing_schedules[action][
-                        :
-                    ]:  # Copy list to avoid modification during iteration
+                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
                         success = scheduler.remove_schedule(device, action, time_str)
                         if success:
                             removed_count += 1
@@ -398,10 +394,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             if next_runs:
                 result += "\nNext scheduled runs:\n"
                 for run in next_runs[:5]:  # Show next 5 runs
-                    result += (
-                        f"  {run['device']} {run['action']} at {run['time']} "
-                        f"(next: {run['next_run']})\n"
-                    )
+                    result += f"  {run['device']} {run['action']} at {run['time']} " f"(next: {run['next_run']})\n"
 
             return result
 
@@ -448,11 +441,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
                     text=True,
                     check=True,
                 )
-                interfaces = [
-                    iface
-                    for iface in net_result.stdout.strip().split()
-                    if iface != "lo"
-                ]
+                interfaces = [iface for iface in net_result.stdout.strip().split() if iface != "lo"]
 
                 for interface in interfaces:
                     try:
@@ -483,10 +472,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
                 for interface, ip in ip_info.items():
                     result += f"• ssh pi@{ip} (via {interface})\n"
             else:
-                result = (
-                    "⚠️ No network interfaces found with IP addresses.\n"
-                    "Please check your network connection."
-                )
+                result = "⚠️ No network interfaces found with IP addresses.\n" "Please check your network connection."
 
             return result
 
@@ -511,7 +497,8 @@ async def process_with_openai(message: str) -> str:
 
     try:
         # System message to set context
-        system_message = """You are WaterBot, an intelligent agentic assistant that controls water devices (pumps, lights, fans, heaters) via GPIO pins on a Raspberry Pi. You can plan and execute complex multi-step operations.
+        system_message = """You are WaterBot, an intelligent agentic assistant that controls water devices.
+You operate GPIO pins on a Raspberry Pi and can plan and execute complex multi-step operations.
 
 CORE CAPABILITIES:
 - Device Control: turn on/off individual devices or all devices
@@ -528,7 +515,8 @@ AGENTIC BEHAVIOR:
 - Explain your planned actions before executing them
 
 EXAMPLES:
-- "change bed1 schedule to run 6:01-6:06 and 21:21-21:26" → Plan: Replace all bed1 schedules with two periods: (ON at 6:01, OFF at 6:06) and (ON at 21:21, OFF at 21:26)
+- "change bed1 schedule to run 6:01-6:06 and 21:21-21:26" → Plan: Replace all bed1 schedules with two periods:
+  (ON at 6:01, OFF at 6:06) and (ON at 21:21, OFF at 21:26)
 - "add schedule for pump at 9:00" → Plan: Add single ON schedule (clarify if OFF time needed)
 - "schedules" → Show current schedules for all devices
 
@@ -558,9 +546,7 @@ Always be helpful, clear about your plans, and execute efficiently using the ava
                 function_name = tool_call.function.name
                 function_args = json.loads(tool_call.function.arguments)
 
-                logger.info(
-                    f"Executing tool: {function_name} with args: {function_args}"
-                )
+                logger.info(f"Executing tool: {function_name} with args: {function_args}")
 
                 # Execute the tool
                 tool_result = execute_tool_call(function_name, function_args)
@@ -583,10 +569,7 @@ Always be helpful, clear about your plans, and execute efficiently using the ava
                 temperature=0.7,
             )
 
-            return (
-                final_response.choices[0].message.content
-                or "I completed the requested action."
-            )
+            return final_response.choices[0].message.content or "I completed the requested action."
         else:
             return response_message.content or "I'm not sure how to help with that."
 
