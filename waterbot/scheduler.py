@@ -233,35 +233,40 @@ class DeviceScheduler:
                         f"Could not turn {action} device '{device}'"
                     )
 
-                # Use asyncio to send the message from scheduler thread
+                # Use asyncio to send the message via the bot's event loop
                 import asyncio
-                import threading
 
-                def send_message() -> None:
-                    """Send message in a thread-safe way."""
+                def schedule_message() -> None:
+                    """Schedule message to be sent via bot's event loop."""
                     try:
                         logger.info(f"Attempting to send message: {message}")
-                        # Create a new event loop for this thread
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
 
-                        # Send the message
-                        result = new_loop.run_until_complete(
-                            bot.target_channel.send(message)
-                        )
-                        logger.info(f"Discord notification sent successfully: {result}")
-
-                        new_loop.close()
+                        # Get the bot's event loop
+                        bot_loop = bot.loop
+                        if bot_loop and not bot_loop.is_closed():
+                            # Schedule the coroutine in the bot's event loop
+                            future = asyncio.run_coroutine_threadsafe(
+                                bot.target_channel.send(message), bot_loop
+                            )
+                            # Wait for completion with timeout
+                            result = future.result(timeout=10)
+                            logger.info(
+                                f"Discord notification sent successfully: {result}"
+                            )
+                        else:
+                            logger.error("Bot event loop not available")
                     except Exception as e:
                         logger.error(
                             f"Failed to send Discord message: {e}", exc_info=True
                         )
 
-                # Run in a separate thread to avoid event loop conflicts
-                thread = threading.Thread(target=send_message, daemon=True)
+                # Run in a separate thread to avoid blocking the scheduler
+                import threading
+
+                thread = threading.Thread(target=schedule_message, daemon=True)
                 thread.start()
 
-                logger.info(f"Queued Discord notification thread: {message}")
+                logger.info(f"Queued Discord notification via bot loop: {message}")
             else:
                 logger.warning("Discord bot not available for notifications")
         except Exception as e:

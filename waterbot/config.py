@@ -14,6 +14,10 @@ load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 
+# OpenAI configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 # Operation mode
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
 IS_EMULATION = OPERATION_MODE != "rpi"
@@ -171,6 +175,8 @@ def validate_config() -> bool:
             raise ValueError("DISCORD_BOT_TOKEN is not set in .env file")
         if not DISCORD_CHANNEL_ID:
             raise ValueError("DISCORD_CHANNEL_ID is not set in .env file")
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is not set in .env file")
     else:
         print("Running in offline mode - Discord validation skipped")
 

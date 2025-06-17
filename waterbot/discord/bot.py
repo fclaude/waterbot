@@ -14,9 +14,11 @@ from ..config import (
     DISCORD_BOT_TOKEN,
     DISCORD_CHANNEL_ID,
     LOG_LEVEL,
+    OPENAI_API_KEY,
     get_schedules,
 )
 from ..gpio import handler as gpio_handler
+from ..openai_integration import process_with_openai
 from ..utils.command_parser import parse_command
 
 # Configure logging
@@ -100,14 +102,21 @@ class WaterBot(commands.Bot):
                 ip_info = self._get_ip_addresses()
 
                 startup_message = "WaterBot is now online! 💧\n"
-                startup_message += "Send `status` to check device status.\n\n"
+                if OPENAI_API_KEY:
+                    startup_message += (
+                        "🤖 AI-powered conversational interface enabled!\n"
+                    )
+                    startup_message += (
+                        "Just chat with me naturally to control devices.\n\n"
+                    )
+                else:
+                    startup_message += "Send `status` to check device status.\n"
+                    startup_message += "💡 Tip: Set OPENAI_API_KEY for conversational AI interface.\n\n"
 
                 if ip_info:
                     startup_message += "📡 **SSH Access:**\n"
                     for interface, ip in ip_info.items():
                         startup_message += f"• `ssh pi@{ip}` (via {interface})\n"
-                    startup_message += "\n🔑 Default credentials: `pi` / `raspberry`\n"
-                    startup_message += "⚠️ **Please change the default password!**"
                 else:
                     startup_message += (
                         "⚠️ No network interfaces found with IP addresses."
@@ -127,167 +136,35 @@ class WaterBot(commands.Bot):
         if self.channel_id and message.channel.id != self.channel_id:
             return
 
-        # Process commands that start with !
-        if message.content.startswith("!"):
-            await self.process_commands(message)
-            return
-
-        # Also process plain text commands for backward compatibility
-        text = message.content.strip().lower()
+        # Process conversational messages with OpenAI if configured
+        text = message.content.strip()
         if text:
-            logger.info(f"Received command: {text}")
+            logger.info(f"Received message: {text}")
 
-            # Process the command using the command parser
-            command_type, params = parse_command(text)
-            response = await self._execute_command(command_type, params)
-
-            if response:
-                logger.debug(f"Sending response: {response}")
-                await message.channel.send(response)
-
-    @commands.command(name="status")
-    async def status_command(self, ctx: Context) -> None:
-        """Show status of all devices."""
-        response = self._get_status_response()
-        await ctx.send(response)
-
-    @commands.command(name="schedules")
-    async def schedules_command(self, ctx: Context) -> None:
-        """Show all device schedules."""
-        response = self._get_schedules_response()
-        await ctx.send(response)
-
-    @commands.command(name="on")
-    async def on_command(
-        self, ctx: Context, device: str, timeout: Optional[int] = None
-    ) -> None:
-        """Turn on a device."""
-        if device.lower() == "all":
-            gpio_handler.turn_all_on()
-            await ctx.send("All devices turned ON")
-        else:
-            success = gpio_handler.turn_on(device, timeout)
-            if success:
-                time_msg = f" for {timeout // 60} minutes" if timeout else ""
-                await ctx.send(f"Device '{device}' turned ON{time_msg}")
+            if OPENAI_API_KEY:
+                # Use OpenAI for conversational interface with tool support
+                try:
+                    response = await process_with_openai(text)
+                    if response:
+                        logger.debug(f"Sending OpenAI response: {response}")
+                        await message.channel.send(response)
+                except Exception as e:
+                    logger.error(f"OpenAI processing failed: {e}", exc_info=True)
+                    # Fallback to command parser
+                    text_lower = text.lower()
+                    command_type, params = parse_command(text_lower)
+                    response = await self._execute_command(command_type, params)
+                    if response:
+                        logger.debug(f"Sending fallback response: {response}")
+                        await message.channel.send(response)
             else:
-                await ctx.send(f"Error: Unknown device '{device}'")
-
-    @commands.command(name="off")
-    async def off_command(
-        self, ctx: Context, device: str, timeout: Optional[int] = None
-    ) -> None:
-        """Turn off a device."""
-        if device.lower() == "all":
-            gpio_handler.turn_all_off()
-            await ctx.send("All devices turned OFF")
-        else:
-            success = gpio_handler.turn_off(device, None)
-            if success:
-                await ctx.send(f"Device '{device}' turned OFF permanently")
-            else:
-                await ctx.send(f"Error: Unknown device '{device}'")
-
-    @commands.command(name="schedule")
-    async def schedule_command(
-        self, ctx: Context, device: str, action: str, time: str
-    ) -> None:
-        """Add a schedule for a device."""
-        success = scheduler.add_schedule(device, action, time)
-        if success:
-            await ctx.send(f"Added schedule: {device} {action} at {time}")
-        else:
-            await ctx.send(f"Failed to add schedule for {device}")
-
-    @commands.command(name="unschedule")
-    async def unschedule_command(
-        self, ctx: Context, device: str, action: str, time: str
-    ) -> None:
-        """Remove a schedule for a device."""
-        success = scheduler.remove_schedule(device, action, time)
-        if success:
-            await ctx.send(f"Removed schedule: {device} {action} at {time}")
-        else:
-            await ctx.send(f"No such schedule found: {device} {action} at {time}")
-
-    @commands.command(name="ip")
-    async def ip_command(self, ctx: Context) -> None:
-        """Show IP address information for SSH access."""
-        ip_info = self._get_ip_addresses()
-
-        if ip_info:
-            response = "📡 **SSH Access Information:**\n\n"
-            for interface, ip in ip_info.items():
-                response += f"• `ssh pi@{ip}` (via {interface})\n"
-            response += "\n🔑 **Default credentials:** `pi` / `raspberry`\n"
-            response += "⚠️ **Please change the default password for security!**"
-        else:
-            response = (
-                "⚠️ No network interfaces found with IP addresses.\n"
-                "Please check your network connection."
-            )
-
-        await ctx.send(response)
-
-    @commands.command(name="help")
-    async def help_command(self, ctx: Context) -> None:
-        """Show help message."""
-        response = self._get_help_response()
-        await ctx.send(response)
-
-    @commands.command(name="test")
-    async def test_command(self, ctx: Context) -> None:
-        """Test notification system."""
-        # Test a notification
-        await ctx.send(
-            "💧 **Test Notification** - This is a test scheduled notification"
-        )
-
-        # Also test the scheduler notification function
-        from .. import scheduler
-
-        scheduler_instance = scheduler.get_scheduler()
-        scheduler_instance._send_discord_notification("test_device", "on", True)
-
-        await ctx.send("Test notification sent via scheduler system")
-
-    @commands.command(name="time")
-    async def time_command(self, ctx: Context) -> None:
-        """Show current time on the bot node."""
-        from datetime import datetime
-
-        current_time = datetime.now()
-        response = (
-            f"🕐 **Current Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-        )
-
-        # Also show timezone info if available
-        try:
-            import subprocess  # nosec B404
-
-            tz_result = subprocess.run(  # nosec B603, B607
-                ["timedatectl", "show", "--property=Timezone", "--value"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if tz_result.returncode == 0 and tz_result.stdout.strip():
-                timezone = tz_result.stdout.strip()
-                response += f"\n📍 **Timezone:** {timezone}"
-        except (
-            subprocess.CalledProcessError,
-            subprocess.TimeoutExpired,
-            FileNotFoundError,
-        ):
-            # timedatectl not available or failed, try alternative
-            try:
-                import time
-
-                response += f"\n📍 **Timezone:** {time.tzname[time.daylight]}"
-            except Exception:  # nosec B110
-                pass
-
-        await ctx.send(response)
+                # Fallback to legacy command parser if OpenAI not configured
+                text_lower = text.lower()
+                command_type, params = parse_command(text_lower)
+                response = await self._execute_command(command_type, params)
+                if response:
+                    logger.debug(f"Sending response: {response}")
+                    await message.channel.send(response)
 
     async def _execute_command(
         self, command_type: Optional[str], params: dict
@@ -410,8 +287,6 @@ class WaterBot(commands.Bot):
                 response = "📡 **SSH Access Information:**\n\n"
                 for interface, ip in ip_info.items():
                     response += f"• `ssh pi@{ip}` (via {interface})\n"
-                response += "\n🔑 **Default credentials:** `pi` / `raspberry`\n"
-                response += "⚠️ **Please change the default password for security!**"
             else:
                 response = (
                     "⚠️ No network interfaces found with IP addresses.\n"
@@ -428,22 +303,36 @@ class WaterBot(commands.Bot):
 
     def _get_help_response(self) -> str:
         """Generate help response message."""
-        return (
-            "Available commands:\n"
-            "```\n"
-            "status - Show status of all devices\n"
-            "on <device> [minutes] - Turn on a device\n"
-            "off <device> [minutes] - Turn off a device\n"
-            "on all - Turn on all devices\n"
-            "off all - Turn off all devices\n"
-            "schedules - Show all schedules\n"
-            "schedule <device> <on|off> <HH:MM> - Add schedule\n"
-            "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
-            "time - Show current time on bot node\n"
-            "ip - Show SSH access information\n"
-            "test - Test notification system\n"
-            "```"
-        )
+        if OPENAI_API_KEY:
+            return (
+                "🤖 **AI-Powered WaterBot**\n\n"
+                "Just chat with me naturally! Try saying:\n"
+                "• 'Turn on the pump for 30 minutes'\n"
+                "• 'What's the status of all devices?'\n"
+                "• 'Schedule the light to turn on at 6:30'\n"
+                "• 'What time is it?'\n"
+                "• 'Show me the IP address'\n"
+                "• 'Turn off all devices'\n\n"
+                "I can control your devices, manage schedules, and provide system information through natural conversation!"
+            )
+        else:
+            return (
+                "**Available commands:**\n"
+                "```\n"
+                "status - Show status of all devices\n"
+                "on <device> [minutes] - Turn on a device\n"
+                "off <device> [minutes] - Turn off a device\n"
+                "on all - Turn on all devices\n"
+                "off all - Turn off all devices\n"
+                "schedules - Show all schedules\n"
+                "schedule <device> <on|off> <HH:MM> - Add schedule\n"
+                "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
+                "time - Show current time on bot node\n"
+                "ip - Show SSH access information\n"
+                "test - Test notification system\n"
+                "```\n"
+                "💡 Tip: Set OPENAI_API_KEY for conversational AI interface."
+            )
 
     def _get_schedules_response(self) -> str:
         """Generate schedules response message."""

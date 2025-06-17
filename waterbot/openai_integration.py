@@ -1,0 +1,449 @@
+"""OpenAI integration for WaterBot with tool support."""
+
+import json
+import logging
+from typing import Any, Dict, List, Optional
+
+import openai
+from openai import OpenAI
+
+from . import scheduler
+from .config import OPENAI_API_KEY, OPENAI_MODEL
+from .gpio import handler as gpio_handler
+
+logger = logging.getLogger("waterbot.openai")
+
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+
+def get_available_tools() -> List[Dict[str, Any]]:
+    """Define the tools available to the OpenAI model."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_device_status",
+                "description": "Get the current status of all devices or a specific device",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Optional device name to get status for. If not provided, returns status for all devices",
+                        }
+                    },
+                    "required": [],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "turn_device_on",
+                "description": "Turn on a device, optionally for a specific duration",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name to turn on, or 'all' for all devices",
+                        },
+                        "duration_minutes": {
+                            "type": "integer",
+                            "description": "Optional duration in minutes to keep the device on",
+                        },
+                    },
+                    "required": ["device"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "turn_device_off",
+                "description": "Turn off a device",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name to turn off, or 'all' for all devices",
+                        }
+                    },
+                    "required": ["device"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "add_schedule",
+                "description": "Add a schedule for a device to turn on or off at a specific time",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name to schedule",
+                        },
+                        "action": {
+                            "type": "string",
+                            "description": "Action to perform ('on' or 'off')",
+                            "enum": ["on", "off"],
+                        },
+                        "time": {
+                            "type": "string",
+                            "description": "Time in HH:MM format (24-hour)",
+                            "pattern": "^\\d{2}:\\d{2}$",
+                        },
+                    },
+                    "required": ["device", "action", "time"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "remove_schedule",
+                "description": "Remove a schedule for a device",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name",
+                        },
+                        "action": {
+                            "type": "string",
+                            "description": "Action ('on' or 'off')",
+                            "enum": ["on", "off"],
+                        },
+                        "time": {
+                            "type": "string",
+                            "description": "Time in HH:MM format (24-hour)",
+                            "pattern": "^\\d{2}:\\d{2}$",
+                        },
+                    },
+                    "required": ["device", "action", "time"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_schedules",
+                "description": "Get all schedules or schedules for a specific device",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Optional device name to get schedules for",
+                        }
+                    },
+                    "required": [],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_time",
+                "description": "Get the current time on the bot node",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_ip_addresses",
+                "description": "Get IP addresses for SSH access to the bot node",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "test_notification",
+                "description": "Send a test notification",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+    ]
+
+
+def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
+    """Execute a tool function call and return the result."""
+    try:
+        if function_name == "get_device_status":
+            device = arguments.get("device")
+            status = gpio_handler.get_status()
+            if not status:
+                return "No devices configured"
+
+            if device:
+                if device.lower() in status:
+                    is_on = status[device.lower()]
+                    return f"Device '{device}' is {'ON' if is_on else 'OFF'}"
+                else:
+                    return f"Device '{device}' not found"
+
+            # Return all device statuses
+            result = "Device Status:\n"
+            for dev, is_on in status.items():
+                result += f"- {dev}: {'ON' if is_on else 'OFF'}\n"
+            return result
+
+        elif function_name == "turn_device_on":
+            device = arguments["device"]
+            duration = arguments.get("duration_minutes")
+            timeout = duration * 60 if duration else None
+
+            if device.lower() == "all":
+                gpio_handler.turn_all_on()
+                return "All devices turned ON"
+            else:
+                success = gpio_handler.turn_on(device, timeout)
+                if success:
+                    time_msg = f" for {duration} minutes" if duration else ""
+                    return f"Device '{device}' turned ON{time_msg}"
+                else:
+                    return f"Error: Unknown device '{device}'"
+
+        elif function_name == "turn_device_off":
+            device = arguments["device"]
+
+            if device.lower() == "all":
+                gpio_handler.turn_all_off()
+                return "All devices turned OFF"
+            else:
+                success = gpio_handler.turn_off(device, None)
+                if success:
+                    return f"Device '{device}' turned OFF"
+                else:
+                    return f"Error: Unknown device '{device}'"
+
+        elif function_name == "add_schedule":
+            device = arguments["device"]
+            action = arguments["action"]
+            time_str = arguments["time"]
+
+            success = scheduler.add_schedule(device, action, time_str)
+            if success:
+                return f"Added schedule: {device} {action} at {time_str}"
+            else:
+                return f"Failed to add schedule for {device}"
+
+        elif function_name == "remove_schedule":
+            device = arguments["device"]
+            action = arguments["action"]
+            time_str = arguments["time"]
+
+            success = scheduler.remove_schedule(device, action, time_str)
+            if success:
+                return f"Removed schedule: {device} {action} at {time_str}"
+            else:
+                return f"No such schedule found: {device} {action} at {time_str}"
+
+        elif function_name == "get_schedules":
+            device = arguments.get("device")
+            from .config import get_schedules
+
+            schedules = get_schedules(device)
+            if not schedules:
+                return "No schedules configured"
+
+            result = "Device Schedules:\n"
+            for dev, actions in schedules.items():
+                result += f"{dev.upper()}:\n"
+                for action, times in actions.items():
+                    for time_str in times:
+                        result += f"  {action.upper()} at {time_str}\n"
+
+            # Add next runs information
+            next_runs = scheduler.get_next_runs()
+            if next_runs:
+                result += "\nNext scheduled runs:\n"
+                for run in next_runs[:5]:  # Show next 5 runs
+                    result += (
+                        f"  {run['device']} {run['action']} at {run['time']} "
+                        f"(next: {run['next_run']})\n"
+                    )
+
+            return result
+
+        elif function_name == "get_current_time":
+            import subprocess
+            import time
+            from datetime import datetime
+
+            current_time = datetime.now()
+            result = f"Current Time: {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+
+            # Also show timezone info if available
+            try:
+                tz_result = subprocess.run(  # nosec B603, B607
+                    ["timedatectl", "show", "--property=Timezone", "--value"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if tz_result.returncode == 0 and tz_result.stdout.strip():
+                    timezone = tz_result.stdout.strip()
+                    result += f"\nTimezone: {timezone}"
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+                FileNotFoundError,
+            ):
+                try:
+                    result += f"\nTimezone: {time.tzname[time.daylight]}"
+                except Exception:
+                    pass
+
+            return result
+
+        elif function_name == "get_ip_addresses":
+            import subprocess
+
+            ip_info = {}
+            try:
+                # Get all network interfaces except loopback
+                result = subprocess.run(  # nosec
+                    ["ls", "/sys/class/net/"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                interfaces = [
+                    iface for iface in result.stdout.strip().split() if iface != "lo"
+                ]
+
+                for interface in interfaces:
+                    try:
+                        # Get IP address for this interface
+                        result = subprocess.run(  # nosec
+                            ["ip", "addr", "show", interface],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+
+                        # Parse IP address from output
+                        for line in result.stdout.split("\n"):
+                            if "inet " in line and "127.0.0.1" not in line:
+                                ip = line.strip().split()[1].split("/")[0]
+                                if ip:
+                                    ip_info[interface] = ip
+                                    break
+
+                    except subprocess.CalledProcessError:
+                        continue
+
+            except subprocess.CalledProcessError:
+                logger.warning("Failed to get network interface information")
+
+            if ip_info:
+                result = "SSH Access Information:\n\n"
+                for interface, ip in ip_info.items():
+                    result += f"• ssh pi@{ip} (via {interface})\n"
+            else:
+                result = (
+                    "⚠️ No network interfaces found with IP addresses.\n"
+                    "Please check your network connection."
+                )
+
+            return result
+
+        elif function_name == "test_notification":
+            # Test a notification
+            scheduler_instance = scheduler.get_scheduler()
+            scheduler_instance._send_discord_notification("test_device", "on", True)
+            return "Test notification sent via scheduler system"
+
+        else:
+            return f"Unknown function: {function_name}"
+
+    except Exception as e:
+        logger.error(f"Error executing tool call {function_name}: {e}", exc_info=True)
+        return f"Error executing {function_name}: {str(e)}"
+
+
+async def process_with_openai(message: str) -> str:
+    """Process a message using OpenAI with tool support."""
+    if not client:
+        return "OpenAI is not configured. Please set OPENAI_API_KEY in your .env file."
+
+    try:
+        # System message to set context
+        system_message = """You are WaterBot, a helpful assistant that controls water devices (pumps, lights, fans, heaters) via GPIO pins on a Raspberry Pi. You can check device status, turn devices on/off, manage schedules, and provide system information.
+
+Key capabilities:
+- Control devices: turn on/off individual devices or all devices
+- Scheduling: add/remove schedules for automatic device control
+- Status: check current device states
+- System info: get current time, IP addresses for SSH access
+- Testing: send test notifications
+
+Be helpful, concise, and use the tools available to you to assist users with their water device control needs. When users ask about devices, always check current status first. When they want to control devices, use the appropriate tool functions."""
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": message},
+        ]
+
+        # Make initial call to OpenAI
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=messages,
+            tools=get_available_tools(),
+            tool_choice="auto",
+            max_tokens=1000,
+            temperature=0.7,
+        )
+
+        response_message = response.choices[0].message
+        messages.append(response_message)
+
+        # Handle tool calls if present
+        if response_message.tool_calls:
+            for tool_call in response_message.tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+
+                logger.info(
+                    f"Executing tool: {function_name} with args: {function_args}"
+                )
+
+                # Execute the tool
+                tool_result = execute_tool_call(function_name, function_args)
+
+                # Add tool result to messages
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": tool_result,
+                    }
+                )
+
+            # Get final response after tool execution
+            final_response = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=messages,
+                max_tokens=1000,
+                temperature=0.7,
+            )
+
+            return (
+                final_response.choices[0].message.content
+                or "I completed the requested action."
+            )
+        else:
+            return response_message.content or "I'm not sure how to help with that."
+
+    except Exception as e:
+        logger.error(f"Error processing OpenAI request: {e}", exc_info=True)
+        return f"Sorry, I encountered an error processing your request: {str(e)}"
