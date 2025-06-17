@@ -251,6 +251,44 @@ class WaterBot(commands.Bot):
 
         await ctx.send("Test notification sent via scheduler system")
 
+    @commands.command(name="time")
+    async def time_command(self, ctx: Context) -> None:
+        """Show current time on the bot node."""
+        from datetime import datetime
+
+        current_time = datetime.now()
+        response = (
+            f"🕐 **Current Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+        )
+
+        # Also show timezone info if available
+        try:
+            import subprocess  # nosec B404
+
+            tz_result = subprocess.run(  # nosec B603, B607
+                ["timedatectl", "show", "--property=Timezone", "--value"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if tz_result.returncode == 0 and tz_result.stdout.strip():
+                timezone = tz_result.stdout.strip()
+                response += f"\n📍 **Timezone:** {timezone}"
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+        ):
+            # timedatectl not available or failed, try alternative
+            try:
+                import time
+
+                response += f"\n📍 **Timezone:** {time.tzname[time.daylight]}"
+            except Exception:  # nosec B110
+                pass
+
+        await ctx.send(response)
+
     async def _execute_command(
         self, command_type: Optional[str], params: dict
     ) -> Optional[str]:
@@ -338,7 +376,9 @@ class WaterBot(commands.Bot):
             "schedules - Show all schedules\n"
             "schedule <device> <on|off> <HH:MM> - Add schedule\n"
             "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
+            "time - Show current time on bot node\n"
             "ip - Show SSH access information\n"
+            "test - Test notification system\n"
             "```"
         )
 
