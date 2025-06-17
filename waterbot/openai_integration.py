@@ -23,6 +23,60 @@ def get_available_tools() -> List[Dict[str, Any]]:
         {
             "type": "function",
             "function": {
+                "name": "replace_device_schedule",
+                "description": "Replace all schedules for a device with new schedule periods. This removes all existing schedules for the device and adds new ones.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name to replace schedules for",
+                        },
+                        "schedule_periods": {
+                            "type": "array",
+                            "description": "List of schedule periods with start and end times",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "start_time": {
+                                        "type": "string",
+                                        "description": "Start time in HH:MM format (when device turns ON)",
+                                        "pattern": "^\\d{2}:\\d{2}$",
+                                    },
+                                    "end_time": {
+                                        "type": "string",
+                                        "description": "End time in HH:MM format (when device turns OFF)",
+                                        "pattern": "^\\d{2}:\\d{2}$",
+                                    },
+                                },
+                                "required": ["start_time", "end_time"],
+                            },
+                        },
+                    },
+                    "required": ["device", "schedule_periods"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "clear_device_schedule",
+                "description": "Remove all schedules for a specific device",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {
+                            "type": "string",
+                            "description": "Device name to clear schedules for",
+                        }
+                    },
+                    "required": ["device"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "get_device_status",
                 "description": "Get the current status of all devices or a specific device",
                 "parameters": {
@@ -176,7 +230,78 @@ def get_available_tools() -> List[Dict[str, Any]]:
 def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
     """Execute a tool function call and return the result."""
     try:
-        if function_name == "get_device_status":
+        if function_name == "replace_device_schedule":
+            device = arguments["device"]
+            schedule_periods = arguments["schedule_periods"]
+            
+            # First, clear all existing schedules for this device
+            from .config import get_schedules
+            existing_schedules = get_schedules(device)
+            removed_count = 0
+            
+            # Remove all existing schedules
+            for action in ["on", "off"]:
+                if action in existing_schedules:
+                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
+                        success = scheduler.remove_schedule(device, action, time_str)
+                        if success:
+                            removed_count += 1
+            
+            # Add new schedules
+            added_count = 0
+            failed_schedules = []
+            
+            for period in schedule_periods:
+                start_time = period["start_time"]
+                end_time = period["end_time"]
+                
+                # Add ON schedule
+                success_on = scheduler.add_schedule(device, "on", start_time)
+                if success_on:
+                    added_count += 1
+                else:
+                    failed_schedules.append(f"on at {start_time}")
+                
+                # Add OFF schedule
+                success_off = scheduler.add_schedule(device, "off", end_time)
+                if success_off:
+                    added_count += 1
+                else:
+                    failed_schedules.append(f"off at {end_time}")
+            
+            result = f"Schedule replacement for '{device}' completed:\n"
+            result += f"- Removed {removed_count} existing schedules\n"
+            result += f"- Added {added_count} new schedules\n"
+            
+            if failed_schedules:
+                result += f"- Failed to add: {', '.join(failed_schedules)}\n"
+            
+            # Show the new schedule
+            result += f"\nNew schedule for {device}:\n"
+            for i, period in enumerate(schedule_periods, 1):
+                result += f"  Period {i}: {period['start_time']} to {period['end_time']}\n"
+            
+            return result
+
+        elif function_name == "clear_device_schedule":
+            device = arguments["device"]
+            
+            # Get existing schedules
+            from .config import get_schedules
+            existing_schedules = get_schedules(device)
+            removed_count = 0
+            
+            # Remove all existing schedules
+            for action in ["on", "off"]:
+                if action in existing_schedules:
+                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
+                        success = scheduler.remove_schedule(device, action, time_str)
+                        if success:
+                            removed_count += 1
+            
+            return f"Cleared all schedules for '{device}' - removed {removed_count} schedule entries"
+
+        elif function_name == "get_device_status":
             device = arguments.get("device")
             status = gpio_handler.get_status()
             if not status:
@@ -377,16 +502,27 @@ async def process_with_openai(message: str) -> str:
 
     try:
         # System message to set context
-        system_message = """You are WaterBot, a helpful assistant that controls water devices (pumps, lights, fans, heaters) via GPIO pins on a Raspberry Pi. You can check device status, turn devices on/off, manage schedules, and provide system information.
+        system_message = """You are WaterBot, an intelligent agentic assistant that controls water devices (pumps, lights, fans, heaters) via GPIO pins on a Raspberry Pi. You can plan and execute complex multi-step operations.
 
-Key capabilities:
-- Control devices: turn on/off individual devices or all devices
-- Scheduling: add/remove schedules for automatic device control
-- Status: check current device states
-- System info: get current time, IP addresses for SSH access
-- Testing: send test notifications
+CORE CAPABILITIES:
+- Device Control: turn on/off individual devices or all devices  
+- Intelligent Scheduling: create, modify, and manage complex schedules
+- Status Monitoring: check current device states and schedules
+- System Info: get current time, IP addresses for SSH access
+- Planning & Execution: break down complex requests into multiple steps
 
-Be helpful, concise, and use the tools available to you to assist users with their water device control needs. When users ask about devices, always check current status first. When they want to control devices, use the appropriate tool functions."""
+AGENTIC BEHAVIOR:
+- Always plan multi-step operations before executing
+- When users request schedule changes, understand they want to REPLACE existing schedules unless specified otherwise
+- For schedule periods (e.g., "run from 6:01 to 6:06"), create ON schedule at start time and OFF schedule at end time
+- Be proactive - if someone says "change schedule to X", remove old schedules and add new ones atomically
+- Explain your planned actions before executing them
+
+EXAMPLES:
+- "change bed1 schedule to run 6:01-6:06 and 21:21-21:26" → Plan: Replace all bed1 schedules with two periods: (ON at 6:01, OFF at 6:06) and (ON at 21:21, OFF at 21:26)
+- "add schedule for pump at 9:00" → Plan: Add single ON schedule (clarify if OFF time needed)
+
+Always be helpful, clear about your plans, and execute efficiently using the available tools."""
 
         messages = [
             {"role": "system", "content": system_message},
