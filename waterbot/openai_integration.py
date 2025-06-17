@@ -2,9 +2,8 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import openai
 from openai import OpenAI
 
 from . import scheduler
@@ -407,7 +406,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             return result
 
         elif function_name == "get_current_time":
-            import subprocess
+            import subprocess  # nosec B404
             import time
             from datetime import datetime
 
@@ -432,31 +431,33 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             ):
                 try:
                     result += f"\nTimezone: {time.tzname[time.daylight]}"
-                except Exception:
+                except Exception:  # nosec B110
                     pass
 
             return result
 
         elif function_name == "get_ip_addresses":
-            import subprocess
+            import subprocess  # nosec B404
 
             ip_info = {}
             try:
                 # Get all network interfaces except loopback
-                result = subprocess.run(  # nosec
+                net_result = subprocess.run(  # nosec
                     ["ls", "/sys/class/net/"],
                     capture_output=True,
                     text=True,
                     check=True,
                 )
                 interfaces = [
-                    iface for iface in result.stdout.strip().split() if iface != "lo"
+                    iface
+                    for iface in net_result.stdout.strip().split()
+                    if iface != "lo"
                 ]
 
                 for interface in interfaces:
                     try:
                         # Get IP address for this interface
-                        result = subprocess.run(  # nosec
+                        ip_result = subprocess.run(  # nosec
                             ["ip", "addr", "show", interface],
                             capture_output=True,
                             text=True,
@@ -464,7 +465,7 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
                         )
 
                         # Parse IP address from output
-                        for line in result.stdout.split("\n"):
+                        for line in ip_result.stdout.split("\n"):
                             if "inet " in line and "127.0.0.1" not in line:
                                 ip = line.strip().split()[1].split("/")[0]
                                 if ip:
