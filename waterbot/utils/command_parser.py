@@ -34,9 +34,13 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
     if text == "ip":
         return "ip", {}
 
-    # Scheduling commands
-    if text == "schedules" or text == "schedule":
-        return "show_schedules", {}
+    # Device-specific schedule query: "schedule for <device>" or "schedules for <device>"
+    schedule_for_match = re.match(r"(?:schedule|schedules)\s+for\s+(\w+)", text)
+    if schedule_for_match:
+        device = schedule_for_match.group(1)
+        if device not in DEVICE_TO_PIN:
+            return "error", {"message": f"Unknown device: {device}"}
+        return "show_device_schedules", {"device": device}
 
     # Schedule add: "schedule <device> <action> <time>"
     schedule_add_match = re.match(r"schedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)
@@ -53,9 +57,7 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
         return "schedule_add", {"device": device, "action": action, "time": time_str}
 
     # Schedule remove: "unschedule <device> <action> <time>"
-    schedule_remove_match = re.match(  # type: ignore[unreachable]
-        r"unschedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text
-    )
+    schedule_remove_match = re.match(r"unschedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)
     if schedule_remove_match:
         device, action, time_str = schedule_remove_match.groups()
         if device not in DEVICE_TO_PIN:
@@ -97,6 +99,10 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
         # Off command should be permanent - no timeout
         timeout = None
         return "device_off", {"device": device, "timeout": timeout}
+
+    # Simple scheduling commands (must be after more specific schedule patterns)
+    if text == "schedules" or text == "schedule":
+        return "show_schedules", {}
 
     # Unknown command
     return "help", {}

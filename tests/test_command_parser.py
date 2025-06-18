@@ -30,6 +30,30 @@ class TestCommandParser:
             assert command_type == "show_schedules"
             assert params == {}
 
+    @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"bed1": 17, "bed2": 18, "bed3": 19})
+    def test_show_device_schedules_command(self):
+        """Test parsing device-specific schedules command."""
+        # Test various formats
+        test_cases = [
+            ("schedule for bed2", {"device": "bed2"}),
+            ("schedules for bed1", {"device": "bed1"}),
+            ("SCHEDULE FOR BED3", {"device": "bed3"}),
+            ("  schedules  for  bed2  ", {"device": "bed2"}),
+        ]
+
+        for cmd, expected_params in test_cases:
+            command_type, params = parse_command(cmd)
+            assert command_type == "show_device_schedules"
+            assert params == expected_params
+
+    @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"bed1": 17, "bed2": 18})
+    def test_show_device_schedules_unknown_device(self):
+        """Test parsing device-specific schedules with unknown device."""
+        command_type, params = parse_command("schedule for unknown_device")
+
+        assert command_type == "error"
+        assert "Unknown device: unknown_device" in params["message"]
+
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_schedule_add_command(self):
         """Test parsing schedule add commands."""
@@ -184,14 +208,10 @@ class TestCommandParser:
             assert command_type == "schedule_add"
 
             # Invalid time formats should not match schedule pattern
-            command_type, params = parse_command(
-                "schedule pump on 8:30"
-            )  # Missing leading zero
+            command_type, params = parse_command("schedule pump on 8:30")  # Missing leading zero
             assert command_type == "help"  # Should fall through to help
 
-            command_type, params = parse_command(
-                "schedule pump on 25:00"
-            )  # Invalid hour
+            command_type, params = parse_command("schedule pump on 25:00")  # Invalid hour
             assert command_type == "help"  # Should fall through to help
 
             # Test unschedule time validation too

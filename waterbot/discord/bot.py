@@ -6,7 +6,6 @@ from typing import Dict, Optional
 
 import discord
 from discord.ext import commands
-from discord.ext.commands import Context
 
 from .. import scheduler
 from ..config import (
@@ -23,9 +22,7 @@ from ..utils.command_parser import parse_command
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
-logging.basicConfig(
-    level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("discord_bot")
 if DEBUG_MODE:
     logger.setLevel(logging.DEBUG)
@@ -56,12 +53,8 @@ class WaterBot(commands.Bot):
         ip_info = {}
         try:
             # Get all network interfaces except loopback
-            result = subprocess.run(  # nosec
-                ["ls", "/sys/class/net/"], capture_output=True, text=True, check=True
-            )
-            interfaces = [
-                iface for iface in result.stdout.strip().split() if iface != "lo"
-            ]
+            result = subprocess.run(["ls", "/sys/class/net/"], capture_output=True, text=True, check=True)  # nosec
+            interfaces = [iface for iface in result.stdout.strip().split() if iface != "lo"]
 
             for interface in interfaces:
                 try:
@@ -103,12 +96,8 @@ class WaterBot(commands.Bot):
 
                 startup_message = "WaterBot is now online! 💧\n"
                 if OPENAI_API_KEY:
-                    startup_message += (
-                        "🤖 AI-powered conversational interface enabled!\n"
-                    )
-                    startup_message += (
-                        "Just chat with me naturally to control devices.\n\n"
-                    )
+                    startup_message += "🤖 AI-powered conversational interface enabled!\n"
+                    startup_message += "Just chat with me naturally to control devices.\n\n"
                 else:
                     startup_message += "Send `status` to check device status.\n"
                     startup_message += "💡 Tip: Set OPENAI_API_KEY for conversational AI interface.\n\n"
@@ -118,9 +107,7 @@ class WaterBot(commands.Bot):
                     for interface, ip in ip_info.items():
                         startup_message += f"• `ssh pi@{ip}` (via {interface})\n"
                 else:
-                    startup_message += (
-                        "⚠️ No network interfaces found with IP addresses."
-                    )
+                    startup_message += "⚠️ No network interfaces found with IP addresses."
 
                 await self.target_channel.send(startup_message)
             else:
@@ -166,9 +153,7 @@ class WaterBot(commands.Bot):
                     logger.debug(f"Sending response: {response}")
                     await message.channel.send(response)
 
-    async def _execute_command(
-        self, command_type: Optional[str], params: dict
-    ) -> Optional[str]:
+    async def _execute_command(self, command_type: Optional[str], params: dict) -> Optional[str]:
         """Execute a parsed command.
 
         Args:
@@ -183,6 +168,10 @@ class WaterBot(commands.Bot):
 
         elif command_type == "show_schedules":
             return self._get_schedules_response()
+
+        elif command_type == "show_device_schedules":
+            device = params["device"]
+            return self._get_device_schedules_response(device)
 
         elif command_type == "schedule_add":
             device = params["device"]
@@ -247,9 +236,7 @@ class WaterBot(commands.Bot):
             from datetime import datetime
 
             current_time = datetime.now()
-            response = (
-                f"🕐 **Current Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-            )
+            response = f"🕐 **Current Time:** {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
 
             # Also show timezone info if available
             try:
@@ -288,10 +275,7 @@ class WaterBot(commands.Bot):
                 for interface, ip in ip_info.items():
                     response += f"• `ssh pi@{ip}` (via {interface})\n"
             else:
-                response = (
-                    "⚠️ No network interfaces found with IP addresses.\n"
-                    "Please check your network connection."
-                )
+                response = "⚠️ No network interfaces found with IP addresses.\n" "Please check your network connection."
 
             return response
 
@@ -313,7 +297,8 @@ class WaterBot(commands.Bot):
                 "• 'What time is it?'\n"
                 "• 'Show me the IP address'\n"
                 "• 'Turn off all devices'\n\n"
-                "I can control your devices, manage schedules, and provide system information through natural conversation!"
+                "I can control your devices, manage schedules, and provide system information "
+                "through natural conversation!"
             )
         else:
             return (
@@ -325,6 +310,7 @@ class WaterBot(commands.Bot):
                 "on all - Turn on all devices\n"
                 "off all - Turn off all devices\n"
                 "schedules - Show all schedules\n"
+                "schedule for <device> - Show schedules for specific device\n"
                 "schedule <device> <on|off> <HH:MM> - Add schedule\n"
                 "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
                 "time - Show current time on bot node\n"
@@ -352,10 +338,30 @@ class WaterBot(commands.Bot):
         if next_runs:
             response += "\nNext scheduled runs:\n"
             for run in next_runs[:5]:  # Show next 5 runs
-                response += (
-                    f"  {run['device']} {run['action']} at {run['time']} "
-                    f"(next: {run['next_run']})\n"
-                )
+                response += f"  {run['device']} {run['action']} at {run['time']} " f"(next: {run['next_run']})\n"
+
+        response += "```"
+        return response
+
+    def _get_device_schedules_response(self, device: str) -> str:
+        """Generate schedules response message for a specific device."""
+        schedules = get_schedules(device)
+        if not schedules:
+            return f"No schedules configured for device '{device}'"
+
+        response = f"**Schedules for {device.upper()}:**\n```\n"
+        for action, times in schedules.items():
+            for time_str in times:
+                response += f"  {action.upper()} at {time_str}\n"
+
+        # Add next runs information for this device
+        next_runs = scheduler.get_next_runs()
+        if next_runs:
+            device_runs = [run for run in next_runs if run["device"].lower() == device.lower()]
+            if device_runs:
+                response += f"\nNext scheduled runs for {device}:\n"
+                for run in device_runs[:5]:  # Show next 5 runs for this device
+                    response += f"  {run['action']} at {run['time']} (next: {run['next_run']})\n"
 
         response += "```"
         return response
