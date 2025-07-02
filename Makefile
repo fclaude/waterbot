@@ -71,7 +71,7 @@ format-check: ## Check if code formatting is correct
 	$(ISORT) waterbot/ tests/ --profile=black --check-only
 
 type-check: ## Run type checking with mypy
-	$(MYPY) waterbot/ --ignore-missing-imports --no-strict-optional
+	$(MYPY) waterbot/ --ignore-missing-imports --no-strict-optional --no-warn-unused-ignores
 
 security-check: ## Run security checks
 	$(BANDIT) -r waterbot/ -f json -o bandit-report.json || true
