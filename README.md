@@ -14,13 +14,13 @@ Pi Zero W. The bot only responds to messages from a specific Discord channel.
 ## Features
 
 - Control GPIO pins remotely via Discord
-- Secure: only responds to messages from a specified Discord channel
+- Only responds to messages from a specified Discord channel
 - Command-based interface to control devices
 - Timed operations (e.g., turn on a device for 1 hour)
 - **Automatic scheduling**: Set devices to turn on/off at specific times
 - Emulation mode for testing on non-RPi devices
 - Configurable device-to-pin mapping via .env file
-- Comprehensive unit test coverage
+- Reasonable unit test coverage
 
 ## Requirements
 
