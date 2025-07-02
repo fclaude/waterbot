@@ -24,7 +24,7 @@ Pi Zero W. The bot only responds to messages from a specific Discord channel.
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.11+
 - Raspberry Pi Zero W (or any Raspberry Pi)
 - Discord bot token
 - Discord server with a channel for the bot
@@ -34,7 +34,7 @@ Pi Zero W. The bot only responds to messages from a specific Discord channel.
 1. Clone this repository:
 
 ```bash
-git clone https://github.com/yourusername/waterbot.git
+git clone https://github.com/fclaude/waterbot.git
 cd waterbot
 ```
 
@@ -50,6 +50,10 @@ pip install -r requirements.txt
 # Discord Configuration
 DISCORD_BOT_TOKEN="your_discord_bot_token_here"
 DISCORD_CHANNEL_ID="123456789012345678"
+
+# OpenAI Configuration
+OPENAI_API_KEY="your_openai_api_key_here"  # pragma: allowlist secret
+OPENAI_MODEL="gpt-4o-mini"
 
 # Operation Mode (rpi or emulation)
 OPERATION_MODE=rpi
@@ -267,7 +271,7 @@ sudo chown $USER:$USER /opt/waterbot
 
 # Clone and setup the application
 cd /opt/waterbot
-git clone https://github.com/yourusername/waterbot.git .
+git clone https://github.com/fclaude/waterbot.git .
 ```
 
 1. **Install Python dependencies**:
