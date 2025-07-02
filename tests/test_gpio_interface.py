@@ -156,8 +156,13 @@ class TestHardwareGPIO:
 
     def test_hardware_gpio_import_error(self):
         """Test hardware GPIO import error handling."""
-        # Simulate ImportError by removing RPi from sys.modules
+        # Test case 1: ImportError when RPi module is not available
         with patch.dict("sys.modules", {}, clear=True):
             with patch("builtins.__import__", side_effect=ImportError("No module named 'RPi'")):
                 with pytest.raises(RuntimeError, match="RPi.GPIO not available"):
                     HardwareGPIO()
+
+        # Test case 2: RuntimeError when RPi.GPIO is available but can't run on non-Pi hardware
+        # This is the actual scenario happening in CI
+        with pytest.raises(RuntimeError, match="RPi.GPIO not available"):
+            HardwareGPIO()
