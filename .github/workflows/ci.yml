@@ -36,7 +36,7 @@ jobs:
       - run: make test-cov
       - uses: codecov/codecov-action@v5
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
       - uses: actions/upload-artifact@v4
