@@ -251,8 +251,8 @@ Check these in your CI/CD environment:
 2. **Test across Python versions locally**:
 
    ```bash
-   pyenv install 3.8.18 3.9.18 3.10.13 3.11.10
-   for version in 3.8.18 3.9.18 3.10.13 3.11.10; do
+   pyenv install [versions]
+   for version in [versions]; do
      pyenv shell $version
      make test
    done
