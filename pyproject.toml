@@ -21,21 +21,20 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: POSIX :: Linux",
     "Topic :: Home Automation",
     "Topic :: Communications :: Chat",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
     "python-dotenv",
     "schedule",
     "requests",
     "tzlocal",
     "discord.py>=2.3.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -58,11 +57,11 @@ rpi = [
 all = ["waterbot[dev,rpi]"]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/waterbot"
-Documentation = "https://github.com/yourusername/waterbot#readme"
-Repository = "https://github.com/yourusername/waterbot"
-"Bug Tracker" = "https://github.com/yourusername/waterbot/issues"
-Changelog = "https://github.com/yourusername/waterbot/releases"
+Homepage = "https://github.com/fclaude/waterbot"
+Documentation = "https://github.com/fclaude/waterbot#readme"
+Repository = "https://github.com/fclaude/waterbot"
+"Bug Tracker" = "https://github.com/fclaude/waterbot/issues"
+Changelog = "https://github.com/fclaude/waterbot/releases"
 
 [project.scripts]
 waterbot = "waterbot.bot:main"
@@ -76,7 +75,7 @@ exclude = ["tests*"]
 
 [tool.black]
 line-length = 120
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -119,7 +118,7 @@ exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
