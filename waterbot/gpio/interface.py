@@ -32,7 +32,7 @@ class HardwareGPIO(GPIOInterface):
             import RPi.GPIO as GPIO
 
             self.GPIO = GPIO
-            self.GPIO.setmode(GPIO.BOARD)  # Use physical pin numbers
+            self.GPIO.setmode(GPIO.BCM)  # Use BCM pin numbers
             self.GPIO.setwarnings(False)
         except ImportError:
             raise RuntimeError("RPi.GPIO not available")
@@ -46,14 +46,14 @@ class HardwareGPIO(GPIOInterface):
         except RuntimeError:
             # Clean up and retry once
             self.GPIO.cleanup()
-            self.GPIO.setmode(self.GPIO.BOARD)
+            self.GPIO.setmode(self.GPIO.BCM)
             self.GPIO.setwarnings(False)
             self.GPIO.setup(pin, gpio_mode)
 
     def output(self, pin: int, value: bool) -> None:
         """Set GPIO pin output value."""
         self._ensure_mode_set()
-        gpio_value = self.GPIO.LOW if value else self.GPIO.HIGH
+        gpio_value = self.GPIO.HIGH if value else self.GPIO.LOW
         try:
             self.GPIO.output(pin, gpio_value)
         except RuntimeError:
@@ -65,7 +65,7 @@ class HardwareGPIO(GPIOInterface):
         """Ensure GPIO mode is set before operations."""
         if self.GPIO.getmode() is None:
             # Mode not set, set it to BOARD
-            self.GPIO.setmode(self.GPIO.BOARD)
+            self.GPIO.setmode(self.GPIO.BCM)
             self.GPIO.setwarnings(False)
 
     def cleanup(self) -> None:
