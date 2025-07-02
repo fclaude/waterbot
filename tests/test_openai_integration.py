@@ -1,5 +1,6 @@
 """Tests for waterbot/openai_integration.py."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -253,8 +254,22 @@ class TestOpenAIIntegration:
             # Mock successful interface listing
             mock_run.side_effect = [
                 MagicMock(stdout="eth0\nwlan0\n", returncode=0),
-                MagicMock(stdout="2: eth0: inet 192.168.1.100/24", returncode=0),
-                MagicMock(stdout="3: wlan0: inet 192.168.1.101/24", returncode=0),
+                MagicMock(
+                    stdout=(
+                        "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
+                        "state UP qlen 1000\n    inet 192.168.1.100/24 brd 192.168.1.255 "
+                        "scope global dynamic"
+                    ),
+                    returncode=0,
+                ),
+                MagicMock(
+                    stdout=(
+                        "3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
+                        "state UP qlen 1000\n    inet 192.168.1.101/24 brd 192.168.1.255 "
+                        "scope global dynamic"
+                    ),
+                    returncode=0,
+                ),
             ]
 
             result = execute_tool_call("get_ip_addresses", {})
@@ -265,7 +280,7 @@ class TestOpenAIIntegration:
 
     def test_execute_tool_get_ip_addresses_no_interfaces(self):
         """Test execute_tool_call for get_ip_addresses with no interfaces."""
-        with patch("subprocess.run", side_effect=Exception("Command failed")):
+        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "ls")):
             result = execute_tool_call("get_ip_addresses", {})
 
             assert "No network interfaces found" in result

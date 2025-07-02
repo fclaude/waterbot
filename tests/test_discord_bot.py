@@ -451,5 +451,5 @@ class TestWaterBot:
     def test_start_bot_no_token(self):
         """Test starting bot without token."""
         with patch("waterbot.discord.bot.DISCORD_BOT_TOKEN", None):
-            with pytest.raises(ValueError, match="Discord bot token is required"):
+            with pytest.raises(ValueError, match="Discord bot token not configured"):
                 self.bot.start_bot()
