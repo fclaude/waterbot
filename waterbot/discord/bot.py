@@ -35,10 +35,10 @@ class WaterBot(commands.Bot):
         """Initialize the Discord bot for water control."""
         logger.debug("Initializing WaterBot Discord bot")
 
-        # Initialize bot with command prefix
+        # Initialize bot without a command prefix
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="", intents=intents)
 
         self.channel_id = int(DISCORD_CHANNEL_ID) if DISCORD_CHANNEL_ID else None
         self.target_channel: Optional[discord.TextChannel] = None
