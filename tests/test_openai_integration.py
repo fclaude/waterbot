@@ -397,8 +397,9 @@ class TestOpenAIIntegration:
             mock_second_response,
         ]
 
-        with patch("waterbot.openai_integration.client", mock_client), patch(
-            "waterbot.openai_integration.execute_tool_call", return_value="Tool result"
+        with (
+            patch("waterbot.openai_integration.client", mock_client),
+            patch("waterbot.openai_integration.execute_tool_call", return_value="Tool result"),
         ):
 
             result = await process_with_openai("test message")

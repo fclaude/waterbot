@@ -573,7 +573,7 @@ async def process_with_openai(message: str) -> str:
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
-            tools=get_available_tools(),  # type: ignore[call-overload]
+            tools=get_available_tools(),
             tool_choice="auto",
             max_tokens=1000,
             temperature=0.7,
@@ -614,7 +614,7 @@ async def process_with_openai(message: str) -> str:
             next_response = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=messages,
-                tools=get_available_tools(),  # type: ignore[call-overload]
+                tools=get_available_tools(),
                 tool_choice="auto",
                 max_tokens=1000,
                 temperature=0.7,

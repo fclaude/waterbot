@@ -47,9 +47,11 @@ class TestRunModule:
     def test_main_emulation_mode(self):
         """Test main function with emulation flag."""
         test_args = ["run.py", "--emulation"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "waterbot.bot.main"
-        ) as mock_bot_main:
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("waterbot.bot.main") as mock_bot_main,
+        ):
 
             result = run.main()
 
@@ -60,9 +62,12 @@ class TestRunModule:
     def test_main_test_mode(self):
         """Test main function with test flag."""
         test_args = ["run.py", "--test"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "builtins.__import__"
-        ) as mock_import, patch("run.argparse.ArgumentParser") as mock_parser:
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("builtins.__import__") as mock_import,
+            patch("run.argparse.ArgumentParser") as mock_parser,
+        ):
             # Mock the ArgumentParser to avoid locale issues
             mock_parser_instance = MagicMock()
             mock_parser.return_value = mock_parser_instance
@@ -80,9 +85,11 @@ class TestRunModule:
     def test_main_normal_operation(self):
         """Test main function normal operation."""
         test_args = ["run.py"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "waterbot.bot.main"
-        ) as mock_bot_main:
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("waterbot.bot.main") as mock_bot_main,
+        ):
 
             result = run.main()
 
@@ -92,8 +99,10 @@ class TestRunModule:
     def test_main_import_error(self):
         """Test main function with import error."""
         test_args = ["run.py"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "waterbot.bot.main", side_effect=ImportError("Module not found")
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("waterbot.bot.main", side_effect=ImportError("Module not found")),
         ):
 
             result = run.main()
@@ -103,8 +112,10 @@ class TestRunModule:
     def test_main_exception_handling(self):
         """Test main function exception handling."""
         test_args = ["run.py"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "waterbot.bot.main", side_effect=Exception("Test error")
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("waterbot.bot.main", side_effect=Exception("Test error")),
         ):
 
             result = run.main()
@@ -114,9 +125,12 @@ class TestRunModule:
     def test_main_with_args_parsing(self):
         """Test argument parsing in main function."""
         test_args = ["run.py", "--emulation", "--test"]
-        with patch("sys.argv", test_args), patch("run.check_env_file", return_value=True), patch(
-            "builtins.__import__"
-        ) as mock_import, patch("run.argparse.ArgumentParser") as mock_parser:
+        with (
+            patch("sys.argv", test_args),
+            patch("run.check_env_file", return_value=True),
+            patch("builtins.__import__") as mock_import,
+            patch("run.argparse.ArgumentParser") as mock_parser,
+        ):
             # Mock the ArgumentParser to avoid locale issues
             mock_parser_instance = MagicMock()
             mock_parser.return_value = mock_parser_instance
