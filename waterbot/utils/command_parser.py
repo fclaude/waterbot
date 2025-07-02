@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Dict, Optional, Tuple
 
-from ..config import DEFAULT_TIMEOUT, DEVICE_TO_PIN
+from ..config import DEVICE_TO_PIN
 
 logger = logging.getLogger("command_parser")
 
@@ -43,7 +43,7 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
         return "show_device_schedules", {"device": device}
 
     # Schedule add: "schedule <device> <action> <time>"
-    schedule_add_match = re.match(r"schedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)
+    schedule_add_match = re.match(r"schedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)  # type: ignore[unreachable]
     if schedule_add_match:
         device, action, time_str = schedule_add_match.groups()
         if device not in DEVICE_TO_PIN:
@@ -72,10 +72,10 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
 
     # All devices commands
     if text == "on all":
-        return "all_on", {"timeout": DEFAULT_TIMEOUT * 60}
+        return "all_on", {"timeout": 600}  # 10 minutes in seconds
 
     if text == "off all":
-        return "all_off", {"timeout": DEFAULT_TIMEOUT * 60}
+        return "all_off", {"timeout": 600}  # 10 minutes in seconds
 
     # Device-specific commands
     on_match = re.match(r"on\s+(\w+)(?:\s+(\d+))?", text)
@@ -85,8 +85,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use DEFAULT_TIMEOUT if no timeout specified, convert minutes to seconds
-        timeout = (int(time_str) * 60) if time_str else (DEFAULT_TIMEOUT * 60)
+        # Use 10 minutes if no timeout specified, convert minutes to seconds
+        timeout = (int(time_str) * 60) if time_str else 600
         return "device_on", {"device": device, "timeout": timeout}
 
     off_match = re.match(r"off\s+(\w+)(?:\s+(\d+))?", text)
@@ -96,8 +96,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Off command should be permanent - no timeout
-        timeout = None
+        # Use 10 minutes if no timeout specified, convert minutes to seconds
+        timeout = (int(time_str) * 60) if time_str else 600
         return "device_off", {"device": device, "timeout": timeout}
 
     # Simple scheduling commands (must be after more specific schedule patterns)

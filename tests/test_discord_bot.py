@@ -13,12 +13,8 @@ class TestWaterBot:
     def setup_method(self):
         """Set up test fixtures."""
         # Patch the config values
-        self.config_token_patcher = patch(
-            "waterbot.discord.bot.DISCORD_BOT_TOKEN", "test_token"
-        )
-        self.config_channel_patcher = patch(
-            "waterbot.discord.bot.DISCORD_CHANNEL_ID", "123456789"
-        )
+        self.config_token_patcher = patch("waterbot.discord.bot.DISCORD_BOT_TOKEN", "test_token")
+        self.config_channel_patcher = patch("waterbot.discord.bot.DISCORD_CHANNEL_ID", "123456789")
 
         self.config_token_patcher.start()
         self.config_channel_patcher.start()
@@ -47,9 +43,7 @@ class TestWaterBot:
 
         self.bot.get_channel = Mock(return_value=mock_channel)
 
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
             await self.bot.on_ready()
 
@@ -66,9 +60,7 @@ class TestWaterBot:
 
         self.bot.get_channel = Mock(return_value=None)
 
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
             await self.bot.on_ready()
 
@@ -86,17 +78,16 @@ class TestWaterBot:
 
         mock_user = Mock()
 
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
-            with patch.object(self.bot, "_execute_command") as mock_execute:
-                mock_execute.return_value = "Test response"
+            with patch("waterbot.discord.bot.OPENAI_API_KEY", None):
+                with patch.object(self.bot, "_execute_command") as mock_execute:
+                    mock_execute.return_value = "Test response"
 
-                await self.bot.on_message(mock_message)
+                    await self.bot.on_message(mock_message)
 
-                mock_execute.assert_called_once()
-                mock_message.channel.send.assert_called_once_with("Test response")
+                    mock_execute.assert_called_once()
+                    mock_message.channel.send.assert_called_once_with("Test response")
 
     @pytest.mark.asyncio
     async def test_on_message_ignore_bot(self):
@@ -106,9 +97,7 @@ class TestWaterBot:
         mock_message.content = "status"
 
         # Set bot user to be the message author
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_message.author
             with patch.object(self.bot, "_execute_command") as mock_execute:
                 await self.bot.on_message(mock_message)
@@ -126,9 +115,7 @@ class TestWaterBot:
 
         mock_user = Mock()
 
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
             with patch.object(self.bot, "_execute_command") as mock_execute:
                 await self.bot.on_message(mock_message)
@@ -176,9 +163,7 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.scheduler.add_schedule") as mock_add_schedule:
             mock_add_schedule.return_value = False
 
-            await self.bot.schedule_command.callback(
-                self.bot, mock_ctx, "pump", "on", "08:00"
-            )
+            await self.bot.schedule_command.callback(self.bot, mock_ctx, "pump", "on", "08:00")
 
             mock_add_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -191,14 +176,10 @@ class TestWaterBot:
         mock_ctx = Mock()
         mock_ctx.send = AsyncMock()
 
-        with patch(
-            "waterbot.discord.bot.scheduler.remove_schedule"
-        ) as mock_remove_schedule:
+        with patch("waterbot.discord.bot.scheduler.remove_schedule") as mock_remove_schedule:
             mock_remove_schedule.return_value = False
 
-            await self.bot.unschedule_command.callback(
-                self.bot, mock_ctx, "pump", "on", "08:00"
-            )
+            await self.bot.unschedule_command.callback(self.bot, mock_ctx, "pump", "on", "08:00")
 
             mock_remove_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -295,9 +276,7 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.scheduler.add_schedule") as mock_add_schedule:
             mock_add_schedule.return_value = True
 
-            await self.bot.schedule_command.callback(
-                self.bot, mock_ctx, "pump", "on", "08:00"
-            )
+            await self.bot.schedule_command.callback(self.bot, mock_ctx, "pump", "on", "08:00")
 
             mock_add_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -310,14 +289,10 @@ class TestWaterBot:
         mock_ctx = Mock()
         mock_ctx.send = AsyncMock()
 
-        with patch(
-            "waterbot.discord.bot.scheduler.remove_schedule"
-        ) as mock_remove_schedule:
+        with patch("waterbot.discord.bot.scheduler.remove_schedule") as mock_remove_schedule:
             mock_remove_schedule.return_value = True
 
-            await self.bot.unschedule_command.callback(
-                self.bot, mock_ctx, "pump", "on", "08:00"
-            )
+            await self.bot.unschedule_command.callback(self.bot, mock_ctx, "pump", "on", "08:00")
 
             mock_remove_schedule.assert_called_once_with("pump", "on", "08:00")
             mock_ctx.send.assert_called_once()
@@ -357,9 +332,7 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.gpio_handler.turn_on") as mock_turn_on:
             mock_turn_on.return_value = True
 
-            response = await self.bot._execute_command(
-                "device_on", {"device": "pump", "timeout": None}
-            )
+            response = await self.bot._execute_command("device_on", {"device": "pump", "timeout": None})
 
             assert response is not None
             assert "Device 'pump' turned ON" in response
@@ -416,9 +389,7 @@ class TestWaterBot:
         ]
 
         with patch("waterbot.discord.bot.get_schedules") as mock_get_schedules:
-            with patch(
-                "waterbot.discord.bot.scheduler.get_next_runs"
-            ) as mock_get_next_runs:
+            with patch("waterbot.discord.bot.scheduler.get_next_runs") as mock_get_next_runs:
                 mock_get_schedules.return_value = mock_schedules
                 mock_get_next_runs.return_value = mock_next_runs
 
