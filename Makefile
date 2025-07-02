@@ -47,7 +47,7 @@ test: ## Run unit tests
 	$(PYTEST) tests/ -v
 
 test-cov: ## Run tests with coverage report
-	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing
+	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing --cov-report=xml
 
 test-cov-fail: ## Run tests with coverage and fail if below threshold
 	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing --cov-fail-under=80
