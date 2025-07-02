@@ -60,7 +60,7 @@ test-watch: ## Run tests in watch mode (requires pytest-watch)
 
 # Code quality targets
 lint: ## Run linting checks
-	$(FLAKE8) waterbot/ tests/ --max-line-length=120 --extend-ignore=E203,W503
+	$(FLAKE8) waterbot/ tests/ --max-line-length=120 --extend-ignore=E203
 
 format: ## Format code with black and isort
 	$(BLACK) waterbot/ tests/ --line-length=120
