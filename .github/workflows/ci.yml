@@ -34,10 +34,11 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: make test-cov
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: htmlcov
