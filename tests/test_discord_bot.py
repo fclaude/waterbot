@@ -136,28 +136,6 @@ class TestWaterBot:
                 mock_execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_on_message_with_command_prefix(self):
-        """Test message handling with command prefix."""
-        mock_message = Mock()
-        mock_message.author = Mock()
-        mock_message.content = "!status"
-        mock_message.channel = Mock()
-        mock_message.channel.id = 123456789
-
-        mock_user = Mock()
-
-        with patch.object(
-            type(self.bot), "user", new_callable=PropertyMock
-        ) as mock_user_prop:
-            mock_user_prop.return_value = mock_user
-            with patch.object(
-                self.bot, "process_commands", new_callable=AsyncMock
-            ) as mock_process:
-                await self.bot.on_message(mock_message)
-
-                mock_process.assert_called_once_with(mock_message)
-
-    @pytest.mark.asyncio
     async def test_on_command_device_failure(self):
         """Test on command for device with failure."""
         mock_ctx = Mock()
@@ -358,7 +336,7 @@ class TestWaterBot:
         mock_ctx.send.assert_called_once()
         call_args = mock_ctx.send.call_args[0][0]
         assert "Available commands:" in call_args
-        assert "!status" in call_args
+        assert "status" in call_args
 
     @pytest.mark.asyncio
     async def test_execute_command_status(self):
@@ -394,16 +372,16 @@ class TestWaterBot:
 
         assert response is not None
         assert "Unknown command" in response
-        assert "!help" in response
+        assert "help" in response
 
     def test_get_help_response(self):
         """Test get help response."""
         response = self.bot._get_help_response()
 
         assert "Available commands:" in response
-        assert "!status" in response
-        assert "!on <device>" in response
-        assert "!schedule" in response
+        assert "status" in response
+        assert "on <device>" in response
+        assert "schedule" in response
 
     def test_get_status_response(self):
         """Test get status response."""

@@ -104,23 +104,19 @@ Send these commands from the Discord channel to control your devices:
 
 #### Device Control
 
-- `!status` or `status` - Show the status of all devices
-- `!on <device>` or `on <device>` - Turn on a specific device
-- `!off <device>` or `off <device>` - Turn off a specific device
-- `!on <device> <seconds>` or `on <device> <seconds>` - Turn on a device for a
-  specified time
-- `!off <device> <seconds>` or `off <device> <seconds>` - Turn off a device for
-  a specified time
-- `on all` - Turn on all devices
-- `off all` - Turn off all devices
+- `status` - Show the status of all devices
+- `on <device>` - Turn on a specific device
+- `off <device>` - Turn off a specific device
+- `on <device> <seconds>` - Turn on a device for a specified time
+- `off <device> <seconds>` - Turn off a device for a specified time
+  - `on all` - Turn on all devices
+  - `off all` - Turn off all devices
 
 #### Scheduling Commands
 
-- `!schedules` or `schedules` - Show all configured schedules and next runs
-- `!schedule <device> <on|off> <HH:MM>` or `schedule <device> <on|off> <HH:MM>`
-  - Add a new schedule
-- `!unschedule <device> <on|off> <HH:MM>` or `unschedule <device> <on|off> <HH:MM>`
-  - Remove a schedule
+- `schedules` - Show all configured schedules and next runs
+- `schedule <device> <on|off> <HH:MM>` - Add a new schedule
+- `unschedule <device> <on|off> <HH:MM>` - Remove a schedule
 
 #### Help
 
