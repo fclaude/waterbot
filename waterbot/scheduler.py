@@ -60,9 +60,7 @@ class DeviceScheduler:
                 return
 
             def job() -> None:
-                logger.info(
-                    f"Executing scheduled {action} for device '{device}' at {time_str}"
-                )
+                logger.info(f"Executing scheduled {action} for device '{device}' at {time_str}")
                 if action == "on":
                     success = gpio_handler.turn_on(device)
                 elif action == "off":
@@ -72,16 +70,11 @@ class DeviceScheduler:
                     return
 
                 if success:
-                    logger.info(
-                        f"Successfully executed scheduled {action} for "
-                        f"device '{device}'"
-                    )
+                    logger.info(f"Successfully executed scheduled {action} for " f"device '{device}'")
                     # Send Discord notification
                     self._send_discord_notification(device, action, True)
                 else:
-                    logger.error(
-                        f"Failed to execute scheduled {action} for device '{device}'"
-                    )
+                    logger.error(f"Failed to execute scheduled {action} for device '{device}'")
                     # Send Discord notification about failure
                     self._send_discord_notification(device, action, False)
 
@@ -99,9 +92,7 @@ class DeviceScheduler:
             logger.debug(f"Scheduled {action} for device '{device}' at {time_str}")
 
         except Exception as e:
-            logger.error(
-                f"Error scheduling {action} for device '{device}' at {time_str}: {e}"
-            )
+            logger.error(f"Error scheduling {action} for device '{device}' at {time_str}: {e}")
 
     def add_schedule(self, device: str, action: str, time_str: str) -> bool:
         """Add a new schedule dynamically."""
@@ -119,11 +110,7 @@ class DeviceScheduler:
 
         # Find and cancel the job
         for job_info in self.scheduled_jobs[:]:
-            if (
-                job_info["device"] == device
-                and job_info["action"] == action
-                and job_info["time"] == time_str
-            ):
+            if job_info["device"] == device and job_info["action"] == action and job_info["time"] == time_str:
                 schedule.cancel_job(job_info["job"])
                 self.scheduled_jobs.remove(job_info)
                 logger.info(f"Removed scheduled job: {device} {action} at {time_str}")
@@ -205,9 +192,7 @@ class DeviceScheduler:
 
         logger.info("Device scheduler stopped")
 
-    def _send_discord_notification(
-        self, device: str, action: str, success: bool
-    ) -> None:
+    def _send_discord_notification(self, device: str, action: str, success: bool) -> None:
         """Send Discord notification for schedule execution."""
         try:
             # Import here to avoid circular imports
@@ -216,22 +201,14 @@ class DeviceScheduler:
             bot = get_bot_instance()
             logger.info(f"Bot instance available: {bot is not None}")
             if bot:
-                logger.info(
-                    f"Target channel available: {bot.target_channel is not None}"
-                )
+                logger.info(f"Target channel available: {bot.target_channel is not None}")
 
             if bot and bot.target_channel:
                 if success:
                     emoji = "💧" if action == "on" else "🛑"
-                    message = (
-                        f"{emoji} **Scheduled {action.upper()}** - "
-                        f"Device '{device}' turned {action.upper()}"
-                    )
+                    message = f"{emoji} **Scheduled {action.upper()}** - " f"Device '{device}' turned {action.upper()}"
                 else:
-                    message = (
-                        f"❌ **Schedule Failed** - "
-                        f"Could not turn {action} device '{device}'"
-                    )
+                    message = f"❌ **Schedule Failed** - " f"Could not turn {action} device '{device}'"
 
                 # Use asyncio to send the message via the bot's event loop
                 import asyncio
@@ -245,20 +222,14 @@ class DeviceScheduler:
                         bot_loop = bot.loop
                         if bot_loop and not bot_loop.is_closed():
                             # Schedule the coroutine in the bot's event loop
-                            future = asyncio.run_coroutine_threadsafe(
-                                bot.target_channel.send(message), bot_loop
-                            )
+                            future = asyncio.run_coroutine_threadsafe(bot.target_channel.send(message), bot_loop)
                             # Wait for completion with timeout
                             result = future.result(timeout=10)
-                            logger.info(
-                                f"Discord notification sent successfully: {result}"
-                            )
+                            logger.info(f"Discord notification sent successfully: {result}")
                         else:
                             logger.error("Bot event loop not available")
                     except Exception as e:
-                        logger.error(
-                            f"Failed to send Discord message: {e}", exc_info=True
-                        )
+                        logger.error(f"Failed to send Discord message: {e}", exc_info=True)
 
                 # Run in a separate thread to avoid blocking the scheduler
                 import threading

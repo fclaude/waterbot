@@ -158,8 +158,6 @@ class TestHardwareGPIO:
         """Test hardware GPIO import error handling."""
         # Simulate ImportError by removing RPi from sys.modules
         with patch.dict("sys.modules", {}, clear=True):
-            with patch(
-                "builtins.__import__", side_effect=ImportError("No module named 'RPi'")
-            ):
+            with patch("builtins.__import__", side_effect=ImportError("No module named 'RPi'")):
                 with pytest.raises(RuntimeError, match="RPi.GPIO not available"):
                     HardwareGPIO()

@@ -151,9 +151,7 @@ class TestScheduleConfiguration:
                 DEVICE_SCHEDULES["pump"] = {"on": ["08:00"], "off": ["20:00"]}
 
                 # Test that save_schedules can handle the current structure
-                with tempfile.NamedTemporaryFile(
-                    mode="w", delete=False, suffix=".json"
-                ) as f:
+                with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
                     temp_file = f.name
 
                 # Test save functionality

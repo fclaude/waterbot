@@ -10,9 +10,7 @@ import os
 import sys
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("waterbot_runner")
 
 
@@ -49,10 +47,7 @@ DEBUG_MODE=false
         with open(".env", "w") as f:
             f.write(env_template)
 
-        logger.info(
-            "Template .env file created. Please edit it with your "
-            "configuration before running again."
-        )
+        logger.info("Template .env file created. Please edit it with your " "configuration before running again.")
         return False
 
     return True
@@ -61,12 +56,8 @@ DEBUG_MODE=false
 def main() -> int:
     """Run the WaterBot application."""
     parser = argparse.ArgumentParser(description="Run WaterBot Signal GPIO Controller")
-    parser.add_argument(
-        "--emulation", action="store_true", help="Force emulation mode for testing"
-    )
-    parser.add_argument(
-        "--test", action="store_true", help="Run the test_emulation.py script"
-    )
+    parser.add_argument("--emulation", action="store_true", help="Force emulation mode for testing")
+    parser.add_argument("--test", action="store_true", help="Run the test_emulation.py script")
     args = parser.parse_args()
 
     # Check if .env file exists

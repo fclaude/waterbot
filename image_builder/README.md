@@ -1,19 +1,21 @@
 # WaterBot Image Builder
 
-This tool helps you create pre-configured Raspberry Pi OS images for WaterBot. It automates the
-installation and configuration process, allowing you to quickly deploy WaterBot to multiple
-Raspberry Pi devices.
+This tool helps you create pre-configured Raspberry Pi OS images for WaterBot.
+It automates the installation and configuration process, allowing you to
+quickly deploy WaterBot to multiple Raspberry Pi devices.
 
 ## Cross-Platform Support
 
 The image builder uses Docker and works on **any platform**:
 
 ### ✅ Supported Platforms
+
 - **macOS** (Intel and Apple Silicon)
 - **Linux** (all distributions with Docker support)
 - **Windows** (with Docker Desktop or WSL2)
 
 ### 🚀 Key Benefits
+
 - **No sudo/admin privileges required** - just Docker
 - **Unified experience** across all platforms
 - **Automatic WiFi configuration** support
@@ -23,9 +25,12 @@ The image builder uses Docker and works on **any platform**:
 ## Prerequisites
 
 1. **Install Docker:**
-   - **macOS:** [Docker Desktop for macOS](https://www.docker.com/products/docker-desktop)
-   - **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/install/linux-install/)
-   - **Windows:** [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+   - **macOS:** [Docker Desktop for macOS](
+     https://www.docker.com/products/docker-desktop)
+   - **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) or
+     [Docker Desktop](https://docs.docker.com/desktop/install/linux-install/)
+   - **Windows:** [Docker Desktop for Windows](
+     https://docs.docker.com/desktop/install/windows-install/)
 
 2. **Ensure Docker is running**
 
@@ -46,6 +51,7 @@ waterbot/
 ## Usage
 
 ### 1. Create your configuration
+
 - Copy `configs/default.env` to a new file (e.g., `configs/home.env`)
 - Modify the Discord bot token, channel ID, and device mappings
 
@@ -73,6 +79,7 @@ waterbot/
 The script will provide platform-specific instructions:
 
 #### macOS
+
 ```bash
 # Find your SD card
 diskutil list
@@ -88,6 +95,7 @@ diskutil eject /dev/diskX
 ```
 
 #### Linux
+
 ```bash
 # Find your SD card
 lsblk
@@ -103,23 +111,29 @@ sync && sudo eject /dev/sdX
 ```
 
 #### Windows
-Use a tool like [Balena Etcher](https://www.balena.io/etcher/) or [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to write the image to your SD card.
+
+Use a tool like [Balena Etcher](https://www.balena.io/etcher/) or
+[Raspberry Pi Imager](https://www.raspberrypi.com/software/) to write the
+image to your SD card.
 
 ### 4. First Boot
 
 The first boot process automatically handles several setup tasks:
 
-1. **Filesystem expansion:** Automatically expands to use the full SD card capacity
+1. **Filesystem expansion:** Automatically expands to use the full SD card
+   capacity
 2. **WiFi connection:** If configured, connects to the specified network
 3. **WaterBot installation:** Installs and configures the service
 4. **Automatic reboot:** Reboots to complete the filesystem expansion
 
 **Timeline:**
+
 - First boot: ~2-5 minutes (depends on SD card speed and internet connection)
 - Automatic reboot after setup completion
 - Second boot: Service starts and WaterBot becomes operational
 
 **Check service status:**
+
 ```bash
 systemctl status waterbot.service
 journalctl -u waterbot.service -f
@@ -128,7 +142,8 @@ df -h  # Check available disk space
 
 ## Configuration Files
 
-Configuration files are stored in the `configs/` directory. Each file should be named `[name].env`
+Configuration files are stored in the `configs/` directory. Each file
+should be named `[name].env`
 and contain the following settings:
 
 - `DISCORD_BOT_TOKEN`: Your bot's Discord token
@@ -140,7 +155,8 @@ and contain the following settings:
 
 ## Network Resilience Features
 
-The image builder creates a robust system that handles network issues gracefully:
+The image builder creates a robust system that handles network issues
+gracefully:
 
 ### Offline Operation
 
@@ -213,7 +229,8 @@ The image builder creates a robust system that handles network issues gracefully
 
 ### Custom Base Images
 
-You can modify the Dockerfile to use different base images or add additional packages:
+You can modify the Dockerfile to use different base images or add
+additional packages:
 
 ```dockerfile
 # Example: Add custom packages
@@ -230,7 +247,7 @@ Create different configuration files for different deployments:
 # Production configuration
 ./build.sh production "HomeWiFi" "password123"
 
-# Development configuration  
+# Development configuration
 ./build.sh dev "TestWiFi" "devpass"
 
 # Greenhouse configuration
@@ -252,7 +269,8 @@ done
 ## Security Notes
 
 - The image includes SSH enabled for initial setup - disable if not needed
-- WiFi passwords are stored in plain text during build - use secure build environment
+- WiFi passwords are stored in plain text during build - use secure build
+  environment
 - Default configurations should be modified for production use
 - Consider using environment-specific Discord tokens and channels
 - The service runs with limited privileges for security

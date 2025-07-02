@@ -124,7 +124,12 @@ class WaterBot(commands.Bot):
         # Create wrapper objects with callback for tests
         class MockCommand:
             def __init__(self, func: Callable) -> None:
-                async def callback(bot_instance: "WaterBot", ctx: commands.Context, *args: Any, **kwargs: Any) -> None:
+                async def callback(
+                    bot_instance: "WaterBot",
+                    ctx: commands.Context,
+                    *args: Any,
+                    **kwargs: Any,
+                ) -> None:
                     await func(ctx, *args, **kwargs)
 
                 self.callback = callback
