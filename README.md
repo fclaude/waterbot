@@ -1,7 +1,7 @@
 # WaterBot - Discord GPIO Controller for Raspberry Pi
 
 [![CI](https://github.com/fclaude/waterbot/workflows/CI/badge.svg)](https://github.com/fclaude/waterbot/actions/workflows/ci.yml)
-[![Coverage Status](https://codecov.io/gh/fclaude/waterbot/branch/main/graph/badge.svg)](https://codecov.io/gh/fclaude/waterbot)
+[![codecov](https://codecov.io/gh/fclaude/waterbot/graph/badge.svg?token=G2DI5V03O1)](https://codecov.io/gh/fclaude/waterbot)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
