@@ -59,10 +59,7 @@ def load_schedules() -> None:
             with open(SCHEDULE_CONFIG_FILE, "r") as f:
                 DEVICE_SCHEDULES = json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            print(
-                f"Warning: Could not load schedule config file "
-                f"{SCHEDULE_CONFIG_FILE}: {e}"
-            )
+            print(f"Warning: Could not load schedule config file " f"{SCHEDULE_CONFIG_FILE}: {e}")
             DEVICE_SCHEDULES = {}
     else:
         # No config file exists, start with empty schedules
@@ -125,11 +122,7 @@ def remove_schedule(device: str, action: str, time: str) -> bool:
     Returns:
         bool: Success status
     """
-    if (
-        device in DEVICE_SCHEDULES
-        and action in DEVICE_SCHEDULES[device]
-        and time in DEVICE_SCHEDULES[device][action]
-    ):
+    if device in DEVICE_SCHEDULES and action in DEVICE_SCHEDULES[device] and time in DEVICE_SCHEDULES[device][action]:
         DEVICE_SCHEDULES[device][action].remove(time)
 
         # Clean up empty entries
