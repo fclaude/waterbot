@@ -55,9 +55,7 @@ class TestDeviceScheduler:
 
         with patch("waterbot.scheduler.schedule") as mock_schedule:
             mock_job = Mock()
-            mock_schedule.every.return_value.day.at.return_value.do.return_value = (
-                mock_job
-            )
+            mock_schedule.every.return_value.day.at.return_value.do.return_value = mock_job
 
             self.scheduler._schedule_device_action("pump", "on", "08:00")
 
@@ -69,9 +67,7 @@ class TestDeviceScheduler:
             assert job_info["time"] == "08:00"
 
             # Simulate job execution
-            scheduled_function = (
-                mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
-            )
+            scheduled_function = mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
             scheduled_function()
 
             mock_gpio.turn_on.assert_called_once_with("pump")
@@ -83,16 +79,12 @@ class TestDeviceScheduler:
 
         with patch("waterbot.scheduler.schedule") as mock_schedule:
             mock_job = Mock()
-            mock_schedule.every.return_value.day.at.return_value.do.return_value = (
-                mock_job
-            )
+            mock_schedule.every.return_value.day.at.return_value.do.return_value = mock_job
 
             self.scheduler._schedule_device_action("pump", "off", "20:00")
 
             # Simulate job execution
-            scheduled_function = (
-                mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
-            )
+            scheduled_function = mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
             scheduled_function()
 
             mock_gpio.turn_off.assert_called_once_with("pump")
@@ -102,9 +94,7 @@ class TestDeviceScheduler:
         """Test adding a new schedule dynamically."""
         mock_config_add.return_value = True
 
-        with patch.object(
-            self.scheduler, "_schedule_device_action"
-        ) as mock_schedule_action:
+        with patch.object(self.scheduler, "_schedule_device_action") as mock_schedule_action:
             success = self.scheduler.add_schedule("pump", "on", "09:00")
 
             assert success is True
@@ -129,9 +119,7 @@ class TestDeviceScheduler:
 
         # Set up a scheduled job
         mock_job = Mock()
-        self.scheduler.scheduled_jobs.append(
-            {"device": "pump", "action": "on", "time": "08:00", "job": mock_job}
-        )
+        self.scheduler.scheduled_jobs.append({"device": "pump", "action": "on", "time": "08:00", "job": mock_job})
 
         success = self.scheduler.remove_schedule("pump", "on", "08:00")
 

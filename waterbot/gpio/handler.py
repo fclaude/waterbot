@@ -38,9 +38,7 @@ class DeviceController:
 
                 # Now initialize with proper mode
                 self.gpio = HardwareGPIO()
-                logger.info(
-                    "GPIO initialized in hardware mode (previous state cleaned)"
-                )
+                logger.info("GPIO initialized in hardware mode (previous state cleaned)")
             except (ImportError, RuntimeError) as e:
                 logger.error(f"Failed to initialize GPIO in hardware mode: {e}")
                 raise
@@ -91,16 +89,12 @@ class DeviceController:
 
             # Set a timer if timeout is specified
             if timeout:
-                self.device_timers[device] = Timer(
-                    timeout, lambda: self.turn_off(device)
-                )
+                self.device_timers[device] = Timer(timeout, lambda: self.turn_off(device))
                 timer = self.device_timers[device]
                 if timer is not None:
                     timer.daemon = True
                     timer.start()
-                logger.info(
-                    f"Device '{device}' will turn off after {timeout // 60} minutes"
-                )
+                logger.info(f"Device '{device}' will turn off after {timeout // 60} minutes")
 
         return True
 
@@ -136,16 +130,12 @@ class DeviceController:
 
             # Set a timer if timeout is specified
             if timeout:
-                self.device_timers[device] = Timer(
-                    timeout, lambda: self.turn_on(device)
-                )
+                self.device_timers[device] = Timer(timeout, lambda: self.turn_on(device))
                 timer = self.device_timers[device]
                 if timer is not None:
                     timer.daemon = True
                     timer.start()
-                logger.info(
-                    f"Device '{device}' will turn on after {timeout // 60} minutes"
-                )
+                logger.info(f"Device '{device}' will turn on after {timeout // 60} minutes")
             else:
                 logger.info(f"Device '{device}' turned off permanently")
 

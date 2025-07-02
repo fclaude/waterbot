@@ -34,7 +34,9 @@ class HardwareGPIO(GPIOInterface):
             self.GPIO = GPIO
             self.GPIO.setmode(GPIO.BCM)  # Use BCM pin numbers
             self.GPIO.setwarnings(False)
-        except ImportError:
+        except (ImportError, RuntimeError) as e:
+            if "This module can only be run on a Raspberry Pi!" in str(e):
+                raise RuntimeError("RPi.GPIO not available")
             raise RuntimeError("RPi.GPIO not available")
 
     def setup(self, pin: int, mode: str) -> None:

@@ -60,18 +60,18 @@ test-watch: ## Run tests in watch mode (requires pytest-watch)
 
 # Code quality targets
 lint: ## Run linting checks
-	$(FLAKE8) waterbot/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+	$(FLAKE8) waterbot/ tests/ --max-line-length=120 --extend-ignore=E203
 
 format: ## Format code with black and isort
-	$(BLACK) waterbot/ tests/ --line-length=88
+	$(BLACK) waterbot/ tests/ --line-length=120
 	$(ISORT) waterbot/ tests/ --profile=black
 
 format-check: ## Check if code formatting is correct
-	$(BLACK) waterbot/ tests/ --line-length=88 --check
+	$(BLACK) waterbot/ tests/ --line-length=120 --check
 	$(ISORT) waterbot/ tests/ --profile=black --check-only
 
 type-check: ## Run type checking with mypy
-	$(MYPY) waterbot/ --ignore-missing-imports --no-strict-optional
+	$(MYPY) waterbot/ --ignore-missing-imports --no-strict-optional --no-warn-unused-ignores
 
 security-check: ## Run security checks
 	$(BANDIT) -r waterbot/ -f json -o bandit-report.json || true

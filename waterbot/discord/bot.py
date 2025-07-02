@@ -57,7 +57,7 @@ class WaterBot(commands.Bot):
     def _setup_commands(self) -> None:
         """Set up Discord slash commands."""
 
-        @self.command(name="on")
+        @self.command(name="on")  # type: ignore[arg-type]
         async def on_command_func(ctx: commands.Context, device: str, timeout: Optional[int] = None) -> None:
             """Turn on a device."""
             if device.lower() == "all":
@@ -73,7 +73,7 @@ class WaterBot(commands.Bot):
                 else:
                     await ctx.send(f"Error: Unknown device '{device}'")
 
-        @self.command(name="off")
+        @self.command(name="off")  # type: ignore[arg-type]
         async def off_command_func(ctx: commands.Context, device: str, timeout: Optional[int] = None) -> None:
             """Turn off a device."""
             success = gpio_handler.turn_off(device, timeout)
@@ -85,19 +85,19 @@ class WaterBot(commands.Bot):
             else:
                 await ctx.send(f"Error: Unknown device '{device}'")
 
-        @self.command(name="status")
+        @self.command(name="status")  # type: ignore[arg-type]
         async def status_command_func(ctx: commands.Context) -> None:
             """Show device status."""
             response = self._get_status_response()
             await ctx.send(response)
 
-        @self.command(name="schedules")
+        @self.command(name="schedules")  # type: ignore[arg-type]
         async def schedules_command_func(ctx: commands.Context) -> None:
             """Show all schedules."""
             response = self._get_schedules_response()
             await ctx.send(response)
 
-        @self.command(name="schedule")
+        @self.command(name="schedule")  # type: ignore[arg-type]
         async def schedule_command_func(ctx: commands.Context, device: str, action: str, time: str) -> None:
             """Add a schedule."""
             success = scheduler.add_schedule(device, action, time)
@@ -106,7 +106,7 @@ class WaterBot(commands.Bot):
             else:
                 await ctx.send(f"Failed to add schedule for {device}")
 
-        @self.command(name="unschedule")
+        @self.command(name="unschedule")  # type: ignore[arg-type]
         async def unschedule_command_func(ctx: commands.Context, device: str, action: str, time: str) -> None:
             """Remove a schedule."""
             success = scheduler.remove_schedule(device, action, time)
@@ -115,7 +115,7 @@ class WaterBot(commands.Bot):
             else:
                 await ctx.send(f"No such schedule found: {device} {action} at {time}")
 
-        @self.command(name="help")
+        @self.command(name="help")  # type: ignore[arg-type]
         async def help_command_func(ctx: commands.Context) -> None:
             """Show help message."""
             response = self._get_help_response()
@@ -124,7 +124,12 @@ class WaterBot(commands.Bot):
         # Create wrapper objects with callback for tests
         class MockCommand:
             def __init__(self, func: Callable) -> None:
-                async def callback(bot_instance: "WaterBot", ctx: commands.Context, *args: Any, **kwargs: Any) -> None:
+                async def callback(
+                    bot_instance: "WaterBot",
+                    ctx: commands.Context,
+                    *args: Any,
+                    **kwargs: Any,
+                ) -> None:
                     await func(ctx, *args, **kwargs)
 
                 self.callback = callback
@@ -179,7 +184,7 @@ class WaterBot(commands.Bot):
         logger.info(f"Discord bot logged in as {self.user}")
 
         if self.channel_id:
-            self.target_channel = self.get_channel(self.channel_id)
+            self.target_channel = self.get_channel(self.channel_id)  # type: ignore[assignment]
             if self.target_channel:
                 logger.info(f"Connected to channel: {self.target_channel.name}")
 

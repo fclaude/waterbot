@@ -30,7 +30,10 @@ class TestCommandParser:
             assert command_type == "show_schedules"
             assert params == {}
 
-    @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"bed1": 17, "bed2": 18, "bed3": 19})
+    @patch(
+        "waterbot.utils.command_parser.DEVICE_TO_PIN",
+        {"bed1": 17, "bed2": 18, "bed3": 19},
+    )
     def test_show_device_schedules_command(self):
         """Test parsing device-specific schedules command."""
         # Test various formats

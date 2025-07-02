@@ -40,7 +40,13 @@ class TestMainBot:
     @patch("waterbot.bot.scheduler.stop_scheduler")
     @patch("waterbot.bot.gpio_handler.cleanup")
     def test_main_success_with_scheduling(
-        self, mock_cleanup, mock_stop_scheduler, mock_waterbot, mock_start_scheduler, mock_validate, mock_signal
+        self,
+        mock_cleanup,
+        mock_stop_scheduler,
+        mock_waterbot,
+        mock_start_scheduler,
+        mock_validate,
+        mock_signal,
     ):
         """Test successful main execution with scheduling enabled."""
         mock_bot_instance = Mock()
@@ -66,7 +72,13 @@ class TestMainBot:
     @patch("waterbot.bot.scheduler.stop_scheduler")
     @patch("waterbot.bot.gpio_handler.cleanup")
     def test_main_success_without_scheduling(
-        self, mock_cleanup, mock_stop_scheduler, mock_waterbot, mock_start_scheduler, mock_validate, mock_signal
+        self,
+        mock_cleanup,
+        mock_stop_scheduler,
+        mock_waterbot,
+        mock_start_scheduler,
+        mock_validate,
+        mock_signal,
     ):
         """Test successful main execution with scheduling disabled."""
         mock_bot_instance = Mock()
@@ -126,8 +138,12 @@ class TestMainBot:
         """Test main execution with exception."""
         mock_bot_instance = Mock()
         mock_waterbot.return_value = mock_bot_instance
-        # First call raises exception, second call raises KeyboardInterrupt to break loop
-        mock_bot_instance.start_bot.side_effect = [Exception("Test error"), KeyboardInterrupt()]
+        # First call raises exception, second call raises KeyboardInterrupt to break "
+        # "loop
+        mock_bot_instance.start_bot.side_effect = [
+            Exception("Test error"),
+            KeyboardInterrupt(),
+        ]
 
         bot.main()
 
@@ -143,11 +159,10 @@ class TestMainBot:
     @patch("waterbot.bot.scheduler.stop_scheduler")
     @patch("waterbot.bot.gpio_handler.cleanup")
     @patch("time.sleep")
-    def test_main_validation_error(
-        self, mock_sleep, mock_cleanup, mock_stop_scheduler, mock_validate, mock_signal
-    ):
+    def test_main_validation_error(self, mock_sleep, mock_cleanup, mock_stop_scheduler, mock_validate, mock_signal):
         """Test main execution with config validation error."""
-        # First call raises config error, second call raises KeyboardInterrupt to break loop
+        # First call raises config error, second call raises KeyboardInterrupt to "
+        # "break loop
         mock_validate.side_effect = [Exception("Config error"), KeyboardInterrupt()]
 
         bot.main()

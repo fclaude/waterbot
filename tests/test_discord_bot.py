@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 import pytest
 
-from waterbot.discord.bot import WaterBot
+from waterbot.discord.bot import WaterBot, get_bot_instance, set_bot_instance
 
 
 class TestWaterBot:
@@ -416,3 +416,40 @@ class TestWaterBot:
             self.bot.stop_bot()
 
             mock_cleanup.assert_called_once()
+
+    def test_bot_instance_global(self):
+        """Test global bot instance management."""
+        test_bot = Mock()
+        set_bot_instance(test_bot)
+
+        result = get_bot_instance()
+        assert result == test_bot
+
+    @pytest.mark.asyncio
+    async def test_on_message_openai_integration(self):
+        """Test on_message with OpenAI integration enabled."""
+        mock_message = Mock()
+        mock_message.author = Mock()
+        mock_message.content = "What's the status?"
+        mock_message.channel = Mock()
+        mock_message.channel.id = 123456789
+        mock_message.channel.send = AsyncMock()
+
+        mock_user = Mock()
+
+        with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
+            mock_user_prop.return_value = mock_user
+            with patch("waterbot.discord.bot.OPENAI_API_KEY", "test_key"):
+                with patch("waterbot.discord.bot.process_with_openai") as mock_openai:
+                    mock_openai.return_value = "OpenAI response"
+
+                    await self.bot.on_message(mock_message)
+
+                    mock_openai.assert_called_once_with("What's the status?")
+                    mock_message.channel.send.assert_called_once_with("OpenAI response")
+
+    def test_start_bot_no_token(self):
+        """Test starting bot without token."""
+        with patch("waterbot.discord.bot.DISCORD_BOT_TOKEN", None):
+            with pytest.raises(ValueError, match="Discord bot token not configured"):
+                self.bot.start_bot()
