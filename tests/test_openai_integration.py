@@ -257,7 +257,8 @@ class TestOpenAIIntegration:
                 MagicMock(
                     stdout=(
                         "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
-                        "state UP qlen 1000\n    inet 192.168.1.100/24 brd 192.168.1.255 "
+                        "state UP qlen 1000\n    inet 192.168.1.100/24 brd "
+                        "192.168.1.255 "
                         "scope global dynamic"
                     ),
                     returncode=0,
@@ -265,7 +266,8 @@ class TestOpenAIIntegration:
                 MagicMock(
                     stdout=(
                         "3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
-                        "state UP qlen 1000\n    inet 192.168.1.101/24 brd 192.168.1.255 "
+                        "state UP qlen 1000\n    inet 192.168.1.101/24 brd "
+                        "192.168.1.255 "
                         "scope global dynamic"
                     ),
                     returncode=0,

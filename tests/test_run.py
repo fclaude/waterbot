@@ -71,7 +71,8 @@ class TestRunModule:
             result = run.main()
 
             assert result == 0
-            # Check that __import__ was called with 'test_emulation' (ignoring other args)
+            # Check that __import__ was called with 'test_emulation' (ignoring other "
+            # "args)
             call_args = mock_import.call_args_list
             assert len(call_args) > 0
             assert call_args[0][0][0] == "test_emulation"
@@ -125,7 +126,8 @@ class TestRunModule:
 
             assert result == 0
             assert os.environ.get("OPERATION_MODE") == "emulation"
-            # Check that __import__ was called with 'test_emulation' (ignoring other args)
+            # Check that __import__ was called with 'test_emulation' (ignoring other "
+            # "args)
             call_args = mock_import.call_args_list
             assert len(call_args) > 0
             assert call_args[0][0][0] == "test_emulation"

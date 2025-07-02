@@ -138,7 +138,8 @@ class TestMainBot:
         """Test main execution with exception."""
         mock_bot_instance = Mock()
         mock_waterbot.return_value = mock_bot_instance
-        # First call raises exception, second call raises KeyboardInterrupt to break loop
+        # First call raises exception, second call raises KeyboardInterrupt to break "
+        # "loop
         mock_bot_instance.start_bot.side_effect = [
             Exception("Test error"),
             KeyboardInterrupt(),
@@ -160,7 +161,8 @@ class TestMainBot:
     @patch("time.sleep")
     def test_main_validation_error(self, mock_sleep, mock_cleanup, mock_stop_scheduler, mock_validate, mock_signal):
         """Test main execution with config validation error."""
-        # First call raises config error, second call raises KeyboardInterrupt to break loop
+        # First call raises config error, second call raises KeyboardInterrupt to "
+        # "break loop
         mock_validate.side_effect = [Exception("Config error"), KeyboardInterrupt()]
 
         bot.main()
