@@ -127,6 +127,20 @@ class TestDeviceController:
             # Check that GPIO cleanup was called
             assert self.mock_gpio.cleanup_called is True
 
+    @patch("waterbot.gpio.handler.RELAY_ON_HIGH", False)
+    def test_active_low_logic(self):
+        """Ensure controller handles active-low relay configuration."""
+        mock_gpio = MockGPIO()
+        controller = DeviceController(mock_gpio)
+
+        # Initial setup should set pins to HIGH (off state)
+        assert (17, True) in mock_gpio.output_calls
+
+        controller.turn_on("pump")
+        assert (17, False) in mock_gpio.output_calls
+        controller.turn_off("pump")
+        assert mock_gpio.output_calls[-1] == (17, True)
+
 
 class TestDeviceControllerModuleFunctions:
     """Test module-level functions."""

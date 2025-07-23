@@ -241,3 +241,14 @@ class TestScheduleConfiguration:
 
                     # Should not create any schedules due to invalid formats
                     assert "pump" not in DEVICE_SCHEDULES
+
+    def test_relay_on_high_env_var(self):
+        """Ensure RELAY_ON_HIGH is parsed from environment variables."""
+        with patch.dict(os.environ, {"RELAY_ON_HIGH": "false"}):
+            import importlib
+            from waterbot import config as config_module
+
+            importlib.reload(config_module)
+
+            assert config_module.RELAY_ON_HIGH is False
+        importlib.reload(config_module)

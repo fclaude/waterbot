@@ -22,6 +22,11 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
 IS_EMULATION = OPERATION_MODE != "rpi"
 
+# Relay activation configuration
+# Some relay modules are active-low, meaning the device turns on when the
+# GPIO pin is set to LOW. Set RELAY_ON_HIGH to ``false`` in those cases.
+RELAY_ON_HIGH = os.getenv("RELAY_ON_HIGH", "true").lower() == "true"
+
 # Default timeout (in minutes)
 DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "60"))
 

@@ -4,7 +4,7 @@ import logging
 from threading import Lock, Timer
 from typing import Dict, Optional
 
-from ..config import DEVICE_TO_PIN, IS_EMULATION
+from ..config import DEVICE_TO_PIN, IS_EMULATION, RELAY_ON_HIGH
 from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO  # noqa: I100
 
 logger = logging.getLogger("gpio_handler")
@@ -48,17 +48,18 @@ class DeviceController:
 
     def _setup_devices(self) -> None:
         """Set up all configured devices."""
+        off_state = not RELAY_ON_HIGH
         for device, pin in DEVICE_TO_PIN.items():
             if self.gpio is not None:
                 self.gpio.setup(pin, "OUT")
-                self.gpio.output(pin, False)
+                self.gpio.output(pin, off_state)
             self.device_status[device] = False
             self.device_timers[device] = None
 
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
 
     def turn_on(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn on a device by setting GPIO pin HIGH (for low-activated relays).
+        """Turn on a device by setting the GPIO pin to the active level.
 
         Args:
             device: Name of the device to turn on
@@ -78,10 +79,11 @@ class DeviceController:
                 timer.cancel()
                 self.device_timers[device] = None
 
-            # Turn on the device (set pin HIGH for low-activated relays)
+            # Turn on the device using configured relay logic
             pin = DEVICE_TO_PIN[device]
+            on_state = RELAY_ON_HIGH
             if self.gpio is not None:
-                self.gpio.output(pin, True)  # HIGH = ON
+                self.gpio.output(pin, on_state)
             self.device_status[device] = True
 
             if IS_EMULATION:
@@ -99,7 +101,7 @@ class DeviceController:
         return True
 
     def turn_off(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn off a device by setting GPIO pin LOW (for low-activated relays).
+        """Turn off a device by setting the GPIO pin to the inactive level.
 
         Args:
             device: Name of the device to turn off
@@ -119,10 +121,11 @@ class DeviceController:
                 timer.cancel()
                 self.device_timers[device] = None
 
-            # Turn off the device (set pin LOW for low-activated relays)
+            # Turn off the device using configured relay logic
             pin = DEVICE_TO_PIN[device]
+            off_state = not RELAY_ON_HIGH
             if self.gpio is not None:
-                self.gpio.output(pin, False)  # LOW = OFF
+                self.gpio.output(pin, off_state)
             self.device_status[device] = False
 
             if IS_EMULATION:

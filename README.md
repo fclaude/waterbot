@@ -65,6 +65,11 @@ DEVICE_FAN=18
 DEVICE_PUMP=27
 DEVICE_HEATER=22
 
+# Relay logic
+# Set to "true" if the relay activates on HIGH.
+# Set to "false" for active-low relays.
+RELAY_ON_HIGH=true
+
 # Default timeout in seconds (optional, for timed operations)
 DEFAULT_TIMEOUT=3600
 

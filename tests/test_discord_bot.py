@@ -1,6 +1,7 @@
 """Test cases for WaterBot Discord integration."""
 
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
+import subprocess
 
 import pytest
 
@@ -31,6 +32,14 @@ class TestWaterBot:
         assert self.bot.channel_id == 123456789
         assert self.bot.target_channel is None
 
+    def test_get_ip_addresses(self):
+        """Test _get_ip_addresses parses output correctly."""
+        mock_ls = subprocess.CompletedProcess(["ls"], 0, stdout="eth0 lo\n")
+        mock_ip = subprocess.CompletedProcess(["ip"], 0, stdout="    inet 10.0.0.2/24\n")
+        with patch("subprocess.run", side_effect=[mock_ls, mock_ip]):
+            result = self.bot._get_ip_addresses()
+        assert result == {"eth0": "10.0.0.2"}
+
     @pytest.mark.asyncio
     async def test_on_ready(self):
         """Test on_ready event."""
@@ -45,7 +54,8 @@ class TestWaterBot:
 
         with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
-            await self.bot.on_ready()
+            with patch.object(self.bot, "_get_ip_addresses", return_value={}):
+                await self.bot.on_ready()
 
         assert self.bot.target_channel == mock_channel
         mock_channel.send.assert_called_once()
