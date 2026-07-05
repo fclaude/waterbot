@@ -4,7 +4,13 @@ import logging
 from threading import Lock, Timer
 from typing import Dict, Optional
 
-from ..config import DEVICE_TO_PIN, IS_EMULATION, get_device_cleanup_state, get_device_default_state
+from ..config import (
+    DEVICE_TO_PIN,
+    IS_EMULATION,
+    get_device_cleanup_state,
+    get_device_default_state,
+    get_device_gpio_state,
+)
 from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO  # noqa: I100
 
 logger = logging.getLogger("gpio_handler")
@@ -52,14 +58,14 @@ class DeviceController:
             default_state = get_device_default_state(device)
             if self.gpio is not None:
                 self.gpio.setup(pin, "OUT")
-                self.gpio.output(pin, default_state)
+                self.gpio.output(pin, get_device_gpio_state(device, default_state))
             self.device_status[device] = default_state
             self.device_timers[device] = None
 
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
 
     def turn_on(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn on a device by setting GPIO pin HIGH (for low-activated relays).
+        """Turn on a device using the configured relay polarity.
 
         Args:
             device: Name of the device to turn on
@@ -79,10 +85,9 @@ class DeviceController:
                 timer.cancel()
                 self.device_timers[device] = None
 
-            # Turn on the device (set pin HIGH for low-activated relays)
             pin = DEVICE_TO_PIN[device]
             if self.gpio is not None:
-                self.gpio.output(pin, True)  # HIGH = ON
+                self.gpio.output(pin, get_device_gpio_state(device, True))
             self.device_status[device] = True
 
             if IS_EMULATION:
@@ -100,7 +105,7 @@ class DeviceController:
         return True
 
     def turn_off(self, device: str, timeout: Optional[int] = None) -> bool:
-        """Turn off a device by setting GPIO pin LOW (for low-activated relays).
+        """Turn off a device using the configured relay polarity.
 
         Args:
             device: Name of the device to turn off
@@ -120,10 +125,9 @@ class DeviceController:
                 timer.cancel()
                 self.device_timers[device] = None
 
-            # Turn off the device (set pin LOW for low-activated relays)
             pin = DEVICE_TO_PIN[device]
             if self.gpio is not None:
-                self.gpio.output(pin, False)  # LOW = OFF
+                self.gpio.output(pin, get_device_gpio_state(device, False))
             self.device_status[device] = False
 
             if IS_EMULATION:
@@ -175,7 +179,7 @@ class DeviceController:
             cleanup_state = get_device_cleanup_state(device)
             if self.gpio is not None:
                 try:
-                    self.gpio.output(pin, cleanup_state)
+                    self.gpio.output(pin, get_device_gpio_state(device, cleanup_state))
                 except RuntimeError:
                     logger.warning("Could not set cleanup state for device '%s'", device)
             self.device_status[device] = cleanup_state

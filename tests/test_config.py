@@ -5,13 +5,18 @@ import os
 import tempfile
 from unittest.mock import patch
 
+import pytest
+
 from waterbot.config import (
     DEVICE_SCHEDULES,
     add_schedule,
+    get_device_active_state,
     get_device_default_state,
+    get_device_gpio_state,
     get_schedules,
     load_schedules,
     load_schedules_from_env,
+    parse_gpio_level,
     parse_relay_state,
     remove_schedule,
     replace_device_schedules,
@@ -280,6 +285,15 @@ class TestRelayDefaults:
         assert parse_relay_state("off") is False
         assert parse_relay_state("false") is False
 
+    def test_parse_gpio_level(self):
+        """Test GPIO active level parsing."""
+        assert parse_gpio_level("high") is True
+        assert parse_gpio_level("on") is True
+        assert parse_gpio_level("low") is False
+        assert parse_gpio_level("off") is False
+        with pytest.raises(ValueError, match="Use high or low"):
+            parse_gpio_level("floating")
+
     def test_get_device_default_state_global(self):
         """Test global relay default state."""
         with patch("waterbot.config.RELAY_DEFAULT_STATE", "on"):
@@ -291,6 +305,21 @@ class TestRelayDefaults:
         with patch("waterbot.config.RELAY_DEFAULT_STATE", "off"):
             with patch("waterbot.config.DEVICE_DEFAULT_STATES", {"pump": "on"}):
                 assert get_device_default_state("pump") is True
+
+    def test_get_device_active_state_global_and_gpio_mapping(self):
+        """Test global relay polarity mapping."""
+        with patch("waterbot.config.RELAY_ACTIVE_STATE", "low"):
+            with patch("waterbot.config.DEVICE_ACTIVE_STATES", {}):
+                assert get_device_active_state("pump") is False
+                assert get_device_gpio_state("pump", True) is False
+                assert get_device_gpio_state("pump", False) is True
+
+    def test_get_device_active_state_override(self):
+        """Test per-device relay polarity override."""
+        with patch("waterbot.config.RELAY_ACTIVE_STATE", "high"):
+            with patch("waterbot.config.DEVICE_ACTIVE_STATES", {"pump": "low"}):
+                assert get_device_active_state("pump") is False
+                assert get_device_active_state("light") is True
 
 
 class TestWebConfiguration:

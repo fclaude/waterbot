@@ -37,6 +37,8 @@ DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "60"))
 # Relay default state. Per-device overrides use RELAY_DEFAULT_<DEVICE>=on|off.
 RELAY_DEFAULT_STATE = os.getenv("RELAY_DEFAULT_STATE", "off").lower()
 RELAY_CLEANUP_STATE = os.getenv("RELAY_CLEANUP_STATE", RELAY_DEFAULT_STATE).lower()
+# Relay polarity. Per-device overrides use RELAY_ACTIVE_<DEVICE>=high|low.
+RELAY_ACTIVE_STATE = os.getenv("RELAY_ACTIVE_STATE", "high").lower()
 
 # Logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -72,6 +74,7 @@ WEB_PUBLIC_SCHEDULES = os.getenv("WEB_PUBLIC_SCHEDULES", "true").lower() == "tru
 # Load device to GPIO pin mapping
 DEVICE_TO_PIN = {}
 DEVICE_DEFAULT_STATES = {}
+DEVICE_ACTIVE_STATES = {}
 
 for key, value in os.environ.items():
     if key.startswith("DEVICE_"):
@@ -89,9 +92,16 @@ for key, value in os.environ.items():
         device_name = key[len("RELAY_DEFAULT_") :].lower()
         DEVICE_DEFAULT_STATES[device_name] = value.lower()
 
+for key, value in os.environ.items():
+    if key.startswith("RELAY_ACTIVE_") and key not in {
+        "RELAY_ACTIVE_STATE",
+    }:
+        device_name = key[len("RELAY_ACTIVE_") :].lower()
+        DEVICE_ACTIVE_STATES[device_name] = value.lower()
+
 
 def parse_relay_state(value: str) -> bool:
-    """Parse a relay state string into a boolean."""
+    """Parse a logical relay state string into a boolean."""
     normalized = value.strip().lower()
     if normalized in {"on", "true", "1", "yes", "high"}:
         return True
@@ -100,17 +110,39 @@ def parse_relay_state(value: str) -> bool:
     raise ValueError(f"Invalid relay state '{value}'. Use on or off.")
 
 
+def parse_gpio_level(value: str) -> bool:
+    """Parse a GPIO output level string into a boolean."""
+    normalized = value.strip().lower()
+    if normalized in {"high", "true", "1", "yes", "on"}:
+        return True
+    if normalized in {"low", "false", "0", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid relay active state '{value}'. Use high or low.")
+
+
 def get_device_default_state(device: str) -> bool:
-    """Get the configured startup state for a device."""
+    """Get the configured logical startup state for a device."""
     state = DEVICE_DEFAULT_STATES.get(device.lower(), RELAY_DEFAULT_STATE)
     return parse_relay_state(state)
 
 
 def get_device_cleanup_state(device: str) -> bool:
-    """Get the configured cleanup state for a device."""
+    """Get the configured logical cleanup state for a device."""
     if RELAY_CLEANUP_STATE == "default":
         return get_device_default_state(device)
     return parse_relay_state(RELAY_CLEANUP_STATE)
+
+
+def get_device_active_state(device: str) -> bool:
+    """Get the GPIO output level that means logical ON for a device."""
+    state = DEVICE_ACTIVE_STATES.get(device.lower(), RELAY_ACTIVE_STATE)
+    return parse_gpio_level(state)
+
+
+def get_device_gpio_state(device: str, logical_state: bool) -> bool:
+    """Convert a logical relay state into the GPIO output level for a device."""
+    active_state = get_device_active_state(device)
+    return active_state if logical_state else not active_state
 
 
 # Load scheduling configuration
@@ -323,6 +355,7 @@ def validate_config() -> bool:
     for device in DEVICE_TO_PIN:
         get_device_default_state(device)
         get_device_cleanup_state(device)
+        get_device_active_state(device)
 
     # Validate flexible policy schedules if present.
     try:

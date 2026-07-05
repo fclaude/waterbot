@@ -46,6 +46,21 @@ class TestDeviceController:
         assert controller.device_status["pump"] is True
         assert (17, True) in controller.gpio.output_calls
 
+    def test_active_low_polarity_maps_logical_state_to_gpio_output(self):
+        """Test that active-low relays invert physical GPIO output while status stays logical."""
+        with patch("waterbot.gpio.handler.get_device_gpio_state", side_effect=lambda _device, state: not state):
+            controller = DeviceController(MockGPIO())
+            assert controller.device_status["pump"] is False
+            assert (17, True) in controller.gpio.output_calls
+
+            assert controller.turn_on("pump") is True
+            assert controller.device_status["pump"] is True
+            assert (17, False) in controller.gpio.output_calls
+
+            assert controller.turn_off("pump") is True
+            assert controller.device_status["pump"] is False
+            assert controller.gpio.output_calls[-1] == (17, True)
+
     def test_turn_on_device(self):
         """Test turning on a device."""
         success = self.controller.turn_on("pump")
