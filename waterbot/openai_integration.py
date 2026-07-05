@@ -8,6 +8,8 @@ from openai import OpenAI
 
 from . import policy as policy_model
 from . import scheduler
+from .agent.runtime import AgentRuntime, get_agent_tools
+from .actions import ActionEngine
 from .config import OPENAI_API_KEY, OPENAI_MODEL
 from .gpio import handler as gpio_handler
 from .weather import WeatherContextProvider
@@ -20,6 +22,11 @@ client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 def get_available_tools() -> List[Dict[str, Any]]:
     """Define the tools available to the OpenAI model."""
+    return get_agent_tools()
+
+
+def get_legacy_available_tools() -> List[Dict[str, Any]]:
+    """Define the legacy tools available to the OpenAI model."""
     return [
         {
             "type": "function",
@@ -322,9 +329,46 @@ def get_available_tools() -> List[Dict[str, Any]]:
     ]
 
 
-def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
+def execute_tool_call(
+    function_name: str,
+    arguments: Dict[str, Any],
+    channel_id: str = "default",
+    source: str = "tool_direct",
+    require_confirmation: bool = False,
+) -> str:
     """Execute a tool function call and return the result."""
     try:
+        if function_name == "preview_action":
+            result = ActionEngine().preview_action(arguments["action_type"], arguments.get("arguments", {}))
+            return result.message
+
+        if function_name == "execute_action":
+            result = ActionEngine().execute_action(
+                arguments["action_type"],
+                arguments.get("arguments", {}),
+                source=source,
+                channel_id=channel_id,
+                require_confirmation=require_confirmation,
+            )
+            return result.message
+
+        if function_name in {"get_recent_context", "get_policy_decision_history", "record_user_feedback"}:
+            action_arguments = dict(arguments)
+            if function_name == "get_recent_context":
+                from .agent.memory import AgentMemory
+
+                return json.dumps(AgentMemory().get_context(channel_id), indent=2)
+            if function_name == "record_user_feedback":
+                action_arguments["channel_id"] = channel_id
+            result = ActionEngine().execute_action(
+                function_name,
+                action_arguments,
+                source=source,
+                channel_id=channel_id,
+                require_confirmation=False,
+            )
+            return result.message
+
         if function_name == "replace_device_schedule":
             device = arguments["device"]
             schedule_periods = arguments["schedule_periods"]
@@ -614,133 +658,19 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
         return f"Error executing {function_name}: {str(e)}"
 
 
-async def process_with_openai(message: str) -> str:
+async def process_with_openai(
+    message: str,
+    channel_id: str = "default",
+    author_id: str | None = None,
+    author_name: str | None = None,
+) -> str:
     """Process a message using OpenAI with tool support."""
     if not client:
         return "OpenAI is not configured. Please set OPENAI_API_KEY in your .env file."
 
     try:
-        # System message to set context
-        system_message = (
-            "You are WaterBot, an intelligent agentic assistant that controls water "
-            "devices. You operate GPIO pins on a Raspberry Pi and can plan and "
-            "execute complex multi-step operations.\n\n"
-            "CORE CAPABILITIES:\n"
-            "- Device Control: turn on/off individual devices or all devices\n"
-            "- Intelligent Scheduling: create, modify, and manage complex schedules\n"
-            "- Flexible Policy Scheduling: every-N-days cycles, weekly cycles, "
-            "seasonal windows, and weather-aware skip/shorten/lengthen rules\n"
-            "- Status Monitoring: check current device states and schedules\n"
-            "- System Info: get current time, weather context, IP addresses for "
-            "SSH access\n"
-            "- Planning & Execution: break down complex requests into multiple "
-            "steps\n\n"
-            "CRITICAL EXECUTION RULES:\n"
-            "- ALWAYS USE TOOLS to execute requested actions - never just plan "
-            "without executing\n"
-            "- When users request schedule changes, you MUST call the appropriate "
-            "tool functions\n"
-            "- For schedule modifications, use replace_device_schedule tool to make "
-            "changes\n"
-            "- For every-N-days cycles or weather-aware behavior, use "
-            "upsert_policy_schedule or create_every_n_days_cycle\n"
-            "- Don't just describe what you'll do - actually do it by calling the "
-            "tools\n"
-            "- After planning an action, immediately execute it using the available "
-            "tools\n\n"
-            "AGENTIC BEHAVIOR:\n"
-            "- Always plan multi-step operations before executing\n"
-            "- When users request schedule changes, understand they want to REPLACE "
-            "existing schedules unless specified otherwise\n"
-            "- For schedule periods (e.g., 'run from 6:01 to 6:06'), create ON "
-            "schedule at start time and OFF schedule at end time\n"
-            "- For requests like 'every 3 days', 'unless it rains', 'shorten based "
-            "on temperature', or 'skip when rain is forecast', create a flexible "
-            "policy schedule with recurrence, duration, and rules\n"
-            "- Be proactive - if someone says 'change schedule to X', remove old "
-            "schedules and add new ones atomically\n"
-            "- Explain your planned actions AND THEN EXECUTE THEM using tools\n\n"
-            "TOOL USAGE EXAMPLES:\n"
-            "- 'change bed1 schedule to run 6:01-6:06 and 21:21-21:26' →\n"
-            "  1. Call get_schedules('bed1') to see current schedule\n"
-            "  2. Call replace_device_schedule('bed1', [...]) with new periods\n"
-            "- 'make bed1 run 2 minutes longer' →\n"
-            "  1. Call get_schedules('bed1') to see current times\n"
-            "  2. Calculate new end times (add 2 minutes)\n"
-            "  3. Call replace_device_schedule('bed1', [...]) with updated times\n"
-            "- 'add schedule for pump at 9:00' → Call add_schedule('pump', 'on', "
-            "'09:00')\n"
-            "- 'water bed1 every 3 days at 6am for 8 minutes unless it rained a "
-            "quarter inch' → Call upsert_policy_schedule(...) with recurrence "
-            "type every_n_days and a skip rule using rain_last_24h_inches\n"
-            "- 'shorten by half if rain is forecast' → Add a policy rule with "
-            "forecast_rain_next_12h_inches and duration_multiplier 0.5\n"
-            "- 'schedules' → Call get_schedules() to show all schedules\n\n"
-            "MANDATORY: When users request changes to schedules, you MUST call the "
-            "modification tools. Just describing the plan without executing it via "
-            "tools is not acceptable behavior."
-        )
-
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": message},
-        ]
-
-        # Make initial call to OpenAI
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=messages,
-            tools=get_available_tools(),
-            tool_choice="auto",
-            max_tokens=1000,
-            temperature=0.7,
-        )
-
-        response_message = response.choices[0].message
-        messages.append(response_message)
-
-        # Handle multiple rounds of tool calls
-        max_rounds = 5  # Prevent infinite loops
-        current_round = 0
-
-        while response_message.tool_calls and current_round < max_rounds:
-            current_round += 1
-            logger.info(f"Tool call round {current_round}")
-
-            # Execute all tool calls in this round
-            for tool_call in response_message.tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
-
-                logger.info(f"Executing tool: {function_name} with args: " f"{function_args}")
-
-                # Execute the tool
-                tool_result = execute_tool_call(function_name, function_args)
-
-                # Add tool result to messages
-                messages.append(
-                    {
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": function_name,
-                        "content": tool_result,
-                    }
-                )
-
-            # Get next response after tool execution
-            next_response = client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=messages,
-                tools=get_available_tools(),
-                tool_choice="auto",
-                max_tokens=1000,
-                temperature=0.7,
-            )
-
-            response_message = next_response.choices[0].message
-            messages.append(response_message)
-
-        return response_message.content or "I completed the requested action."
+        runtime = AgentRuntime(client=client, model=OPENAI_MODEL)
+        return await runtime.process(message, channel_id, author_id, author_name)
 
     except Exception as e:
         logger.error(f"Error processing OpenAI request: {e}", exc_info=True)

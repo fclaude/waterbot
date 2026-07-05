@@ -184,7 +184,6 @@ status: ## Show application status
 check-deps: ## Check if required system dependencies are installed
 	@echo "Checking system dependencies..."
 	@command -v $(PYTHON) >/dev/null 2>&1 || { echo "❌ Python 3 is required but not installed"; exit 1; }
-	@command -v signal-cli >/dev/null 2>&1 || echo "⚠️  signal-cli not found - required for Signal integration"
 	@echo "✅ Basic dependencies check passed"
 
 # Environment info

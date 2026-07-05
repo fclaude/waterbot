@@ -19,6 +19,7 @@ from ..config import (
 )
 from ..gpio import handler as gpio_handler
 from ..openai_integration import process_with_openai
+from ..actions import ActionEngine
 from ..utils.command_parser import parse_command
 
 # Configure logging
@@ -46,6 +47,7 @@ class WaterBot(commands.Bot):
 
         self.channel_id = int(DISCORD_CHANNEL_ID) if DISCORD_CHANNEL_ID else None
         self.target_channel: Optional[discord.TextChannel] = None
+        self._action_engine: Optional[ActionEngine] = None
 
         # Register this bot instance globally for notifications
         set_bot_instance(self)
@@ -54,6 +56,12 @@ class WaterBot(commands.Bot):
         self._setup_commands()
 
         logger.info(f"Discord bot initialized for channel ID: {self.channel_id}")
+
+    def _get_action_engine(self) -> ActionEngine:
+        """Return a lazily initialized shared action engine."""
+        if self._action_engine is None:
+            self._action_engine = ActionEngine()
+        return self._action_engine
 
     def _setup_commands(self) -> None:
         """Set up Discord slash commands."""
@@ -237,11 +245,14 @@ class WaterBot(commands.Bot):
         text = message.content.strip()
         if text:
             logger.info(f"Received message: {text}")
+            channel_id = str(message.channel.id)
+            author_id = _safe_discord_id(message.author)
+            author_name = _safe_discord_name(message.author)
 
             if OPENAI_API_KEY:
                 # Use OpenAI for conversational interface with tool support
                 try:
-                    response = await process_with_openai(text)
+                    response = await process_with_openai(text, channel_id, author_id, author_name)
                     if response:
                         logger.debug(f"Sending OpenAI response: {response}")
                         await message.channel.send(response)
@@ -250,7 +261,7 @@ class WaterBot(commands.Bot):
                     # Fallback to command parser
                     text_lower = text.lower()
                     command_type, params = parse_command(text_lower)
-                    response = await self._execute_command(command_type, params)
+                    response = await self._execute_command(command_type, params, channel_id=channel_id)
                     if response:
                         logger.debug(f"Sending fallback response: {response}")
                         await message.channel.send(response)
@@ -258,12 +269,17 @@ class WaterBot(commands.Bot):
                 # Fallback to legacy command parser if OpenAI not configured
                 text_lower = text.lower()
                 command_type, params = parse_command(text_lower)
-                response = await self._execute_command(command_type, params)
+                response = await self._execute_command(command_type, params, channel_id=channel_id)
                 if response:
                     logger.debug(f"Sending response: {response}")
                     await message.channel.send(response)
 
-    async def _execute_command(self, command_type: Optional[str], params: dict) -> Optional[str]:
+    async def _execute_command(
+        self,
+        command_type: Optional[str],
+        params: dict,
+        channel_id: Optional[str] = None,
+    ) -> Optional[str]:
         """Execute a parsed command.
 
         Args:
@@ -275,6 +291,36 @@ class WaterBot(commands.Bot):
         """
         if command_type == "status":
             return self._get_status_response()
+
+        elif command_type == "confirm":
+            return self._get_action_engine().confirm(params["token"], channel_id=channel_id).message
+
+        elif command_type == "cancel":
+            return self._get_action_engine().cancel(params["token"], channel_id=channel_id).message
+
+        elif command_type == "why":
+            result = self._get_action_engine().execute_action(
+                "get_policy_decision_history",
+                {"device": params.get("device")},
+                source="discord_command",
+                channel_id=channel_id,
+                require_confirmation=False,
+            )
+            return result.message
+
+        elif command_type == "feedback":
+            result = self._get_action_engine().execute_action(
+                "record_user_feedback",
+                {
+                    "device": params.get("device"),
+                    "feedback": params["feedback"],
+                    "channel_id": channel_id,
+                },
+                source="discord_command",
+                channel_id=channel_id,
+                require_confirmation=False,
+            )
+            return result.message
 
         elif command_type == "show_schedules":
             return self._get_schedules_response()
@@ -366,8 +412,6 @@ class WaterBot(commands.Bot):
 
         elif command_type == "test":
             # Execute test notification
-            from .. import scheduler
-
             scheduler_instance = scheduler.get_scheduler()
             scheduler_instance._send_discord_notification("test_device", "on", True)
             return "💧 **Test Notification** - Test via plain text command completed"
@@ -443,6 +487,10 @@ class WaterBot(commands.Bot):
             "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
             "cycle <device> every <N> days at <HH:MM> for <minutes> minutes\n"
             "uncycle <policy_id> - Remove flexible cycle schedule\n"
+            "confirm <token> - Execute a pending risky action\n"
+            "cancel <token> - Cancel a pending risky action\n"
+            "why <device> - Explain recent flexible schedule decisions\n"
+            "feedback <device> <note> - Record watering feedback\n"
             "time - Show current time on bot node\n"
             "ip - Show SSH access information\n"
             "test - Test notification system\n"
@@ -585,3 +633,21 @@ def set_bot_instance(bot: WaterBot) -> None:
     """Set the bot instance for notifications."""
     global _bot_instance
     _bot_instance = bot
+
+
+def _safe_discord_id(author: Any) -> Optional[str]:
+    """Return a Discord author ID when available."""
+    author_id = getattr(author, "id", None)
+    if isinstance(author_id, (int, str)):
+        return str(author_id)
+    return None
+
+
+def _safe_discord_name(author: Any) -> Optional[str]:
+    """Return a stable Discord author display name when available."""
+    for attribute in ("display_name", "global_name", "name"):
+        value = getattr(author, attribute, None)
+        if isinstance(value, str) and value:
+            return value
+    name = str(author)
+    return name if name else None

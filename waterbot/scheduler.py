@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import schedule
 
 from . import policy
+from .agent.memory import AgentMemory
 from .config import DEVICE_SCHEDULES, ENABLE_SCHEDULING
 from .gpio import handler as gpio_handler
 
@@ -24,6 +25,7 @@ class DeviceScheduler:
         self.scheduler_thread: Optional[threading.Thread] = None
         self.scheduled_jobs: List[Dict[str, Any]] = []
         self.policy_scheduler = policy.PolicyScheduler()
+        self.agent_memory = AgentMemory()
 
     def setup_schedules(self) -> None:
         """Set up all scheduled tasks based on configuration."""
@@ -227,6 +229,17 @@ class DeviceScheduler:
     def _run_policy_schedules(self) -> None:
         """Run due flexible policy schedules and notify Discord."""
         for result in self.policy_scheduler.run_due():
+            self.agent_memory.record_policy_decision(
+                policy_id=result.policy_id,
+                device=result.device,
+                run_key=result.run_key,
+                executed=result.executed,
+                skipped=result.skipped,
+                duration_minutes=result.duration_minutes,
+                message=result.message,
+                context=result.context,
+                matched_rules=result.matched_rules,
+            )
             if result.skipped:
                 message = f"☔ **Policy skipped** - {result.message}"
             elif result.executed:

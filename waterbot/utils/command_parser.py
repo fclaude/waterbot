@@ -34,6 +34,23 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
     if text == "ip":
         return "ip", {}
 
+    confirm_match = re.match(r"confirm\s+([a-f0-9]{6,})", text)
+    if confirm_match:
+        return "confirm", {"token": confirm_match.group(1)}
+
+    cancel_match = re.match(r"cancel\s+([a-f0-9]{6,})", text)
+    if cancel_match:
+        return "cancel", {"token": cancel_match.group(1)}
+
+    why_match = re.match(r"why\s+(\w+)", text)
+    if why_match:
+        return "why", {"device": why_match.group(1)}
+
+    feedback_match = re.match(r"feedback\s+(\w+)\s+(.+)", text)
+    if feedback_match:
+        device, feedback = feedback_match.groups()
+        return "feedback", {"device": device, "feedback": feedback}
+
     if text in {"cycles", "policies", "policy schedules"}:
         return "show_policy_schedules", {}
 

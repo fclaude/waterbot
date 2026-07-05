@@ -50,6 +50,21 @@ ENABLE_SCHEDULING=true
 SCHEDULE_CONFIG_FILE=schedules.json
 POLICY_SCHEDULE_CONFIG_FILE=schedule_policies.json
 
+# Conversational agent memory and confirmations
+AGENT_DB_FILE=waterbot_agent.db
+AGENT_MEMORY_RETENTION_DAYS=30
+AGENT_CONFIRMATION_TIMEOUT_MINUTES=10
+AGENT_REQUIRE_CONFIRMATION=true
+
+# Optional authenticated web interface
+ENABLE_WEB_INTERFACE=false
+WEB_HOST=0.0.0.0
+WEB_PORT=8080
+WEB_AUTH_USERNAME=admin
+# WEB_AUTH_PASSWORD="change_me"
+# WEB_AUTH_TOKEN="optional_api_token"
+WEB_PUBLIC_SCHEDULES=true
+
 # Optional weather context for flexible policy schedules
 WEATHER_PROVIDER=none
 

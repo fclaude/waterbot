@@ -39,21 +39,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Create non-root user for security
 RUN groupadd -r waterbot && useradd -r -g waterbot waterbot
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Signal CLI dependencies (Java)
-    default-jre-headless \
-    wget \
-    # Cleanup
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Signal CLI
-RUN wget --progress=dot:giga -O /tmp/signal-cli.tar.gz \
-    https://github.com/AsamK/signal-cli/releases/download/v0.11.12/signal-cli-0.11.12-Linux.tar.gz && \
-    tar -xzf /tmp/signal-cli.tar.gz -C /opt/ && \
-    ln -s /opt/signal-cli-*/bin/signal-cli /usr/local/bin/signal-cli && \
-    rm /tmp/signal-cli.tar.gz
-
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
@@ -74,7 +59,7 @@ USER waterbot
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import waterbot.config; print('OK')" || exit 1
 
-# Expose port for potential web interface
+# Expose port for the optional web interface
 EXPOSE 8080
 
 # Set default environment variables

@@ -129,13 +129,20 @@ waterbot/
 │   ├── bot.py               # Main application entry point
 │   ├── config.py            # Configuration management
 │   ├── scheduler.py         # Device scheduling
+│   ├── actions.py           # Shared action execution and audit
+│   ├── agent/               # Conversational agent memory/runtime
+│   │   ├── memory.py
+│   │   └── runtime.py
 │   ├── gpio/                # GPIO control modules
 │   │   ├── __init__.py
 │   │   ├── handler.py       # Device controller
 │   │   └── interface.py     # GPIO interfaces (hardware/mock)
-│   ├── signal/              # Signal integration
+│   ├── discord/             # Discord integration
 │   │   ├── __init__.py
-│   │   └── bot.py           # Signal bot implementation
+│   │   └── bot.py           # Discord bot implementation
+│   ├── web/                 # Web dashboard and authenticated chat
+│   │   ├── __init__.py
+│   │   └── server.py
 │   └── utils/               # Utilities
 │       ├── __init__.py
 │       └── command_parser.py # Command parsing logic
@@ -160,7 +167,7 @@ waterbot/
 
 1. **Bot Module** (`waterbot/bot.py`)
    - Main application entry point
-   - Coordinates scheduler and Signal bot
+   - Coordinates scheduler, Discord bot, and optional web server
    - Handles graceful shutdown
 
 2. **GPIO Handler** (`waterbot/gpio/handler.py`)
@@ -173,12 +180,17 @@ waterbot/
    - Schedule persistence and management
    - Integration with GPIO handler
 
-4. **Signal Bot** (`waterbot/signal/bot.py`)
-   - Signal message processing
+4. **Discord Bot** (`waterbot/discord/bot.py`)
+   - Discord message processing
    - Command execution
    - Response generation
 
-5. **Configuration** (`waterbot/config.py`)
+5. **Web Server** (`waterbot/web/server.py`)
+   - Public schedule dashboard
+   - Authenticated chat and API endpoints
+   - Shared action execution with Discord and the agent
+
+6. **Configuration** (`waterbot/config.py`)
    - Environment variable management
    - Schedule configuration
    - Device mapping
@@ -204,7 +216,8 @@ waterbot/
 - `test_gpio_handler.py`: Device controller logic
 - `test_config.py`: Configuration management
 - `test_scheduler.py`: Scheduling functionality
-- `test_signal_bot.py`: Signal bot integration
+- `test_discord_bot.py`: Discord bot integration
+- `test_web_server.py`: Web dashboard and authenticated chat
 - `test_command_parser.py`: Command parsing logic
 
 ### Testing Best Practices
@@ -306,8 +319,10 @@ make docker-run
 All configuration via environment variables or `.env` file:
 
 - `OPERATION_MODE`: `rpi` or `emulation`
-- `SIGNAL_PHONE_NUMBER`: Bot's Signal phone number
-- `SIGNAL_GROUP_ID`: Target Signal group ID
+- `DISCORD_BOT_TOKEN`: Discord bot token
+- `DISCORD_CHANNEL_ID`: Target Discord channel ID
+- `ENABLE_WEB_INTERFACE`: Enable the optional web dashboard/chat
+- `WEB_AUTH_PASSWORD` or `WEB_AUTH_TOKEN`: Authentication for web chat/control
 - `ENABLE_SCHEDULING`: Enable/disable scheduling
 - `LOG_LEVEL`: Logging level
 
@@ -334,7 +349,7 @@ Two options:
 
 1. **Import Errors**: Ensure virtual environment is activated
 2. **GPIO Errors**: Use emulation mode for development
-3. **Signal CLI Issues**: Verify signal-cli installation and registration
+3. **Discord Issues**: Verify bot token, permissions, and channel ID
 4. **Permission Errors**: Check file permissions and user access
 5. **Test Failures**: Check mock configuration and dependencies
 

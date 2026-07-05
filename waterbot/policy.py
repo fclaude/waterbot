@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from tempfile import NamedTemporaryFile
 from typing import Any, Callable, Dict, List, Optional
@@ -58,6 +58,8 @@ class PolicyRunResult:
     skipped: bool
     duration_minutes: float
     message: str
+    context: Dict[str, float] = field(default_factory=dict)
+    matched_rules: List[str] = field(default_factory=list)
 
 
 class PolicyValidationError(ValueError):
@@ -215,6 +217,8 @@ class PolicyScheduler:
         for policy, run_key in due_policies:
             plan = evaluate_policy(policy, context, run_key)
             result = self._execute_plan(plan)
+            result.context = dict(context)
+            result.matched_rules = list(plan.matched_rules)
             self.store.mark_run(policy["id"], run_key)
             results.append(result)
 

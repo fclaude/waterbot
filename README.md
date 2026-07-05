@@ -18,6 +18,9 @@ Pi Zero W. The bot only responds to messages from a specific Discord channel.
 - Command-based interface to control devices
 - Timed operations (e.g., turn on a device for 1 hour)
 - **Automatic scheduling**: Set devices to turn on/off at specific times
+- Flexible every-N-days and weather-aware watering policies
+- SQLite-backed agent memory, action audit history, and confirmation tokens
+- Optional web dashboard with public schedule views and authenticated chat
 - Emulation mode for testing on non-RPi devices
 - Configurable device-to-pin mapping via .env file
 - Reasonable unit test coverage
@@ -83,6 +86,21 @@ SCHEDULE_CONFIG_FILE=schedules.json
 # JSON file to store flexible policy schedules
 POLICY_SCHEDULE_CONFIG_FILE=schedule_policies.json
 
+# Conversational agent memory and confirmations
+AGENT_DB_FILE=waterbot_agent.db
+AGENT_MEMORY_RETENTION_DAYS=30
+AGENT_CONFIRMATION_TIMEOUT_MINUTES=10
+AGENT_REQUIRE_CONFIRMATION=true
+
+# Optional authenticated web interface
+ENABLE_WEB_INTERFACE=false
+WEB_HOST=0.0.0.0
+WEB_PORT=8080
+WEB_AUTH_USERNAME=admin
+# WEB_AUTH_PASSWORD="change_me"
+# WEB_AUTH_TOKEN="optional_api_token"
+WEB_PUBLIC_SCHEDULES=true
+
 # Schedule Configuration (alternative to JSON file)
 # Format: SCHEDULE_<DEVICE>_<ACTION>=HH:MM[,HH:MM,...]
 # Examples:
@@ -146,10 +164,39 @@ Send these commands from the Discord channel to control your devices:
 - `cycles` - Show flexible cycle schedules
 - `cycle <device> every <N> days at <HH:MM> for <minutes> minutes` - Add an every-N-days cycle
 - `uncycle <policy_id>` - Remove a flexible cycle
+- `confirm <token>` - Execute a pending risky agent action
+- `cancel <token>` - Cancel a pending risky agent action
+- `why <device>` - Explain recent flexible schedule decisions
+- `feedback <device> <note>` - Record observations such as too wet or too dry
 
 #### Help
 
 - Send any unrecognized command to get help
+
+### Conversational Agent
+
+When `OPENAI_API_KEY` is configured, WaterBot keeps recent channel context and
+rolling summaries in `AGENT_DB_FILE`. Risky actions such as all-device changes,
+schedule replacement, clearing schedules, or saving/removing flexible policies
+return a confirmation token first. Reply with `confirm <token>` to execute or
+`cancel <token>` to discard.
+
+The agent also records action events, flexible policy decisions, and user
+feedback. Ask `why pump` to see recent automatic watering decisions for a device,
+or send `feedback pump too dry after the last cycle` to add context for future
+conversations.
+
+### Web Interface
+
+Set `ENABLE_WEB_INTERFACE=true` and configure `WEB_AUTH_PASSWORD` or
+`WEB_AUTH_TOKEN` to start the local web server. The schedule dashboard is public
+by default at `http://<bot-host>:8080/`; set `WEB_PUBLIC_SCHEDULES=false` to
+require authentication for schedules too.
+
+Authenticated users can open `/chat` to ask the bot to change schedules, create
+cycles, explain recent policy decisions, record feedback, and confirm risky
+actions. The web chat uses the same action engine and confirmation flow as
+Discord.
 
 ### Examples
 

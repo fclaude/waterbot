@@ -251,3 +251,31 @@ class TestCommandParser:
 
         assert command_type == "policy_remove"
         assert params == {"policy_id": "pump-every-3-days-0600"}
+
+    def test_confirm_command(self):
+        """Test parsing a pending action confirmation command."""
+        command_type, params = parse_command("confirm abc123")
+
+        assert command_type == "confirm"
+        assert params == {"token": "abc123"}
+
+    def test_cancel_command(self):
+        """Test parsing a pending action cancellation command."""
+        command_type, params = parse_command("cancel abc123")
+
+        assert command_type == "cancel"
+        assert params == {"token": "abc123"}
+
+    def test_why_command(self):
+        """Test parsing policy decision explanation command."""
+        command_type, params = parse_command("why pump")
+
+        assert command_type == "why"
+        assert params == {"device": "pump"}
+
+    def test_feedback_command(self):
+        """Test parsing user feedback command."""
+        command_type, params = parse_command("feedback pump too dry after the last cycle")
+
+        assert command_type == "feedback"
+        assert params == {"device": "pump", "feedback": "too dry after the last cycle"}

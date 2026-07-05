@@ -34,7 +34,8 @@ class TestRunModule:
                 mock_file.write.assert_called_once()
                 # Check that the template content is written
                 written_content = mock_file.write.call_args[0][0]
-                assert "SIGNAL_PHONE_NUMBER" in written_content
+                assert "DISCORD_BOT_TOKEN" in written_content
+                assert "AGENT_DB_FILE=waterbot_agent.db" in written_content
                 assert "OPERATION_MODE=emulation" in written_content
 
     def test_main_no_env_file(self):

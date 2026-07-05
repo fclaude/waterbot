@@ -6,9 +6,10 @@ import sys
 from typing import Any
 
 from . import scheduler
-from .config import DEBUG_MODE, ENABLE_SCHEDULING, LOG_LEVEL, validate_config
+from .config import DEBUG_MODE, ENABLE_SCHEDULING, ENABLE_WEB_INTERFACE, LOG_LEVEL, validate_config
 from .discord.bot import WaterBot
 from .gpio import handler as gpio_handler
+from .web.server import WebInterfaceServer
 
 # Configure logging
 log_level = getattr(logging, LOG_LEVEL)
@@ -37,6 +38,8 @@ def handle_shutdown(signum: int, frame: Any) -> None:
     logger.info("Received shutdown signal")
     if hasattr(handle_shutdown, "bot") and handle_shutdown.bot is not None:
         handle_shutdown.bot.stop_bot()
+    if hasattr(handle_shutdown, "web_server") and handle_shutdown.web_server is not None:
+        handle_shutdown.web_server.stop()
     scheduler.stop_scheduler()
     # Clean up GPIO on forced shutdown
     from waterbot.gpio import handler as gpio_handler
@@ -55,6 +58,7 @@ def main() -> None:
 
     # Main application loop with automatic restart
     scheduler_started = False
+    web_server: WebInterfaceServer | None = None
     while True:
         try:
             # Validate configuration before starting hardware-facing background work.
@@ -68,6 +72,12 @@ def main() -> None:
                 else:
                     logger.info("Scheduling is disabled")
                 scheduler_started = True
+
+            if ENABLE_WEB_INTERFACE and web_server is None:
+                logger.info("Starting web interface")
+                web_server = WebInterfaceServer()
+                web_server.start()
+                handle_shutdown.web_server = web_server  # type: ignore[attr-defined]
 
             # Create and start the bot
             logger.info("Starting Discord bot...")
@@ -102,6 +112,8 @@ def main() -> None:
     logger.info("Shutting down WaterBot")
     if "bot" in locals() and bot is not None:
         bot.stop_bot()
+    if web_server is not None:
+        web_server.stop()
     scheduler.stop_scheduler()
     gpio_handler.cleanup()
     logger.info("WaterBot shut down")

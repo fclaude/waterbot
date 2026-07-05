@@ -57,11 +57,12 @@ flake8-report.txt
 logs/
 log/
 
-# Signal CLI data
-+*/
-
 # Scheduling
 schedules.json
+schedule_policies.json
+waterbot_agent.db
+*.db
+*.db-*
 data/
 
 # Virtual environments

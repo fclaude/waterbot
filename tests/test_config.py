@@ -16,6 +16,7 @@ from waterbot.config import (
     replace_device_schedules,
     remove_schedule,
     save_schedules,
+    validate_config,
 )
 
 
@@ -290,3 +291,38 @@ class TestRelayDefaults:
         with patch("waterbot.config.RELAY_DEFAULT_STATE", "off"):
             with patch("waterbot.config.DEVICE_DEFAULT_STATES", {"pump": "on"}):
                 assert get_device_default_state("pump") is True
+
+
+class TestWebConfiguration:
+    """Test web interface configuration validation."""
+
+    def test_validate_config_rejects_web_without_auth(self):
+        """Enabled web interface must have a password or token."""
+        with (
+            patch("waterbot.config.DISCORD_BOT_TOKEN", "token"),
+            patch("waterbot.config.DISCORD_CHANNEL_ID", "123"),
+            patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}),
+            patch("waterbot.config.ENABLE_WEB_INTERFACE", True),
+            patch("waterbot.config.WEB_AUTH_PASSWORD", None),
+            patch("waterbot.config.WEB_AUTH_TOKEN", None),
+            patch("waterbot.policy.list_policies", return_value=[]),
+        ):
+            try:
+                validate_config()
+            except ValueError as exc:
+                assert "WEB_AUTH_PASSWORD" in str(exc)
+            else:
+                raise AssertionError("validate_config should reject unauthenticated web interface")
+
+    def test_validate_config_accepts_web_with_password(self):
+        """Enabled web interface is valid when a password is configured."""
+        with (
+            patch("waterbot.config.DISCORD_BOT_TOKEN", "token"),
+            patch("waterbot.config.DISCORD_CHANNEL_ID", "123"),
+            patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}),
+            patch("waterbot.config.ENABLE_WEB_INTERFACE", True),
+            patch("waterbot.config.WEB_AUTH_PASSWORD", "secret"),
+            patch("waterbot.config.WEB_AUTH_TOKEN", None),
+            patch("waterbot.policy.list_policies", return_value=[]),
+        ):
+            assert validate_config() is True

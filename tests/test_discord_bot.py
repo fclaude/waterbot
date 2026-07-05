@@ -347,6 +347,58 @@ class TestWaterBot:
         assert "Unknown command" in response
         assert "help" in response
 
+    @pytest.mark.asyncio
+    async def test_execute_command_confirm(self):
+        """Test executing a pending confirmation command."""
+        mock_engine = Mock()
+        mock_engine.confirm.return_value = Mock(message="Confirmed action")
+
+        with patch.object(self.bot, "_get_action_engine", return_value=mock_engine):
+            response = await self.bot._execute_command("confirm", {"token": "abc123"}, channel_id="123")
+
+        assert response == "Confirmed action"
+        mock_engine.confirm.assert_called_once_with("abc123", channel_id="123")
+
+    @pytest.mark.asyncio
+    async def test_execute_command_why(self):
+        """Test executing a policy decision explanation command."""
+        mock_engine = Mock()
+        mock_engine.execute_action.return_value = Mock(message="Recent policy decisions")
+
+        with patch.object(self.bot, "_get_action_engine", return_value=mock_engine):
+            response = await self.bot._execute_command("why", {"device": "pump"}, channel_id="123")
+
+        assert response == "Recent policy decisions"
+        mock_engine.execute_action.assert_called_once_with(
+            "get_policy_decision_history",
+            {"device": "pump"},
+            source="discord_command",
+            channel_id="123",
+            require_confirmation=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_command_feedback(self):
+        """Test executing a feedback command."""
+        mock_engine = Mock()
+        mock_engine.execute_action.return_value = Mock(message="Recorded feedback")
+
+        with patch.object(self.bot, "_get_action_engine", return_value=mock_engine):
+            response = await self.bot._execute_command(
+                "feedback",
+                {"device": "pump", "feedback": "too dry"},
+                channel_id="123",
+            )
+
+        assert response == "Recorded feedback"
+        mock_engine.execute_action.assert_called_once_with(
+            "record_user_feedback",
+            {"device": "pump", "feedback": "too dry", "channel_id": "123"},
+            source="discord_command",
+            channel_id="123",
+            require_confirmation=False,
+        )
+
     def test_get_help_response(self):
         """Test get help response."""
         response = self.bot._get_help_response()
@@ -490,6 +542,8 @@ class TestWaterBot:
         """Test on_message with OpenAI integration enabled."""
         mock_message = Mock()
         mock_message.author = Mock()
+        mock_message.author.id = 42
+        mock_message.author.display_name = "Fran"
         mock_message.content = "What's the status?"
         mock_message.channel = Mock()
         mock_message.channel.id = 123456789
@@ -505,7 +559,7 @@ class TestWaterBot:
 
                     await self.bot.on_message(mock_message)
 
-                    mock_openai.assert_called_once_with("What's the status?")
+                    mock_openai.assert_called_once_with("What's the status?", "123456789", "42", "Fran")
                     mock_message.channel.send.assert_called_once_with("OpenAI response")
 
     def test_start_bot_no_token(self):

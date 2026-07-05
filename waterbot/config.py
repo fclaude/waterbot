@@ -52,6 +52,21 @@ WEATHER_LONGITUDE = os.getenv("WEATHER_LONGITUDE")
 WEATHER_CONTEXT_FILE = os.getenv("WEATHER_CONTEXT_FILE")
 WEATHER_REQUEST_TIMEOUT = float(os.getenv("WEATHER_REQUEST_TIMEOUT", "10"))
 
+# Conversational agent state.
+AGENT_DB_FILE = os.getenv("AGENT_DB_FILE", "waterbot_agent.db")
+AGENT_MEMORY_RETENTION_DAYS = int(os.getenv("AGENT_MEMORY_RETENTION_DAYS", "30"))
+AGENT_CONFIRMATION_TIMEOUT_MINUTES = int(os.getenv("AGENT_CONFIRMATION_TIMEOUT_MINUTES", "10"))
+AGENT_REQUIRE_CONFIRMATION = os.getenv("AGENT_REQUIRE_CONFIRMATION", "true").lower() == "true"
+
+# Optional local web interface.
+ENABLE_WEB_INTERFACE = os.getenv("ENABLE_WEB_INTERFACE", "false").lower() == "true"
+WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
+WEB_PORT = int(os.getenv("WEB_PORT", "8080"))
+WEB_AUTH_USERNAME = os.getenv("WEB_AUTH_USERNAME", "admin")
+WEB_AUTH_PASSWORD = os.getenv("WEB_AUTH_PASSWORD")
+WEB_AUTH_TOKEN = os.getenv("WEB_AUTH_TOKEN")
+WEB_PUBLIC_SCHEDULES = os.getenv("WEB_PUBLIC_SCHEDULES", "true").lower() == "true"
+
 # Load device to GPIO pin mapping
 DEVICE_TO_PIN = {}
 DEVICE_DEFAULT_STATES = {}
@@ -313,5 +328,8 @@ def validate_config() -> bool:
         list_policies()
     except ValueError as e:
         raise ValueError(f"Invalid flexible schedule policy: {e}") from e
+
+    if ENABLE_WEB_INTERFACE and not (WEB_AUTH_PASSWORD or WEB_AUTH_TOKEN):
+        raise ValueError("ENABLE_WEB_INTERFACE requires WEB_AUTH_PASSWORD or WEB_AUTH_TOKEN")
 
     return True

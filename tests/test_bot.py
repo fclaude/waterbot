@@ -32,6 +32,23 @@ class TestMainBot:
                 mock_stop.assert_called_once()
                 mock_exit.assert_called_once_with(0)
 
+        del bot.handle_shutdown.bot  # type: ignore[attr-defined]
+
+    def test_handle_shutdown_with_web_server(self):
+        """Test shutdown handler stops the web interface."""
+        mock_web_server = Mock()
+        bot.handle_shutdown.web_server = mock_web_server  # type: ignore[attr-defined]
+
+        with patch.object(sys, "exit") as mock_exit:
+            with patch("waterbot.bot.scheduler.stop_scheduler") as mock_stop:
+                bot.handle_shutdown(signal.SIGINT, None)
+
+                mock_web_server.stop.assert_called_once()
+                mock_stop.assert_called_once()
+                mock_exit.assert_called_once_with(0)
+
+        del bot.handle_shutdown.web_server  # type: ignore[attr-defined]
+
     @patch("waterbot.bot.signal.signal")
     @patch("waterbot.bot.validate_config")
     @patch("waterbot.bot.scheduler.start_scheduler")
@@ -93,6 +110,42 @@ class TestMainBot:
         mock_waterbot.assert_called_once()
         mock_bot_instance.start_bot.assert_called_once()
         mock_bot_instance.stop_bot.assert_called_once()
+        mock_stop_scheduler.assert_called_once()
+        mock_cleanup.assert_called_once()
+
+    @patch("waterbot.bot.signal.signal")
+    @patch("waterbot.bot.validate_config")
+    @patch("waterbot.bot.scheduler.start_scheduler")
+    @patch("waterbot.bot.WebInterfaceServer")
+    @patch("waterbot.bot.WaterBot")
+    @patch("waterbot.bot.ENABLE_SCHEDULING", False)
+    @patch("waterbot.bot.ENABLE_WEB_INTERFACE", True)
+    @patch("waterbot.bot.scheduler.stop_scheduler")
+    @patch("waterbot.bot.gpio_handler.cleanup")
+    def test_main_success_with_web_interface(
+        self,
+        mock_cleanup,
+        mock_stop_scheduler,
+        mock_waterbot,
+        mock_web_server_cls,
+        mock_start_scheduler,
+        mock_validate,
+        mock_signal,
+    ):
+        """Test web interface startup and cleanup."""
+        mock_bot_instance = Mock()
+        mock_waterbot.return_value = mock_bot_instance
+        mock_bot_instance.start_bot.side_effect = KeyboardInterrupt()
+        mock_web_server = Mock()
+        mock_web_server_cls.return_value = mock_web_server
+
+        bot.main()
+
+        mock_validate.assert_called_once()
+        mock_start_scheduler.assert_not_called()
+        mock_web_server_cls.assert_called_once()
+        mock_web_server.start.assert_called_once()
+        mock_web_server.stop.assert_called_once()
         mock_stop_scheduler.assert_called_once()
         mock_cleanup.assert_called_once()
 
