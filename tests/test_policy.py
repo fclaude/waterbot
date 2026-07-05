@@ -4,8 +4,8 @@ from datetime import datetime
 from unittest.mock import patch
 
 from waterbot.policy import (
-    PolicyScheduleStore,
     PolicyScheduler,
+    PolicyScheduleStore,
     create_every_n_days_policy,
     evaluate_policy,
     get_due_run_key,

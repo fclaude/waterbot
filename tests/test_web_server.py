@@ -62,9 +62,15 @@ def test_public_schedule_page_and_api_render_schedules():
 
     with (
         patch("waterbot.web.server.get_schedules", return_value={"pump": {"on": ["06:00"], "off": ["06:10"]}}),
-        patch("waterbot.web.server.scheduler.get_next_runs", return_value=[{"device": "pump", "action": "on", "next_run": "tomorrow"}]),
+        patch(
+            "waterbot.web.server.scheduler.get_next_runs",
+            return_value=[{"device": "pump", "action": "on", "next_run": "tomorrow"}],
+        ),
         patch("waterbot.web.server.scheduler.get_policy_schedules", return_value=[policy]),
-        patch("waterbot.web.server.scheduler.get_next_policy_runs", return_value=[{"id": "pump-cycle", "device": "pump", "next_run": "2026-07-07 06:00"}]),
+        patch(
+            "waterbot.web.server.scheduler.get_next_policy_runs",
+            return_value=[{"id": "pump-cycle", "device": "pump", "next_run": "2026-07-07 06:00"}],
+        ),
     ):
         status, _, data = _request(server, "GET", "/")
         assert status == 200

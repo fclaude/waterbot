@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Main bot entry point for WaterBot."""
+
 import logging
 import signal
 import sys

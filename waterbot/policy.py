@@ -242,10 +242,7 @@ class PolicyScheduler:
         timeout_seconds = max(1, int(round(plan.duration_minutes * 60)))
         success = gpio_handler.turn_on(plan.device, timeout_seconds)
         if success:
-            message = (
-                f"Policy '{plan.policy_id}' ran {plan.device} for "
-                f"{_format_minutes(plan.duration_minutes)}"
-            )
+            message = f"Policy '{plan.policy_id}' ran {plan.device} for " f"{_format_minutes(plan.duration_minutes)}"
             if plan.matched_rules:
                 message += f" ({', '.join(plan.matched_rules)})"
         else:

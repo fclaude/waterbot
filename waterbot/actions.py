@@ -366,7 +366,7 @@ def _replace_device_schedule(arguments: Dict[str, Any]) -> ActionResult:
         f"Schedule replacement for '{device}' completed:",
         f"- Removed {removed_count} existing schedules",
         f"- Added {added_count} new schedules",
-        f"",
+        "",
         f"New schedule for {device}:",
     ]
     for index, period in enumerate(periods, 1):

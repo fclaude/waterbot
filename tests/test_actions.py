@@ -189,7 +189,10 @@ def test_all_schedule_and_status_actions(tmp_path):
     mock_all_off.assert_called_once_with(None)
 
     with patch("waterbot.actions.gpio_handler.get_status", return_value={}):
-        assert engine.execute_action("get_device_status", {}, require_confirmation=False).message == "No devices configured"
+        assert (
+            engine.execute_action("get_device_status", {}, require_confirmation=False).message
+            == "No devices configured"
+        )
     with patch("waterbot.actions.gpio_handler.get_status", return_value={"pump": True}):
         assert engine.execute_action("get_device_status", {"device": "pump"}, require_confirmation=False).message == (
             "Device 'pump' is ON"
@@ -199,29 +202,41 @@ def test_all_schedule_and_status_actions(tmp_path):
     assert result.status == "failed"
 
     with patch("waterbot.actions.scheduler.add_schedule", return_value=True):
-        assert "Added schedule" in engine.execute_action(
-            "schedule_add",
-            {"device": "pump", "action": "on", "time": "06:00"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Added schedule"
+            in engine.execute_action(
+                "schedule_add",
+                {"device": "pump", "action": "on", "time": "06:00"},
+                require_confirmation=False,
+            ).message
+        )
     with patch("waterbot.actions.scheduler.add_schedule", return_value=False):
-        assert "Failed to add" in engine.execute_action(
-            "add_schedule",
-            {"device": "pump", "action": "on", "time": "06:00"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Failed to add"
+            in engine.execute_action(
+                "add_schedule",
+                {"device": "pump", "action": "on", "time": "06:00"},
+                require_confirmation=False,
+            ).message
+        )
     with patch("waterbot.actions.scheduler.remove_schedule", return_value=True):
-        assert "Removed schedule" in engine.execute_action(
-            "schedule_remove",
-            {"device": "pump", "action": "on", "time": "06:00"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Removed schedule"
+            in engine.execute_action(
+                "schedule_remove",
+                {"device": "pump", "action": "on", "time": "06:00"},
+                require_confirmation=False,
+            ).message
+        )
     with patch("waterbot.actions.scheduler.remove_schedule", return_value=False):
-        assert "No such schedule" in engine.execute_action(
-            "remove_schedule",
-            {"device": "pump", "action": "on", "time": "06:00"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "No such schedule"
+            in engine.execute_action(
+                "remove_schedule",
+                {"device": "pump", "action": "on", "time": "06:00"},
+                require_confirmation=False,
+            ).message
+        )
 
 
 def test_schedule_list_replace_and_clear_actions(tmp_path):
@@ -229,13 +244,18 @@ def test_schedule_list_replace_and_clear_actions(tmp_path):
     engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
 
     with patch("waterbot.config.get_schedules", return_value={}):
-        assert engine.execute_action("get_schedules", {}, require_confirmation=False).message == "No schedules configured"
+        assert (
+            engine.execute_action("get_schedules", {}, require_confirmation=False).message == "No schedules configured"
+        )
     with patch("waterbot.config.get_schedules", return_value={}):
-        assert "for device 'pump'" in engine.execute_action(
-            "get_schedules",
-            {"device": "pump"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "for device 'pump'"
+            in engine.execute_action(
+                "get_schedules",
+                {"device": "pump"},
+                require_confirmation=False,
+            ).message
+        )
     with patch("waterbot.config.get_schedules", return_value={"on": ["06:00"], "off": ["06:10"]}):
         result = engine.execute_action("get_schedules", {"device": "pump"}, require_confirmation=False)
     assert "PUMP:" in result.message
@@ -292,34 +312,46 @@ def test_policy_weather_time_ip_and_misc_actions(tmp_path):
     engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")), weather_provider=weather_provider)
 
     with patch("waterbot.actions.scheduler.upsert_policy_schedule", return_value=policy):
-        assert "Saved flexible schedule" in engine.execute_action(
-            "upsert_policy_schedule",
-            {"policy": policy},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Saved flexible schedule"
+            in engine.execute_action(
+                "upsert_policy_schedule",
+                {"policy": policy},
+                require_confirmation=False,
+            ).message
+        )
 
     with (
         patch("waterbot.policy.DEVICE_TO_PIN", {"pump": 17}),
         patch("waterbot.actions.scheduler.upsert_policy_schedule", return_value=policy),
     ):
-        assert "Saved flexible cycle" in engine.execute_action(
-            "create_every_n_days_cycle",
-            {"device": "pump", "every": 3, "at": "06:00", "duration_minutes": 8},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Saved flexible cycle"
+            in engine.execute_action(
+                "create_every_n_days_cycle",
+                {"device": "pump", "every": 3, "at": "06:00", "duration_minutes": 8},
+                require_confirmation=False,
+            ).message
+        )
 
     with patch("waterbot.actions.scheduler.remove_policy_schedule", return_value=True):
-        assert "Removed flexible schedule" in engine.execute_action(
-            "remove_policy_schedule",
-            {"policy_id": "pump-cycle"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "Removed flexible schedule"
+            in engine.execute_action(
+                "remove_policy_schedule",
+                {"policy_id": "pump-cycle"},
+                require_confirmation=False,
+            ).message
+        )
     with patch("waterbot.actions.scheduler.remove_policy_schedule", return_value=False):
-        assert "No such flexible schedule" in engine.execute_action(
-            "policy_remove",
-            {"policy_id": "pump-cycle"},
-            require_confirmation=False,
-        ).message
+        assert (
+            "No such flexible schedule"
+            in engine.execute_action(
+                "policy_remove",
+                {"policy_id": "pump-cycle"},
+                require_confirmation=False,
+            ).message
+        )
 
     with patch("waterbot.actions.scheduler.get_policy_schedules", return_value=[]):
         assert "No flexible" in engine.execute_action("get_policy_schedules", {}, require_confirmation=False).message
@@ -334,7 +366,9 @@ def test_policy_weather_time_ip_and_misc_actions(tmp_path):
 
     tz_result = MagicMock(returncode=0, stdout="America/Los_Angeles\n")
     with patch("waterbot.actions.subprocess.run", return_value=tz_result):
-        assert "America/Los_Angeles" in engine.execute_action("get_current_time", {}, require_confirmation=False).message
+        assert (
+            "America/Los_Angeles" in engine.execute_action("get_current_time", {}, require_confirmation=False).message
+        )
     with patch("waterbot.actions.subprocess.run", side_effect=FileNotFoundError):
         assert "Current Time" in engine.execute_action("get_current_time", {}, require_confirmation=False).message
 
@@ -345,7 +379,9 @@ def test_policy_weather_time_ip_and_misc_actions(tmp_path):
     assert "ssh pi@192.168.1.50" in ip_response.message
 
     with patch("waterbot.actions.subprocess.run", side_effect=subprocess.CalledProcessError(1, "ls")):
-        assert "No network interfaces" in engine.execute_action("get_ip_addresses", {}, require_confirmation=False).message
+        assert (
+            "No network interfaces" in engine.execute_action("get_ip_addresses", {}, require_confirmation=False).message
+        )
 
     scheduler_instance = MagicMock()
     with patch("waterbot.actions.scheduler.get_scheduler", return_value=scheduler_instance):

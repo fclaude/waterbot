@@ -42,8 +42,7 @@ class AgentMemory:
     def _initialize(self) -> None:
         """Create tables if they do not exist."""
         with self._connection() as connection:
-            connection.executescript(
-                """
+            connection.executescript("""
                 CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     channel_id TEXT NOT NULL,
@@ -105,8 +104,7 @@ class AgentMemory:
                     feedback TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
-                """
-            )
+                """)
 
     def record_message(
         self,

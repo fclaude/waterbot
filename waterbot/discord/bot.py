@@ -9,6 +9,7 @@ from discord.ext import commands
 
 from .. import policy as policy_model
 from .. import scheduler
+from ..actions import ActionEngine
 from ..config import (
     DEBUG_MODE,
     DISCORD_BOT_TOKEN,
@@ -19,7 +20,6 @@ from ..config import (
 )
 from ..gpio import handler as gpio_handler
 from ..openai_integration import process_with_openai
-from ..actions import ActionEngine
 from ..utils.command_parser import parse_command
 
 # Configure logging

@@ -10,9 +10,11 @@ from typing import Any, Dict, Optional
 try:
     from dotenv import load_dotenv
 except ImportError:
+
     def load_dotenv() -> bool:
         """Fallback when python-dotenv is not installed."""
         return False
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -109,6 +111,7 @@ def get_device_cleanup_state(device: str) -> bool:
     if RELAY_CLEANUP_STATE == "default":
         return get_device_default_state(device)
     return parse_relay_state(RELAY_CLEANUP_STATE)
+
 
 # Load scheduling configuration
 DEVICE_SCHEDULES = {}

@@ -13,8 +13,8 @@ from waterbot.config import (
     load_schedules,
     load_schedules_from_env,
     parse_relay_state,
-    replace_device_schedules,
     remove_schedule,
+    replace_device_schedules,
     save_schedules,
     validate_config,
 )
