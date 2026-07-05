@@ -39,6 +39,11 @@ class TestOpenAIIntegration:
         expected_functions = [
             "replace_device_schedule",
             "clear_device_schedule",
+            "upsert_policy_schedule",
+            "create_every_n_days_cycle",
+            "remove_policy_schedule",
+            "get_policy_schedules",
+            "get_weather_context",
             "get_device_status",
             "turn_device_on",
             "turn_device_off",
@@ -303,8 +308,7 @@ class TestOpenAIIntegration:
     def test_execute_tool_replace_device_schedule(self, mock_scheduler):
         """Test execute_tool_call for replace_device_schedule."""
         mock_schedules = {"on": ["09:00"], "off": ["18:00"]}
-        mock_scheduler.remove_schedule.return_value = True
-        mock_scheduler.add_schedule.return_value = True
+        mock_scheduler.replace_device_schedules.return_value = True
 
         schedule_periods = [
             {"start_time": "08:00", "end_time": "12:00"},
@@ -321,6 +325,10 @@ class TestOpenAIIntegration:
         assert "Removed 2 existing schedules" in result
         assert "Added 4 new schedules" in result
         assert "Period 1: 08:00 to 12:00" in result
+        mock_scheduler.replace_device_schedules.assert_called_once_with(
+            "pump",
+            {"on": ["08:00", "14:00"], "off": ["12:00", "18:00"]},
+        )
 
     @patch("waterbot.openai_integration.scheduler")
     def test_execute_tool_test_notification(self, mock_scheduler):
@@ -332,6 +340,61 @@ class TestOpenAIIntegration:
 
         assert "Test notification sent via scheduler system" in result
         mock_scheduler_instance._send_discord_notification.assert_called_once_with("test_device", "on", True)
+
+    @patch("waterbot.openai_integration.scheduler")
+    def test_execute_tool_create_every_n_days_cycle(self, mock_scheduler):
+        """Test execute_tool_call for create_every_n_days_cycle."""
+        mock_scheduler.upsert_policy_schedule.return_value = {
+            "id": "pump-every-3-days-0600",
+            "device": "pump",
+            "enabled": True,
+            "recurrence": {
+                "type": "every_n_days",
+                "every": 3,
+                "at": "06:00",
+                "anchor_date": "2024-01-01",
+            },
+            "duration": {"base_minutes": 8.0, "min_minutes": 8.0, "max_minutes": 8.0},
+            "rules": [],
+        }
+
+        result = execute_tool_call(
+            "create_every_n_days_cycle",
+            {
+                "device": "pump",
+                "every": 3,
+                "at": "06:00",
+                "duration_minutes": 8,
+                "anchor_date": "2024-01-01",
+            },
+        )
+
+        assert "Saved flexible cycle" in result
+        mock_scheduler.upsert_policy_schedule.assert_called_once()
+
+    @patch("waterbot.openai_integration.scheduler")
+    def test_execute_tool_get_policy_schedules(self, mock_scheduler):
+        """Test execute_tool_call for get_policy_schedules."""
+        mock_scheduler.get_policy_schedules.return_value = [
+            {
+                "id": "pump-every-3-days-0600",
+                "device": "pump",
+                "enabled": True,
+                "recurrence": {
+                    "type": "every_n_days",
+                    "every": 3,
+                    "at": "06:00",
+                    "anchor_date": "2024-01-01",
+                },
+                "duration": {"base_minutes": 8.0, "min_minutes": 8.0, "max_minutes": 8.0},
+                "rules": [],
+            }
+        ]
+
+        result = execute_tool_call("get_policy_schedules", {})
+
+        assert "Flexible Policy Schedules" in result
+        assert "pump-every-3-days-0600" in result
 
     def test_execute_tool_unknown_function(self):
         """Test execute_tool_call with unknown function."""

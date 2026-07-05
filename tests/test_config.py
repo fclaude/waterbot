@@ -8,8 +8,12 @@ from unittest.mock import patch
 from waterbot.config import (
     DEVICE_SCHEDULES,
     add_schedule,
+    get_device_default_state,
     get_schedules,
     load_schedules,
+    load_schedules_from_env,
+    parse_relay_state,
+    replace_device_schedules,
     remove_schedule,
     save_schedules,
 )
@@ -108,6 +112,15 @@ class TestScheduleConfiguration:
 
             # Device should be completely removed
             assert "pump" not in DEVICE_SCHEDULES
+
+    def test_replace_device_schedules(self):
+        """Test replacing all schedules for a device."""
+        with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
+            add_schedule("pump", "on", "08:00")
+            success = replace_device_schedules("pump", {"on": ["09:00"], "off": ["09:10"]})
+
+            assert success is True
+            assert DEVICE_SCHEDULES["pump"] == {"on": ["09:00"], "off": ["09:10"]}
 
     def test_get_schedules_all(self):
         """Test getting all schedules."""
@@ -241,3 +254,39 @@ class TestScheduleConfiguration:
 
                     # Should not create any schedules due to invalid formats
                     assert "pump" not in DEVICE_SCHEDULES
+
+    def test_load_schedules_from_env(self):
+        """Test loading legacy schedules from env vars."""
+        env_vars = {
+            "SCHEDULE_PUMP_ON": "08:00,20:00",
+            "SCHEDULE_PUMP_OFF": "12:00",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=False):
+            with patch("waterbot.config.DEVICE_TO_PIN", {"pump": 17}):
+                schedules = load_schedules_from_env()
+
+        assert schedules == {"pump": {"on": ["08:00", "20:00"], "off": ["12:00"]}}
+
+
+class TestRelayDefaults:
+    """Test cases for relay default configuration."""
+
+    def test_parse_relay_state(self):
+        """Test relay state parsing."""
+        assert parse_relay_state("on") is True
+        assert parse_relay_state("true") is True
+        assert parse_relay_state("off") is False
+        assert parse_relay_state("false") is False
+
+    def test_get_device_default_state_global(self):
+        """Test global relay default state."""
+        with patch("waterbot.config.RELAY_DEFAULT_STATE", "on"):
+            with patch("waterbot.config.DEVICE_DEFAULT_STATES", {}):
+                assert get_device_default_state("pump") is True
+
+    def test_get_device_default_state_override(self):
+        """Test per-device relay default override."""
+        with patch("waterbot.config.RELAY_DEFAULT_STATE", "off"):
+            with patch("waterbot.config.DEVICE_DEFAULT_STATES", {"pump": "on"}):
+                assert get_device_default_state("pump") is True

@@ -1,4 +1,4 @@
-"""WaterBot - A Signal bot to control GPIO pins on Raspberry Pi.
+"""WaterBot - A Discord bot to control GPIO pins on Raspberry Pi.
 
-With scheduling functionality.
+With legacy schedules and flexible policy scheduling.
 """

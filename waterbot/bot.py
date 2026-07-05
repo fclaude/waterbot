@@ -53,18 +53,21 @@ def main() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    # Always start scheduler first (works offline)
-    if ENABLE_SCHEDULING:
-        logger.info("Starting device scheduler")
-        scheduler.start_scheduler()
-    else:
-        logger.info("Scheduling is disabled")
-
     # Main application loop with automatic restart
+    scheduler_started = False
     while True:
         try:
-            # Validate configuration
+            # Validate configuration before starting hardware-facing background work.
             validate_config()
+
+            # Start scheduler once after validation (works offline)
+            if not scheduler_started:
+                if ENABLE_SCHEDULING:
+                    logger.info("Starting device scheduler")
+                    scheduler.start_scheduler()
+                else:
+                    logger.info("Scheduling is disabled")
+                scheduler_started = True
 
             # Create and start the bot
             logger.info("Starting Discord bot...")

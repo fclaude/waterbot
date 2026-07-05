@@ -103,15 +103,15 @@ class TestCommandParser:
         """Test parsing all devices on/off commands."""
         command_type, params = parse_command("on all")
         assert command_type == "all_on"
-        assert params["timeout"] == 600  # 10 minutes * 60 seconds
+        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
 
         command_type, params = parse_command("off all")
         assert command_type == "all_off"
-        assert params["timeout"] == 600  # 10 minutes * 60 seconds
+        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
 
         command_type, params = parse_command("ON ALL")
         assert command_type == "all_on"
-        assert params["timeout"] == 600  # 10 minutes * 60 seconds
+        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_device_on_command(self):
@@ -120,7 +120,7 @@ class TestCommandParser:
 
         assert command_type == "device_on"
         assert params["device"] == "pump"
-        assert params["timeout"] == 600  # 10 minutes * 60 seconds
+        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_on_with_timeout(self):
@@ -145,7 +145,7 @@ class TestCommandParser:
 
         assert command_type == "device_off"
         assert params["device"] == "light"
-        assert params["timeout"] == 600  # 10 minutes * 60 seconds
+        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_off_with_timeout(self):
@@ -223,3 +223,31 @@ class TestCommandParser:
 
             command_type, params = parse_command("unschedule pump on 12:75")
             assert command_type == "help"
+
+    @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
+    def test_cycle_every_n_days_command(self):
+        """Test parsing flexible every-N-days cycle command."""
+        command_type, params = parse_command("cycle pump every 3 days at 06:00 for 8 minutes")
+
+        assert command_type == "policy_add_every_n_days"
+        assert params == {
+            "device": "pump",
+            "every": 3,
+            "at": "06:00",
+            "duration_minutes": 8.0,
+            "anchor_date": None,
+        }
+
+    def test_cycles_command(self):
+        """Test parsing flexible cycle list command."""
+        command_type, params = parse_command("cycles")
+
+        assert command_type == "show_policy_schedules"
+        assert params == {}
+
+    def test_uncycle_command(self):
+        """Test parsing flexible cycle removal command."""
+        command_type, params = parse_command("uncycle pump-every-3-days-0600")
+
+        assert command_type == "policy_remove"
+        assert params == {"policy_id": "pump-every-3-days-0600"}

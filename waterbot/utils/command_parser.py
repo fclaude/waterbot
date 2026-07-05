@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Dict, Optional, Tuple
 
-from ..config import DEVICE_TO_PIN
+from ..config import DEFAULT_TIMEOUT, DEVICE_TO_PIN
 
 logger = logging.getLogger("command_parser")
 
@@ -33,6 +33,35 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
 
     if text == "ip":
         return "ip", {}
+
+    if text in {"cycles", "policies", "policy schedules"}:
+        return "show_policy_schedules", {}
+
+    cycle_match = re.match(
+        r"cycle\s+(\w+)\s+every\s+(\d+)\s+days?\s+at\s+(\d{2}:\d{2})\s+for\s+(\d+(?:\.\d+)?)\s+minutes?"
+        r"(?:\s+starting\s+(\d{4}-\d{2}-\d{2}))?",
+        text,
+    )
+    if cycle_match:
+        device, every, at, duration, anchor_date = cycle_match.groups()
+        if device not in DEVICE_TO_PIN:
+            return "error", {"message": f"Unknown device: {device}"}
+
+        hour, minute = at.split(":")
+        if int(hour) > 23 or int(minute) > 59:
+            return "help", {}
+
+        return "policy_add_every_n_days", {
+            "device": device,
+            "every": int(every),
+            "at": at,
+            "duration_minutes": float(duration),
+            "anchor_date": anchor_date,
+        }
+
+    uncycle_match = re.match(r"uncycle\s+([a-z0-9_.-]+)", text)
+    if uncycle_match:
+        return "policy_remove", {"policy_id": uncycle_match.group(1)}
 
     # Device-specific schedule query: "schedule for <device>" or "schedules for <device>"
     schedule_for_match = re.match(r"(?:schedule|schedules)\s+for\s+(\w+)", text)
@@ -72,10 +101,10 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
 
     # All devices commands
     if text == "on all":
-        return "all_on", {"timeout": 600}  # 10 minutes in seconds
+        return "all_on", {"timeout": DEFAULT_TIMEOUT * 60}
 
     if text == "off all":
-        return "all_off", {"timeout": 600}  # 10 minutes in seconds
+        return "all_off", {"timeout": DEFAULT_TIMEOUT * 60}
 
     # Device-specific commands
     on_match = re.match(r"on\s+(\w+)(?:\s+(\d+))?", text)
@@ -85,8 +114,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use 10 minutes if no timeout specified, convert minutes to seconds
-        timeout = (int(time_str) * 60) if time_str else 600
+        # Timeout input is minutes. GPIO receives seconds.
+        timeout = (int(time_str) * 60) if time_str else DEFAULT_TIMEOUT * 60
         return "device_on", {"device": device, "timeout": timeout}
 
     off_match = re.match(r"off\s+(\w+)(?:\s+(\d+))?", text)
@@ -96,8 +125,8 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Use 10 minutes if no timeout specified, convert minutes to seconds
-        timeout = (int(time_str) * 60) if time_str else 600
+        # Timeout input is minutes. GPIO receives seconds.
+        timeout = (int(time_str) * 60) if time_str else DEFAULT_TIMEOUT * 60
         return "device_off", {"device": device, "timeout": timeout}
 
     # Simple scheduling commands (must be after more specific schedule patterns)

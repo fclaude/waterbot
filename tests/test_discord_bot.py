@@ -260,12 +260,12 @@ class TestWaterBot:
         with patch("waterbot.discord.bot.gpio_handler.turn_off") as mock_turn_off:
             mock_turn_off.return_value = True
 
-            await self.bot.off_command.callback(self.bot, mock_ctx, "light", 3600)
+            await self.bot.off_command.callback(self.bot, mock_ctx, "light", 60)
 
             mock_turn_off.assert_called_once_with("light", 3600)
             mock_ctx.send.assert_called_once()
             call_args = mock_ctx.send.call_args[0][0]
-            assert "Device 'light' turned OFF for 3600 seconds" in call_args
+            assert "Device 'light' turned OFF for 60 minutes" in call_args
 
     @pytest.mark.asyncio
     async def test_schedule_command(self):
@@ -390,25 +390,85 @@ class TestWaterBot:
 
         with patch("waterbot.discord.bot.get_schedules") as mock_get_schedules:
             with patch("waterbot.discord.bot.scheduler.get_next_runs") as mock_get_next_runs:
-                mock_get_schedules.return_value = mock_schedules
-                mock_get_next_runs.return_value = mock_next_runs
+                with patch("waterbot.discord.bot.scheduler.get_policy_schedules", return_value=[]):
+                    mock_get_schedules.return_value = mock_schedules
+                    mock_get_next_runs.return_value = mock_next_runs
 
-                response = self.bot._get_schedules_response()
+                    response = self.bot._get_schedules_response()
 
-                assert "Device Schedules:" in response
-                assert "PUMP:" in response
-                assert "ON at 08:00" in response
-                assert "OFF at 20:00" in response
-                assert "Next scheduled runs:" in response
+                    assert "Device Schedules:" in response
+                    assert "PUMP:" in response
+                    assert "ON at 08:00" in response
+                    assert "OFF at 20:00" in response
+                    assert "Next scheduled runs:" in response
 
     def test_get_schedules_response_empty(self):
         """Test get schedules response with no schedules."""
         with patch("waterbot.discord.bot.get_schedules") as mock_get_schedules:
-            mock_get_schedules.return_value = {}
+            with patch("waterbot.discord.bot.scheduler.get_policy_schedules", return_value=[]):
+                mock_get_schedules.return_value = {}
 
-            response = self.bot._get_schedules_response()
+                response = self.bot._get_schedules_response()
 
-            assert response == "No schedules configured"
+                assert response == "No schedules configured"
+
+    def test_get_policy_schedules_response(self):
+        """Test flexible policy schedule response."""
+        policy_data = {
+            "id": "pump-every-3-days-0600",
+            "device": "pump",
+            "enabled": True,
+            "recurrence": {
+                "type": "every_n_days",
+                "every": 3,
+                "at": "06:00",
+                "anchor_date": "2024-01-01",
+            },
+            "duration": {"base_minutes": 8.0, "min_minutes": 2.0, "max_minutes": 12.0},
+            "rules": [],
+        }
+
+        with (
+            patch("waterbot.discord.bot.scheduler.get_policy_schedules", return_value=[policy_data]),
+            patch("waterbot.discord.bot.scheduler.get_next_policy_runs", return_value=[]),
+        ):
+            response = self.bot._get_policy_schedules_response()
+
+        assert "Flexible Cycle Schedules" in response
+        assert "pump-every-3-days-0600" in response
+
+    @pytest.mark.asyncio
+    async def test_execute_command_policy_add_every_n_days(self):
+        """Test executing a flexible every-N-days cycle command."""
+        with patch("waterbot.discord.bot.scheduler.upsert_policy_schedule") as mock_upsert:
+            mock_upsert.return_value = {
+                "id": "pump-every-3-days-0600",
+                "device": "pump",
+                "enabled": True,
+                "recurrence": {
+                    "type": "every_n_days",
+                    "every": 3,
+                    "at": "06:00",
+                    "anchor_date": "2024-01-01",
+                },
+                "duration": {"base_minutes": 8.0, "min_minutes": 8.0, "max_minutes": 8.0},
+                "rules": [],
+            }
+
+            response = await self.bot._execute_command(
+                "policy_add_every_n_days",
+                {
+                    "device": "pump",
+                    "every": 3,
+                    "at": "06:00",
+                    "duration_minutes": 8.0,
+                    "anchor_date": "2024-01-01",
+                },
+            )
+
+        assert response is not None
+        assert "Added cycle" in response
+        mock_upsert.assert_called_once()
 
     def test_stop_bot(self):
         """Test stopping the bot."""

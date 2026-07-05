@@ -6,9 +6,11 @@ from typing import Any, Dict, List
 
 from openai import OpenAI
 
+from . import policy as policy_model
 from . import scheduler
 from .config import OPENAI_API_KEY, OPENAI_MODEL
 from .gpio import handler as gpio_handler
+from .weather import WeatherContextProvider
 
 logger = logging.getLogger("waterbot.openai")
 
@@ -75,6 +77,93 @@ def get_available_tools() -> List[Dict[str, Any]]:
                     },
                     "required": ["device"],
                 },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "upsert_policy_schedule",
+                "description": (
+                    "Create or replace a flexible watering policy. Use this for "
+                    "every-N-days cycles, weather-aware schedules, seasonal windows, "
+                    "or rules that skip, shorten, or lengthen runs."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "policy": {
+                            "type": "object",
+                            "description": (
+                                "Policy object with id, device, recurrence, duration, "
+                                "and optional rules. Recurrence types: daily, weekly, "
+                                "every_n_days. Rule metrics include temperature_f, "
+                                "rain_last_24h_inches, forecast_rain_next_12h_inches, "
+                                "and rain_probability_next_12h."
+                            ),
+                        }
+                    },
+                    "required": ["policy"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_every_n_days_cycle",
+                "description": "Create a simple flexible cycle that runs a device every N days",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "device": {"type": "string", "description": "Device name"},
+                        "every": {
+                            "type": "integer",
+                            "description": "Run every N days",
+                            "minimum": 1,
+                        },
+                        "at": {
+                            "type": "string",
+                            "description": "Start time in HH:MM format",
+                            "pattern": "^\\d{2}:\\d{2}$",
+                        },
+                        "duration_minutes": {
+                            "type": "number",
+                            "description": "Base watering duration in minutes",
+                        },
+                        "anchor_date": {
+                            "type": "string",
+                            "description": "Optional YYYY-MM-DD date that defines cycle day zero",
+                        },
+                    },
+                    "required": ["device", "every", "at", "duration_minutes"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "remove_policy_schedule",
+                "description": "Remove a flexible policy schedule by ID",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"policy_id": {"type": "string", "description": "Policy ID"}},
+                    "required": ["policy_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_policy_schedules",
+                "description": "List flexible policy schedules",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather_context",
+                "description": "Get weather metrics available to flexible policy rules",
+                "parameters": {"type": "object", "properties": {}, "required": []},
             },
         },
         {
@@ -240,48 +329,23 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
             device = arguments["device"]
             schedule_periods = arguments["schedule_periods"]
 
-            # First, clear all existing schedules for this device
             from .config import get_schedules
 
             existing_schedules = get_schedules(device)
-            removed_count = 0
-
-            # Remove all existing schedules
-            for action in ["on", "off"]:
-                if action in existing_schedules:
-                    for time_str in existing_schedules[action][:]:  # Copy list to avoid modification during iteration
-                        success = scheduler.remove_schedule(device, action, time_str)
-                        if success:
-                            removed_count += 1
-
-            # Add new schedules
-            added_count = 0
-            failed_schedules = []
+            removed_count = sum(len(times) for times in existing_schedules.values())
+            replacement_schedules: Dict[str, List[str]] = {"on": [], "off": []}
 
             for period in schedule_periods:
-                start_time = period["start_time"]
-                end_time = period["end_time"]
+                replacement_schedules["on"].append(period["start_time"])
+                replacement_schedules["off"].append(period["end_time"])
 
-                # Add ON schedule
-                success_on = scheduler.add_schedule(device, "on", start_time)
-                if success_on:
-                    added_count += 1
-                else:
-                    failed_schedules.append(f"on at {start_time}")
-
-                # Add OFF schedule
-                success_off = scheduler.add_schedule(device, "off", end_time)
-                if success_off:
-                    added_count += 1
-                else:
-                    failed_schedules.append(f"off at {end_time}")
+            success = scheduler.replace_device_schedules(device, replacement_schedules)
+            if not success:
+                return f"Failed to replace schedule for '{device}'"
 
             result = f"Schedule replacement for '{device}' completed:\n"
             result += f"- Removed {removed_count} existing schedules\n"
-            result += f"- Added {added_count} new schedules\n"
-
-            if failed_schedules:
-                result += f"- Failed to add: {', '.join(failed_schedules)}\n"
+            result += f"- Added {len(replacement_schedules['on']) + len(replacement_schedules['off'])} new schedules\n"
 
             # Show the new schedule
             result += f"\nNew schedule for {device}:\n"
@@ -308,6 +372,46 @@ def execute_tool_call(function_name: str, arguments: Dict[str, Any]) -> str:
                             removed_count += 1
 
             return f"Cleared all schedules for '{device}' - " f"removed {removed_count} schedule entries"
+
+        elif function_name == "upsert_policy_schedule":
+            saved_policy = scheduler.upsert_policy_schedule(arguments["policy"])
+            return f"Saved flexible schedule:\n{policy_model.policy_summary(saved_policy)}"
+
+        elif function_name == "create_every_n_days_cycle":
+            policy_data = policy_model.create_every_n_days_policy(
+                device=arguments["device"],
+                every=int(arguments["every"]),
+                at=arguments["at"],
+                duration_minutes=float(arguments["duration_minutes"]),
+                anchor_date=arguments.get("anchor_date"),
+            )
+            saved_policy = scheduler.upsert_policy_schedule(policy_data)
+            return f"Saved flexible cycle:\n{policy_model.policy_summary(saved_policy)}"
+
+        elif function_name == "remove_policy_schedule":
+            policy_id = arguments["policy_id"]
+            success = scheduler.remove_policy_schedule(policy_id)
+            if success:
+                return f"Removed flexible schedule: {policy_id}"
+            return f"No such flexible schedule found: {policy_id}"
+
+        elif function_name == "get_policy_schedules":
+            policies = scheduler.get_policy_schedules()
+            if not policies:
+                return "No flexible policy schedules configured"
+            result = "Flexible Policy Schedules:\n"
+            for saved_policy in policies:
+                result += f"- {policy_model.policy_summary(saved_policy)}\n"
+            return result
+
+        elif function_name == "get_weather_context":
+            context = WeatherContextProvider().get_context()
+            if not context:
+                return "No weather context available"
+            result = "Weather Context:\n"
+            for key, value in sorted(context.items()):
+                result += f"- {key}: {value}\n"
+            return result
 
         elif function_name == "get_device_status":
             device = arguments.get("device")
@@ -524,8 +628,11 @@ async def process_with_openai(message: str) -> str:
             "CORE CAPABILITIES:\n"
             "- Device Control: turn on/off individual devices or all devices\n"
             "- Intelligent Scheduling: create, modify, and manage complex schedules\n"
+            "- Flexible Policy Scheduling: every-N-days cycles, weekly cycles, "
+            "seasonal windows, and weather-aware skip/shorten/lengthen rules\n"
             "- Status Monitoring: check current device states and schedules\n"
-            "- System Info: get current time, IP addresses for SSH access\n"
+            "- System Info: get current time, weather context, IP addresses for "
+            "SSH access\n"
             "- Planning & Execution: break down complex requests into multiple "
             "steps\n\n"
             "CRITICAL EXECUTION RULES:\n"
@@ -535,6 +642,8 @@ async def process_with_openai(message: str) -> str:
             "tool functions\n"
             "- For schedule modifications, use replace_device_schedule tool to make "
             "changes\n"
+            "- For every-N-days cycles or weather-aware behavior, use "
+            "upsert_policy_schedule or create_every_n_days_cycle\n"
             "- Don't just describe what you'll do - actually do it by calling the "
             "tools\n"
             "- After planning an action, immediately execute it using the available "
@@ -545,6 +654,9 @@ async def process_with_openai(message: str) -> str:
             "existing schedules unless specified otherwise\n"
             "- For schedule periods (e.g., 'run from 6:01 to 6:06'), create ON "
             "schedule at start time and OFF schedule at end time\n"
+            "- For requests like 'every 3 days', 'unless it rains', 'shorten based "
+            "on temperature', or 'skip when rain is forecast', create a flexible "
+            "policy schedule with recurrence, duration, and rules\n"
             "- Be proactive - if someone says 'change schedule to X', remove old "
             "schedules and add new ones atomically\n"
             "- Explain your planned actions AND THEN EXECUTE THEM using tools\n\n"
@@ -558,6 +670,11 @@ async def process_with_openai(message: str) -> str:
             "  3. Call replace_device_schedule('bed1', [...]) with updated times\n"
             "- 'add schedule for pump at 9:00' → Call add_schedule('pump', 'on', "
             "'09:00')\n"
+            "- 'water bed1 every 3 days at 6am for 8 minutes unless it rained a "
+            "quarter inch' → Call upsert_policy_schedule(...) with recurrence "
+            "type every_n_days and a skip rule using rain_last_24h_inches\n"
+            "- 'shorten by half if rain is forecast' → Add a policy rule with "
+            "forecast_rain_next_12h_inches and duration_multiplier 0.5\n"
             "- 'schedules' → Call get_schedules() to show all schedules\n\n"
             "MANDATORY: When users request changes to schedules, you MUST call the "
             "modification tools. Just describing the plan without executing it via "

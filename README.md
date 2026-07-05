@@ -51,7 +51,7 @@ pip install -r requirements.txt
 DISCORD_BOT_TOKEN="your_discord_bot_token_here"
 DISCORD_CHANNEL_ID="123456789012345678"
 
-# OpenAI Configuration
+# OpenAI Configuration (optional, enables natural-language control)
 OPENAI_API_KEY="your_openai_api_key_here"  # pragma: allowlist secret
 OPENAI_MODEL="gpt-4o-mini"
 
@@ -65,14 +65,23 @@ DEVICE_FAN=18
 DEVICE_PUMP=27
 DEVICE_HEATER=22
 
-# Default timeout in seconds (optional, for timed operations)
-DEFAULT_TIMEOUT=3600
+# Relay defaults
+# Global startup/cleanup state: on or off
+RELAY_DEFAULT_STATE=off
+RELAY_CLEANUP_STATE=off
+# Optional per-device startup override
+# RELAY_DEFAULT_PUMP=on
+
+# Default timeout in minutes (optional, for timed operations)
+DEFAULT_TIMEOUT=60
 
 # Scheduling Configuration
 # Enable automatic scheduling of devices
 ENABLE_SCHEDULING=true
 # JSON file to store schedule configuration (optional)
 SCHEDULE_CONFIG_FILE=schedules.json
+# JSON file to store flexible policy schedules
+POLICY_SCHEDULE_CONFIG_FILE=schedule_policies.json
 
 # Schedule Configuration (alternative to JSON file)
 # Format: SCHEDULE_<DEVICE>_<ACTION>=HH:MM[,HH:MM,...]
@@ -81,6 +90,13 @@ SCHEDULE_CONFIG_FILE=schedules.json
 # SCHEDULE_PUMP_OFF=12:00,23:00
 # SCHEDULE_LIGHT_ON=06:30
 # SCHEDULE_LIGHT_OFF=22:00
+
+# Optional weather context for flexible policy schedules
+# WEATHER_PROVIDER=none or open_meteo
+WEATHER_PROVIDER=none
+# WEATHER_LATITUDE=37.7749
+# WEATHER_LONGITUDE=-122.4194
+# WEATHER_CONTEXT_JSON={"temperature_f":90,"rain_last_24h_inches":0}
 ```
 
 ### Discord Bot Setup
@@ -117,16 +133,19 @@ Send these commands from the Discord channel to control your devices:
 - `status` - Show the status of all devices
 - `on <device>` - Turn on a specific device
 - `off <device>` - Turn off a specific device
-- `on <device> <seconds>` - Turn on a device for a specified time
-- `off <device> <seconds>` - Turn off a device for a specified time
-  - `on all` - Turn on all devices
-  - `off all` - Turn off all devices
+- `on <device> <minutes>` - Turn on a device for a specified time
+- `off <device> <minutes>` - Turn off a device for a specified time
+- `on all` - Turn on all devices
+- `off all` - Turn off all devices
 
 #### Scheduling Commands
 
 - `schedules` - Show all configured schedules and next runs
 - `schedule <device> <on|off> <HH:MM>` - Add a new schedule
 - `unschedule <device> <on|off> <HH:MM>` - Remove a schedule
+- `cycles` - Show flexible cycle schedules
+- `cycle <device> every <N> days at <HH:MM> for <minutes> minutes` - Add an every-N-days cycle
+- `uncycle <policy_id>` - Remove a flexible cycle
 
 #### Help
 
@@ -140,8 +159,8 @@ Send these commands from the Discord channel to control your devices:
 status
 on light
 off pump
-on fan 3600
-off heater 1800
+on fan 60
+off heater 30
 on all
 off all
 ```
@@ -168,6 +187,55 @@ schedule light off 22:00
 
 # Remove a schedule
 unschedule pump on 20:00
+```
+
+#### Flexible Policy Schedule Example
+
+Flexible policies are stored in `schedule_policies.json` and can express cycles,
+duration bounds, seasonal windows, and weather-aware rules. The agent can create
+these from natural language when `OPENAI_API_KEY` is configured, or you can edit
+the JSON file directly.
+
+```json
+{
+  "version": 1,
+  "policies": [
+    {
+      "id": "pump-summer-cycle",
+      "device": "pump",
+      "enabled": true,
+      "recurrence": {
+        "type": "every_n_days",
+        "every": 3,
+        "at": "06:00",
+        "anchor_date": "2026-07-01",
+        "active_between": {"start": "04-01", "end": "10-31"}
+      },
+      "duration": {
+        "base_minutes": 8,
+        "min_minutes": 2,
+        "max_minutes": 15
+      },
+      "rules": [
+        {
+          "name": "recent rain",
+          "when": {"rain_last_24h_inches": {">=": 0.25}},
+          "then": {"skip": true}
+        },
+        {
+          "name": "forecast rain",
+          "when": {"forecast_rain_next_12h_inches": {">=": 0.15}},
+          "then": {"duration_multiplier": 0.5}
+        },
+        {
+          "name": "hot day",
+          "when": {"temperature_f": {">=": 90}},
+          "then": {"duration_multiplier": 1.25}
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ## Development and Testing

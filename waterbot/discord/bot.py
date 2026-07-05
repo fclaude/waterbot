@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional
 import discord
 from discord.ext import commands
 
+from .. import policy as policy_model
 from .. import scheduler
 from ..config import (
     DEBUG_MODE,
@@ -60,14 +61,18 @@ class WaterBot(commands.Bot):
         @self.command(name="on")
         async def on_command_func(ctx: commands.Context, device: str, timeout: Optional[int] = None) -> None:
             """Turn on a device."""
+            timeout_seconds = timeout * 60 if timeout else None
             if device.lower() == "all":
-                gpio_handler.turn_all_on()
-                await ctx.send("All devices turned ON")
+                gpio_handler.turn_all_on(timeout_seconds)
+                if timeout:
+                    await ctx.send(f"All devices turned ON for {timeout} minutes")
+                else:
+                    await ctx.send("All devices turned ON")
             else:
-                success = gpio_handler.turn_on(device, timeout)
+                success = gpio_handler.turn_on(device, timeout_seconds)
                 if success:
                     if timeout:
-                        await ctx.send(f"Device '{device}' turned ON for {timeout} seconds")
+                        await ctx.send(f"Device '{device}' turned ON for {timeout} minutes")
                     else:
                         await ctx.send(f"Device '{device}' turned ON")
                 else:
@@ -76,14 +81,22 @@ class WaterBot(commands.Bot):
         @self.command(name="off")
         async def off_command_func(ctx: commands.Context, device: str, timeout: Optional[int] = None) -> None:
             """Turn off a device."""
-            success = gpio_handler.turn_off(device, timeout)
-            if success:
+            timeout_seconds = timeout * 60 if timeout else None
+            if device.lower() == "all":
+                gpio_handler.turn_all_off(timeout_seconds)
                 if timeout:
-                    await ctx.send(f"Device '{device}' turned OFF for {timeout} seconds")
+                    await ctx.send(f"All devices turned OFF for {timeout} minutes")
                 else:
-                    await ctx.send(f"Device '{device}' turned OFF")
+                    await ctx.send("All devices turned OFF")
             else:
-                await ctx.send(f"Error: Unknown device '{device}'")
+                success = gpio_handler.turn_off(device, timeout_seconds)
+                if success:
+                    if timeout:
+                        await ctx.send(f"Device '{device}' turned OFF for {timeout} minutes")
+                    else:
+                        await ctx.send(f"Device '{device}' turned OFF")
+                else:
+                    await ctx.send(f"Error: Unknown device '{device}'")
 
         @self.command(name="status")
         async def status_command_func(ctx: commands.Context) -> None:
@@ -266,6 +279,9 @@ class WaterBot(commands.Bot):
         elif command_type == "show_schedules":
             return self._get_schedules_response()
 
+        elif command_type == "show_policy_schedules":
+            return self._get_policy_schedules_response()
+
         elif command_type == "show_device_schedules":
             device = params["device"]
             return self._get_device_schedules_response(device)
@@ -290,13 +306,38 @@ class WaterBot(commands.Bot):
             else:
                 return f"No such schedule found: {device} {action} at {time_str}"
 
+        elif command_type == "policy_add_every_n_days":
+            policy_data = policy_model.create_every_n_days_policy(
+                device=params["device"],
+                every=params["every"],
+                at=params["at"],
+                duration_minutes=params["duration_minutes"],
+                anchor_date=params.get("anchor_date"),
+            )
+            try:
+                saved_policy = scheduler.upsert_policy_schedule(policy_data)
+            except policy_model.PolicyValidationError as exc:
+                return f"Failed to add cycle: {exc}"
+            return f"Added cycle: {policy_model.policy_summary(saved_policy)}"
+
+        elif command_type == "policy_remove":
+            policy_id = params["policy_id"]
+            success = scheduler.remove_policy_schedule(policy_id)
+            if success:
+                return f"Removed cycle: {policy_id}"
+            return f"No such cycle found: {policy_id}"
+
         elif command_type == "all_on":
-            gpio_handler.turn_all_on()
-            return "All devices turned ON"
+            timeout = params.get("timeout")
+            gpio_handler.turn_all_on(timeout)
+            time_msg = f" for {timeout // 60} minutes" if timeout else ""
+            return f"All devices turned ON{time_msg}"
 
         elif command_type == "all_off":
-            gpio_handler.turn_all_off()
-            return "All devices turned OFF"
+            timeout = params.get("timeout")
+            gpio_handler.turn_all_off(timeout)
+            time_msg = f" for {timeout // 60} minutes" if timeout else ""
+            return f"All devices turned OFF{time_msg}"
 
         elif command_type == "device_on":
             device = params["device"]
@@ -314,7 +355,7 @@ class WaterBot(commands.Bot):
             success = gpio_handler.turn_off(device, timeout)
             if success:
                 if timeout:
-                    return f"Device '{device}' turned OFF for {timeout} seconds"
+                    return f"Device '{device}' turned OFF for {timeout // 60} minutes"
                 else:
                     return f"Device '{device}' turned OFF permanently"
             else:
@@ -396,9 +437,12 @@ class WaterBot(commands.Bot):
             "on all - Turn on all devices\n"
             "off all - Turn off all devices\n"
             "schedules - Show all schedules\n"
+            "cycles - Show flexible cycle schedules\n"
             "schedule for <device> - Show schedules for specific device\n"
             "schedule <device> <on|off> <HH:MM> - Add schedule\n"
             "unschedule <device> <on|off> <HH:MM> - Remove schedule\n"
+            "cycle <device> every <N> days at <HH:MM> for <minutes> minutes\n"
+            "uncycle <policy_id> - Remove flexible cycle schedule\n"
             "time - Show current time on bot node\n"
             "ip - Show SSH access information\n"
             "test - Test notification system\n"
@@ -414,6 +458,9 @@ class WaterBot(commands.Bot):
         """Generate schedules response message."""
         schedules = get_schedules()
         if not schedules:
+            policy_response = self._get_policy_schedules_response()
+            if policy_response != "No flexible cycle schedules configured":
+                return policy_response
             return "No schedules configured"
 
         response = "**Device Schedules:**\n```\n"
@@ -429,6 +476,34 @@ class WaterBot(commands.Bot):
             response += "\nNext scheduled runs:\n"
             for run in next_runs[:5]:  # Show next 5 runs
                 response += f"  {run['device']} {run['action']} at {run['time']} " f"(next: {run['next_run']})\n"
+
+        response += "```"
+
+        policy_response = self._get_policy_schedules_response()
+        if policy_response != "No flexible cycle schedules configured":
+            response += f"\n\n{policy_response}"
+
+        return response
+
+    def _get_policy_schedules_response(self) -> str:
+        """Generate flexible policy schedule response message."""
+        try:
+            policies = scheduler.get_policy_schedules()
+        except policy_model.PolicyValidationError as exc:
+            return f"Invalid flexible schedule configuration: {exc}"
+
+        if not policies:
+            return "No flexible cycle schedules configured"
+
+        response = "**Flexible Cycle Schedules:**\n```\n"
+        for saved_policy in policies:
+            response += f"{policy_model.policy_summary(saved_policy)}\n"
+
+        next_runs = scheduler.get_next_policy_runs()
+        if next_runs:
+            response += "\nNext flexible runs:\n"
+            for run in next_runs[:5]:
+                response += f"  {run['id']} ({run['device']}): {run['next_run']}\n"
 
         response += "```"
         return response

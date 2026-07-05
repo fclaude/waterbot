@@ -4,7 +4,7 @@ import logging
 from threading import Lock, Timer
 from typing import Dict, Optional
 
-from ..config import DEVICE_TO_PIN, IS_EMULATION
+from ..config import DEVICE_TO_PIN, IS_EMULATION, get_device_cleanup_state, get_device_default_state
 from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO  # noqa: I100
 
 logger = logging.getLogger("gpio_handler")
@@ -49,10 +49,11 @@ class DeviceController:
     def _setup_devices(self) -> None:
         """Set up all configured devices."""
         for device, pin in DEVICE_TO_PIN.items():
+            default_state = get_device_default_state(device)
             if self.gpio is not None:
                 self.gpio.setup(pin, "OUT")
-                self.gpio.output(pin, False)
-            self.device_status[device] = False
+                self.gpio.output(pin, default_state)
+            self.device_status[device] = default_state
             self.device_timers[device] = None
 
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
@@ -169,9 +170,15 @@ class DeviceController:
             if timer is not None:
                 timer.cancel()
 
-        # Turn off all devices before cleanup
-        for device in DEVICE_TO_PIN.keys():
-            self.device_status[device] = False
+        # Put devices into their configured cleanup state before releasing GPIO.
+        for device, pin in DEVICE_TO_PIN.items():
+            cleanup_state = get_device_cleanup_state(device)
+            if self.gpio is not None:
+                try:
+                    self.gpio.output(pin, cleanup_state)
+                except RuntimeError:
+                    logger.warning("Could not set cleanup state for device '%s'", device)
+            self.device_status[device] = cleanup_state
 
         # Cleanup GPIO
         if self.gpio:

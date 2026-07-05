@@ -38,6 +38,14 @@ class TestDeviceController:
         for device in self.device_config:
             assert self.controller.device_status[device] is False
 
+    def test_device_setup_with_default_on(self):
+        """Test that configured default relay state is applied on setup."""
+        with patch("waterbot.gpio.handler.get_device_default_state", return_value=True):
+            controller = DeviceController(MockGPIO())
+
+        assert controller.device_status["pump"] is True
+        assert (17, True) in controller.gpio.output_calls
+
     def test_turn_on_device(self):
         """Test turning on a device."""
         success = self.controller.turn_on("pump")
@@ -126,6 +134,14 @@ class TestDeviceController:
 
             # Check that GPIO cleanup was called
             assert self.mock_gpio.cleanup_called is True
+
+    def test_cleanup_uses_configured_cleanup_state(self):
+        """Test cleanup applies the configured cleanup state before GPIO cleanup."""
+        with patch("waterbot.gpio.handler.get_device_cleanup_state", return_value=True):
+            self.controller.cleanup()
+
+        assert self.controller.device_status["pump"] is True
+        assert (17, True) in self.mock_gpio.output_calls
 
 
 class TestDeviceControllerModuleFunctions:

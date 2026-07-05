@@ -3,9 +3,16 @@
 import json
 import os
 import re
+from copy import deepcopy
+from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Optional
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv() -> bool:
+        """Fallback when python-dotenv is not installed."""
+        return False
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +32,10 @@ IS_EMULATION = OPERATION_MODE != "rpi"
 # Default timeout (in minutes)
 DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "60"))
 
+# Relay default state. Per-device overrides use RELAY_DEFAULT_<DEVICE>=on|off.
+RELAY_DEFAULT_STATE = os.getenv("RELAY_DEFAULT_STATE", "off").lower()
+RELAY_CLEANUP_STATE = os.getenv("RELAY_CLEANUP_STATE", RELAY_DEFAULT_STATE).lower()
+
 # Logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
@@ -32,9 +43,18 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 # Scheduling configuration
 ENABLE_SCHEDULING = os.getenv("ENABLE_SCHEDULING", "false").lower() == "true"
 SCHEDULE_CONFIG_FILE = os.getenv("SCHEDULE_CONFIG_FILE", "schedules.json")
+POLICY_SCHEDULE_CONFIG_FILE = os.getenv("POLICY_SCHEDULE_CONFIG_FILE", "schedule_policies.json")
+
+# Optional weather context for policy schedules.
+WEATHER_PROVIDER = os.getenv("WEATHER_PROVIDER", "none").lower()
+WEATHER_LATITUDE = os.getenv("WEATHER_LATITUDE")
+WEATHER_LONGITUDE = os.getenv("WEATHER_LONGITUDE")
+WEATHER_CONTEXT_FILE = os.getenv("WEATHER_CONTEXT_FILE")
+WEATHER_REQUEST_TIMEOUT = float(os.getenv("WEATHER_REQUEST_TIMEOUT", "10"))
 
 # Load device to GPIO pin mapping
 DEVICE_TO_PIN = {}
+DEVICE_DEFAULT_STATES = {}
 
 for key, value in os.environ.items():
     if key.startswith("DEVICE_"):
@@ -45,6 +65,36 @@ for key, value in os.environ.items():
         except ValueError:
             print(f"Warning: Invalid GPIO pin value for {key}: {value}")
 
+for key, value in os.environ.items():
+    if key.startswith("RELAY_DEFAULT_") and key not in {
+        "RELAY_DEFAULT_STATE",
+    }:
+        device_name = key[len("RELAY_DEFAULT_") :].lower()
+        DEVICE_DEFAULT_STATES[device_name] = value.lower()
+
+
+def parse_relay_state(value: str) -> bool:
+    """Parse a relay state string into a boolean."""
+    normalized = value.strip().lower()
+    if normalized in {"on", "true", "1", "yes", "high"}:
+        return True
+    if normalized in {"off", "false", "0", "no", "low"}:
+        return False
+    raise ValueError(f"Invalid relay state '{value}'. Use on or off.")
+
+
+def get_device_default_state(device: str) -> bool:
+    """Get the configured startup state for a device."""
+    state = DEVICE_DEFAULT_STATES.get(device.lower(), RELAY_DEFAULT_STATE)
+    return parse_relay_state(state)
+
+
+def get_device_cleanup_state(device: str) -> bool:
+    """Get the configured cleanup state for a device."""
+    if RELAY_CLEANUP_STATE == "default":
+        return get_device_default_state(device)
+    return parse_relay_state(RELAY_CLEANUP_STATE)
+
 # Load scheduling configuration
 DEVICE_SCHEDULES = {}
 
@@ -53,7 +103,6 @@ def load_schedules() -> None:
     """Load device schedules from JSON configuration file."""
     global DEVICE_SCHEDULES
 
-    # Load from JSON file only
     if os.path.exists(SCHEDULE_CONFIG_FILE):
         try:
             with open(SCHEDULE_CONFIG_FILE, "r") as f:
@@ -62,15 +111,50 @@ def load_schedules() -> None:
             print(f"Warning: Could not load schedule config file " f"{SCHEDULE_CONFIG_FILE}: {e}")
             DEVICE_SCHEDULES = {}
     else:
-        # No config file exists, start with empty schedules
-        DEVICE_SCHEDULES = {}
+        DEVICE_SCHEDULES = load_schedules_from_env()
+
+
+def load_schedules_from_env() -> Dict[str, Any]:
+    """Load legacy on/off schedules from SCHEDULE_<DEVICE>_<ACTION> env vars."""
+    schedules: Dict[str, Any] = {}
+
+    for key, value in os.environ.items():
+        if not key.startswith("SCHEDULE_"):
+            continue
+
+        parts = key.split("_")
+        if len(parts) < 3:
+            continue
+
+        device = "_".join(parts[1:-1]).lower()
+        action = parts[-1].lower()
+        if device not in DEVICE_TO_PIN or action not in {"on", "off"}:
+            continue
+
+        times = []
+        for time_str in value.split(","):
+            normalized_time = time_str.strip()
+            if _valid_schedule_time(normalized_time):
+                times.append(normalized_time)
+            else:
+                print(f"Warning: Ignoring invalid schedule time {normalized_time} for {key}")
+
+        if times:
+            schedules.setdefault(device, {})[action] = sorted(set(times))
+
+    return schedules
 
 
 def save_schedules() -> bool:
     """Save current device schedules to configuration file."""
     try:
-        with open(SCHEDULE_CONFIG_FILE, "w") as f:
+        directory = os.path.dirname(os.path.abspath(SCHEDULE_CONFIG_FILE)) or "."
+        os.makedirs(directory, exist_ok=True)
+        with NamedTemporaryFile("w", delete=False, dir=directory) as f:
             json.dump(DEVICE_SCHEDULES, f, indent=2)
+            f.write("\n")
+            temp_path = f.name
+        os.replace(temp_path, SCHEDULE_CONFIG_FILE)
         return True
     except IOError as e:
         print(f"Error saving schedules: {e}")
@@ -94,8 +178,8 @@ def add_schedule(device: str, action: str, time: str) -> bool:
     if action not in ["on", "off"]:
         return False
 
-    if not re.match(r"^\d{2}:\d{2}$", time):
-        return False  # type: ignore[unreachable]
+    if not _valid_schedule_time(time):
+        return False
 
     if device not in DEVICE_SCHEDULES:
         DEVICE_SCHEDULES[device] = {}
@@ -137,6 +221,41 @@ def remove_schedule(device: str, action: str, time: str) -> bool:
     return False
 
 
+def replace_device_schedules(device: str, schedules: Dict[str, Any]) -> bool:
+    """Replace all schedules for a device atomically."""
+    if device not in DEVICE_TO_PIN:
+        return False
+
+    normalized: Dict[str, Any] = {}
+    for action, times in schedules.items():
+        if action not in {"on", "off"} or not isinstance(times, list):
+            return False
+
+        valid_times = []
+        for time_str in times:
+            if not isinstance(time_str, str) or not _valid_schedule_time(time_str):
+                return False
+            valid_times.append(time_str)
+
+        if valid_times:
+            normalized[action] = sorted(set(valid_times))
+
+    previous_schedules = deepcopy(DEVICE_SCHEDULES)
+    saved = False
+    try:
+        if normalized:
+            DEVICE_SCHEDULES[device] = normalized
+        elif device in DEVICE_SCHEDULES:
+            del DEVICE_SCHEDULES[device]
+
+        saved = save_schedules()
+        return saved
+    finally:
+        if not saved:
+            DEVICE_SCHEDULES.clear()
+            DEVICE_SCHEDULES.update(previous_schedules)
+
+
 def get_schedules(device: Optional[str] = None) -> Dict[str, Any]:
     """Get schedules for a device or all devices.
 
@@ -149,6 +268,14 @@ def get_schedules(device: Optional[str] = None) -> Dict[str, Any]:
     if device:
         return dict(DEVICE_SCHEDULES.get(device, {}))
     return dict(DEVICE_SCHEDULES.copy())
+
+
+def _valid_schedule_time(time: str) -> bool:
+    """Validate HH:MM time strings."""
+    if not re.match(r"^\d{2}:\d{2}$", time):
+        return False
+    hour, minute = time.split(":")
+    return int(hour) <= 23 and int(minute) <= 59
 
 
 # Load schedules on import
@@ -168,12 +295,23 @@ def validate_config() -> bool:
             raise ValueError("DISCORD_BOT_TOKEN is not set in .env file")
         if not DISCORD_CHANNEL_ID:
             raise ValueError("DISCORD_CHANNEL_ID is not set in .env file")
-        if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY is not set in .env file")
     else:
         print("Running in offline mode - Discord validation skipped")
 
     if not DEVICE_TO_PIN:
         raise ValueError("No device to GPIO pin mappings found in .env file")
+
+    # Validate relay default configuration.
+    for device in DEVICE_TO_PIN:
+        get_device_default_state(device)
+        get_device_cleanup_state(device)
+
+    # Validate flexible policy schedules if present.
+    try:
+        from .policy import list_policies
+
+        list_policies()
+    except ValueError as e:
+        raise ValueError(f"Invalid flexible schedule policy: {e}") from e
 
     return True

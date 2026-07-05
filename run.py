@@ -20,10 +20,13 @@ def check_env_file() -> bool:
         logger.info("No .env file found. Creating a template .env file.")
 
         # Create a template .env file
-        env_template = """# Signal Configuration
-SIGNAL_PHONE_NUMBER="+1234567890"
-SIGNAL_GROUP_ID="group.123456789"
-SIGNAL_SERVICE="localhost:8080"
+        env_template = """# Discord Configuration
+DISCORD_BOT_TOKEN="your_discord_bot_token_here"
+DISCORD_CHANNEL_ID="123456789012345678"
+
+# OpenAI Configuration (optional, enables natural-language control)
+OPENAI_API_KEY="your_openai_api_key_here"
+OPENAI_MODEL="gpt-4o-mini"
 
 # Operation Mode (rpi or emulation)
 OPERATION_MODE=emulation
@@ -35,8 +38,20 @@ DEVICE_FAN=18
 DEVICE_PUMP=27
 DEVICE_HEATER=22
 
-# Default timeout in seconds (optional, for timed operations)
-DEFAULT_TIMEOUT=3600
+# Relay defaults
+RELAY_DEFAULT_STATE=off
+RELAY_CLEANUP_STATE=off
+
+# Default timeout in minutes (optional, for timed operations)
+DEFAULT_TIMEOUT=60
+
+# Scheduling Configuration
+ENABLE_SCHEDULING=true
+SCHEDULE_CONFIG_FILE=schedules.json
+POLICY_SCHEDULE_CONFIG_FILE=schedule_policies.json
+
+# Optional weather context for flexible policy schedules
+WEATHER_PROVIDER=none
 
 # Logging Configuration
 # Set log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -55,7 +70,7 @@ DEBUG_MODE=false
 
 def main() -> int:
     """Run the WaterBot application."""
-    parser = argparse.ArgumentParser(description="Run WaterBot Signal GPIO Controller")
+    parser = argparse.ArgumentParser(description="Run WaterBot Discord GPIO Controller")
     parser.add_argument("--emulation", action="store_true", help="Force emulation mode for testing")
     parser.add_argument("--test", action="store_true", help="Run the test_emulation.py script")
     args = parser.parse_args()

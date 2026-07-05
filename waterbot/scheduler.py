@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import schedule
 
+from . import policy
 from .config import DEVICE_SCHEDULES, ENABLE_SCHEDULING
 from .gpio import handler as gpio_handler
 
@@ -22,6 +23,7 @@ class DeviceScheduler:
         self.running = False
         self.scheduler_thread: Optional[threading.Thread] = None
         self.scheduled_jobs: List[Dict[str, Any]] = []
+        self.policy_scheduler = policy.PolicyScheduler()
 
     def setup_schedules(self) -> None:
         """Set up all scheduled tasks based on configuration."""
@@ -119,6 +121,25 @@ class DeviceScheduler:
         # Remove from config
         return config_remove_schedule(device, action, time_str)
 
+    def replace_device_schedules(self, device: str, schedules: Dict[str, Any]) -> bool:
+        """Replace all legacy schedules for a device."""
+        from .config import replace_device_schedules as config_replace_device_schedules
+
+        if not config_replace_device_schedules(device, schedules):
+            return False
+
+        for job_info in self.scheduled_jobs[:]:
+            if job_info["device"] == device:
+                schedule.cancel_job(job_info["job"])
+                self.scheduled_jobs.remove(job_info)
+
+        for action, times in schedules.items():
+            for time_str in times:
+                self._schedule_device_action(device, action, time_str)
+
+        logger.info("Replaced schedules for device '%s'", device)
+        return True
+
     def get_next_runs(self) -> list:
         """Get information about next scheduled runs."""
         next_runs = []
@@ -167,6 +188,7 @@ class DeviceScheduler:
         while self.running:
             try:
                 schedule.run_pending()
+                self._run_policy_schedules()
                 time.sleep(1)
             except Exception as e:
                 logger.error(f"Error in scheduler thread: {e}", exc_info=True)
@@ -194,6 +216,27 @@ class DeviceScheduler:
 
     def _send_discord_notification(self, device: str, action: str, success: bool) -> None:
         """Send Discord notification for schedule execution."""
+        if success:
+            emoji = "💧" if action == "on" else "🛑"
+            message = f"{emoji} **Scheduled {action.upper()}** - " f"Device '{device}' turned {action.upper()}"
+        else:
+            message = f"❌ **Schedule Failed** - " f"Could not turn {action} device '{device}'"
+
+        self._send_discord_message(message)
+
+    def _run_policy_schedules(self) -> None:
+        """Run due flexible policy schedules and notify Discord."""
+        for result in self.policy_scheduler.run_due():
+            if result.skipped:
+                message = f"☔ **Policy skipped** - {result.message}"
+            elif result.executed:
+                message = f"💧 **Policy run** - {result.message}"
+            else:
+                message = f"❌ **Policy failed** - {result.message}"
+            self._send_discord_message(message)
+
+    def _send_discord_message(self, message: str) -> None:
+        """Send a Discord notification message from the scheduler thread."""
         try:
             # Import here to avoid circular imports
             from .discord.bot import get_bot_instance
@@ -204,12 +247,6 @@ class DeviceScheduler:
                 logger.info(f"Target channel available: {bot.target_channel is not None}")
 
             if bot and bot.target_channel:
-                if success:
-                    emoji = "💧" if action == "on" else "🛑"
-                    message = f"{emoji} **Scheduled {action.upper()}** - " f"Device '{device}' turned {action.upper()}"
-                else:
-                    message = f"❌ **Schedule Failed** - " f"Could not turn {action} device '{device}'"
-
                 # Use asyncio to send the message via the bot's event loop
                 import asyncio
 
@@ -281,7 +318,33 @@ def remove_schedule(device: str, action: str, time_str: str) -> bool:
     return scheduler.remove_schedule(device, action, time_str)
 
 
+def replace_device_schedules(device: str, schedules: Dict[str, Any]) -> bool:
+    """Replace all legacy schedules for a device."""
+    scheduler = get_scheduler()
+    return scheduler.replace_device_schedules(device, schedules)
+
+
 def get_next_runs() -> list:
     """Get next scheduled runs using the global scheduler."""
     scheduler = get_scheduler()
     return scheduler.get_next_runs()
+
+
+def get_policy_schedules() -> list:
+    """Get flexible policy schedules."""
+    return policy.list_policies()
+
+
+def get_next_policy_runs() -> list:
+    """Get next flexible policy runs."""
+    return policy.get_next_policy_runs()
+
+
+def upsert_policy_schedule(policy_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create or update a flexible policy schedule."""
+    return policy.upsert_policy(policy_data)
+
+
+def remove_policy_schedule(policy_id: str) -> bool:
+    """Remove a flexible policy schedule."""
+    return policy.remove_policy(policy_id)
