@@ -1,0 +1,29 @@
+[Unit]
+Description=WaterBot Discord GPIO Controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=waterbot-service
+Group=waterbot-service
+WorkingDirectory=/opt/waterbot
+Environment=PATH=/opt/waterbot/venv/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/opt/waterbot/.env
+ExecStart=/opt/waterbot/venv/bin/python -m waterbot.bot
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/waterbot
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waterbot
+
+[Install]
+WantedBy=multi-user.target

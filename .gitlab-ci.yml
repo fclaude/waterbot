@@ -1,5 +1,4 @@
-# Simplified GitLab CI/CD Pipeline for WaterBot
-# This version avoids common issues with missing templates and registry access
+# GitLab CI/CD Pipeline for WaterBot
 
 image: python:3.11-slim
 
@@ -22,22 +21,19 @@ before_script:
   - pip install --upgrade pip
   - python -m venv .venv
   - source .venv/bin/activate
-  - pip install -r requirements.txt
+  - pip install -r requirements-dev.txt
 
-# Code quality checks
 code-quality:
   stage: quality
   script:
-    - pip install black isort flake8 mypy bandit safety
     - make format-check
     - make lint
-    - make type-check || true  # Allow type checking to fail
-    - make security-check || true  # Allow security check to fail
+    - make type-check
+    - make security-check
   only:
     - main
     - merge_requests
 
-# Unit testing
 test-unit:
   stage: test
   script:
@@ -52,12 +48,11 @@ test-unit:
     - main
     - merge_requests
 
-# Test on multiple Python versions
 test-python-versions:
   stage: test
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12"]
+      - PYTHON_VERSION: ["3.11", "3.12"]
   image: python:${PYTHON_VERSION}-slim
   script:
     - make test
@@ -65,12 +60,13 @@ test-python-versions:
     - main
     - merge_requests
 
-# Comprehensive check for merge requests
 mr-check:
   stage: quality
   script:
-    - pip install black isort flake8 mypy bandit safety
-    - make dev-check
+    - make format-check
+    - make lint
+    - make type-check
+    - make test-cov-fail
   only:
     - merge_requests
   except:

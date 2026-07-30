@@ -13,7 +13,7 @@ BLACK := black
 ISORT := isort
 MYPY := mypy
 BANDIT := bandit
-SAFETY := safety
+PIP_AUDIT := pip-audit
 DOCKER_IMAGE := waterbot
 DOCKER_TAG := latest
 
@@ -32,13 +32,16 @@ install: ## Install production dependencies
 	$(PIP) install -r requirements.txt
 
 install-dev: ## Install development dependencies
-	$(PIP) install -r requirements.txt
-	$(PIP) install black flake8 isort mypy bandit safety pre-commit
+	$(PIP) install -r requirements-dev.txt
 	pre-commit install
+
+install-rpi: ## Install runtime dependencies plus Raspberry Pi GPIO support
+	$(PIP) install -r requirements-rpi.txt
 
 setup-dev: install-dev ## Setup complete development environment
 	@echo "Creating .env file from template..."
 	@if [ ! -f .env ]; then cp env.sample .env; fi
+	@mkdir -p data logs
 	@echo "Development environment setup complete!"
 	@echo "Please edit .env file with your configuration."
 
@@ -50,7 +53,7 @@ test-cov: ## Run tests with coverage report
 	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing --cov-report=xml
 
 test-cov-fail: ## Run tests with coverage and fail if below threshold
-	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing --cov-fail-under=80
+	$(PYTEST) tests/ -v --cov=waterbot --cov-report=html --cov-report=term-missing --cov-fail-under=85
 
 test-fast: ## Run tests with minimal output
 	$(PYTEST) tests/ -q
@@ -71,13 +74,12 @@ format-check: ## Check if code formatting is correct
 	$(ISORT) waterbot/ tests/ --profile=black --check-only
 
 type-check: ## Run type checking with mypy
-	$(MYPY) waterbot/ --ignore-missing-imports --no-strict-optional --no-warn-unused-ignores
+	$(MYPY) waterbot/
 
 security-check: ## Run security checks
 	$(BANDIT) -r waterbot/ -f json -o bandit-report.json || true
 	$(BANDIT) -r waterbot/ -f txt
-	$(SAFETY) check --json --output safety-report.json || true
-	$(SAFETY) check
+	$(PIP_AUDIT) -r requirements.txt -r requirements-dev.txt
 
 # Combined quality checks
 check-all: lint format-check type-check security-check test-cov-fail ## Run all quality checks
@@ -98,7 +100,7 @@ build: clean ## Build the package
 	$(PYTHON) -m build
 
 install-local: ## Install package locally in development mode
-	$(PIP) install -e .
+	$(PIP) install -e ".[dev]"
 
 # Docker targets
 docker-build: ## Build Docker image
@@ -127,6 +129,7 @@ clean: ## Clean build artifacts
 clean-all: clean ## Clean all generated files including logs and schedules
 	rm -f *.log
 	rm -f schedules.json
+	rm -f data/schedules.json data/schedule_policies.json data/*.db
 
 # Development utilities
 deps-update: ## Update all dependencies to latest versions
@@ -135,8 +138,9 @@ deps-update: ## Update all dependencies to latest versions
 deps-tree: ## Show dependency tree
 	pipdeptree
 
-requirements-update: ## Update requirements.txt with current environment
-	$(PIP) freeze > requirements.txt
+requirements-update: ## Show how to refresh pinned requirement files
+	@echo "Edit requirements.txt / requirements-dev.txt / requirements-rpi.txt directly."
+	@echo "Prefer compatible ranges over a full freeze for this project."
 
 # Git hooks
 pre-commit-install: ## Install pre-commit hooks
@@ -146,9 +150,9 @@ pre-commit-run: ## Run pre-commit on all files
 	pre-commit run --all-files
 
 # Documentation
-docs-serve: ## Serve documentation locally (if you add docs later)
-	@echo "Documentation serving not implemented yet"
-	@echo "README.md contains current documentation"
+docs-serve: ## Serve coverage HTML locally
+	@echo "Serving coverage report from htmlcov/"
+	$(PYTHON) -m http.server 8000 --directory htmlcov
 
 # Development workflow
 dev-check: format lint type-check test ## Quick development check
@@ -159,13 +163,14 @@ ci-check: check-all ## Full CI/CD checks
 
 # Release helpers
 version: ## Show current version
-	@$(PYTHON) setup.py --version
+	@$(PYTHON) -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
 
 bump-version: ## Show instructions for version bumping
 	@echo "To bump version:"
-	@echo "1. Edit setup.py version"
-	@echo "2. Run: git tag v<version>"
-	@echo "3. Run: git push origin v<version>"
+	@echo "1. Edit pyproject.toml [project].version"
+	@echo "2. Update CHANGELOG.md"
+	@echo "3. Run: git tag v<version>"
+	@echo "4. Run: git push origin v<version>"
 
 # Monitoring and debugging
 logs: ## Show recent logs

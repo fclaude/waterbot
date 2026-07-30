@@ -1,0 +1,4 @@
+# Optional Raspberry Pi GPIO support.
+# Install on the Pi (or when building a Pi image): pip install -r requirements-rpi.txt
+-r requirements.txt
+RPi.GPIO>=0.7.0,<1; platform_machine == "armv6l" or platform_machine == "armv7l" or platform_machine == "aarch64"

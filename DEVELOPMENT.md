@@ -225,14 +225,14 @@ waterbot/
 - Use dependency injection for testability
 - Mock external dependencies (hardware, network)
 - Test edge cases and error conditions
-- Maintain high test coverage (>80%)
+- Maintain high test coverage (>85%)
 - Use descriptive test names and docstrings
 
 ## Code Style Guidelines
 
 ### Python Style
 
-- Follow PEP 8 with 88-character line length
+- Follow PEP 8 with 120-character line length
 - Use Black for automatic formatting
 - Sort imports with isort
 - Use type hints for all public APIs
@@ -283,11 +283,11 @@ The GitLab CI/CD pipeline runs on every commit and includes:
 
 ### Quality Gates
 
-- All tests must pass
-- Code coverage must be ≥80%
+- Code coverage must be ≥85%
 - No linting errors
 - No security vulnerabilities (high severity)
 - Code must be properly formatted
+- mypy type checks must pass
 
 ## Docker Development
 

@@ -4,6 +4,8 @@ import signal
 import sys
 from unittest.mock import Mock, patch
 
+import pytest
+
 from waterbot import bot
 
 
@@ -178,7 +180,7 @@ class TestMainBot:
     @patch("waterbot.bot.WaterBot")
     @patch("waterbot.bot.scheduler.stop_scheduler")
     @patch("waterbot.bot.gpio_handler.cleanup")
-    @patch("time.sleep")
+    @patch("waterbot.bot.time.sleep")
     def test_main_exception(
         self,
         mock_sleep,
@@ -188,11 +190,9 @@ class TestMainBot:
         mock_validate,
         mock_signal,
     ):
-        """Test main execution with exception."""
+        """Test main execution with exception uses exponential backoff."""
         mock_bot_instance = Mock()
         mock_waterbot.return_value = mock_bot_instance
-        # First call raises exception, second call raises KeyboardInterrupt to break "
-        # "loop
         mock_bot_instance.start_bot.side_effect = [
             Exception("Test error"),
             KeyboardInterrupt(),
@@ -200,28 +200,20 @@ class TestMainBot:
 
         bot.main()
 
-        # Should call start_bot twice (once with exception, once with KeyboardInterrupt)
         assert mock_bot_instance.start_bot.call_count == 2
         mock_bot_instance.stop_bot.assert_called()
         mock_stop_scheduler.assert_called_once()
         mock_cleanup.assert_called_once()
-        mock_sleep.assert_called_once_with(30)
+        mock_sleep.assert_called_once_with(5)
 
     @patch("waterbot.bot.signal.signal")
     @patch("waterbot.bot.validate_config")
-    @patch("waterbot.bot.scheduler.stop_scheduler")
-    @patch("waterbot.bot.gpio_handler.cleanup")
-    @patch("time.sleep")
-    def test_main_validation_error(self, mock_sleep, mock_cleanup, mock_stop_scheduler, mock_validate, mock_signal):
-        """Test main execution with config validation error."""
-        # First call raises config error, second call raises KeyboardInterrupt to "
-        # "break loop
-        mock_validate.side_effect = [Exception("Config error"), KeyboardInterrupt()]
+    def test_main_validation_error(self, mock_validate, mock_signal):
+        """Test main exits immediately on configuration errors."""
+        mock_validate.side_effect = ValueError("Config error")
 
-        bot.main()
+        with pytest.raises(SystemExit) as exc_info:
+            bot.main()
 
-        # Should call validate_config twice
-        assert mock_validate.call_count == 2
-        mock_stop_scheduler.assert_called_once()
-        mock_cleanup.assert_called_once()
-        mock_sleep.assert_called_once_with(30)
+        assert exc_info.value.code == 1
+        mock_validate.assert_called_once()

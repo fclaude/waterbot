@@ -1,0 +1,25 @@
+# Changelog
+
+## 0.3.0 - 2026-07-30
+
+### Fixed
+- Bare `on`/`off` commands are permanent again; only an explicit minute duration creates a timer.
+- Discord, web, and OpenAI tool paths share `ActionEngine` for mutations, audit, and confirmations.
+- Discord restart uses exponential backoff with a failure cap; config errors exit immediately.
+- Logging is configured at startup instead of on import.
+
+### Changed
+- Runtime dependencies no longer require `RPi.GPIO`; install `requirements-rpi.txt` on Pi hardware.
+- Split `requirements.txt` / `requirements-dev.txt` / `requirements-rpi.txt`.
+- Default data paths moved under `data/` for schedules, policies, and agent memory.
+- Web interface defaults to `127.0.0.1` with private schedules.
+- CI tests Python 3.11–3.12 and fails on mypy/security checks.
+- Coverage gate raised to 85%.
+
+### Added
+- `/healthz` endpoint on the web interface.
+- Checked-in `deploy/waterbot.service` and `scripts/install-service.sh`.
+
+## 0.2.0 - 2026-07-04
+
+- Flexible watering policies, agent memory, web dashboard, and configurable relay polarity.

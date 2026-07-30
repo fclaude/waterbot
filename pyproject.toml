@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waterbot"
-version = "0.2.0"
+version = "0.3.0"
 description = "A Discord bot to control GPIO pins on Raspberry Pi with scheduling"
 readme = "README.md"
 license = "MIT"
@@ -29,30 +29,31 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "python-dotenv",
-    "schedule",
-    "requests",
-    "tzlocal",
-    "discord.py>=2.3.0",
-    "openai>=1.0.0",
+    "python-dotenv>=1.0.0,<2",
+    "schedule>=1.2.0,<2",
+    "requests>=2.31.0,<3",
+    "tzlocal>=5.0,<6",
+    "discord.py>=2.3.0,<3",
+    "openai>=1.0.0,<2",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
-    "isort>=5.12.0",
-    "mypy>=1.0.0",
-    "bandit>=1.7.0",
-    "safety>=2.0.0",
-    "pre-commit>=3.0.0",
-    "pytest-watch",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=4.0.0,<7",
+    "pytest-asyncio>=1.0.0,<2",
+    "black>=26.3.0,<27",
+    "flake8>=6.0.0,<8",
+    "isort>=5.12.0,<7",
+    "mypy>=1.0.0,<2",
+    "bandit>=1.7.0,<2",
+    "pip-audit>=2.6.0,<3",
+    "pre-commit>=3.0.0,<5",
+    "pytest-watch>=4.2.0,<5",
+    "types-requests>=2.31.0",
 ]
 rpi = [
-    "RPi.GPIO; platform_machine == 'armv6l' or platform_machine == 'armv7l'",
+    "RPi.GPIO>=0.7.0,<1; platform_machine == 'armv6l' or platform_machine == 'armv7l' or platform_machine == 'aarch64'",
 ]
 all = ["waterbot[dev,rpi]"]
 
@@ -138,12 +139,9 @@ module = "tests.*"
 disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = "tests.test_discord_bot"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
 module = "waterbot.discord.bot"
 disallow_untyped_decorators = false
+disable_error_code = ["arg-type"]
 
 [tool.bandit]
 exclude_dirs = ["tests"]
@@ -154,13 +152,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "-v",
     "--tb=short",
     "--cov=waterbot",
     "--cov-report=html",
     "--cov-report=term-missing",
-    "--cov-fail-under=80"
+    "--cov-fail-under=85",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

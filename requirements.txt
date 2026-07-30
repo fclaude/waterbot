@@ -1,10 +1,10 @@
-discord.py>=2.3.0
-openai>=1.0.0
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.0.0
-python-dotenv
-requests
-RPi.GPIO>=0.7.0
-schedule
-tzlocal
+# Runtime dependencies for WaterBot.
+# Install with: pip install -r requirements.txt
+# For Raspberry Pi GPIO hardware support: pip install -r requirements-rpi.txt
+# For development tools and tests: pip install -r requirements-dev.txt
+discord.py>=2.3.0,<3
+openai>=1.0.0,<2
+python-dotenv>=1.0.0,<2
+requests>=2.31.0,<3
+schedule>=1.2.0,<2
+tzlocal>=5.0,<6

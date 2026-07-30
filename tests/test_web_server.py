@@ -303,3 +303,18 @@ def test_auth_without_password_and_recurrence_text_variants():
     assert _recurrence_text({"type": "daily", "at": "06:00"}) == "Daily at 06:00"
     assert _recurrence_text({"type": "weekly", "days": ["mon", "wed"], "at": "07:00"}) == "Weekly mon, wed at 07:00"
     assert _recurrence_text({"type": "custom"}) == "custom"
+
+
+def test_healthz_endpoint():
+    """Health endpoint should be public and report basic runtime state."""
+    server = WebInterfaceServer(password="secret", public_schedules=False, action_engine=MagicMock())
+    with patch("waterbot.web.server.scheduler.get_scheduler") as mock_get_scheduler:
+        mock_get_scheduler.return_value = MagicMock(running=True)
+        status, headers, data = _request(server, "GET", "/healthz")
+
+    assert status == 200
+    assert ("Content-Type", "application/json") in headers
+    payload = json.loads(data)
+    assert payload["status"] == "ok"
+    assert payload["web"] is True
+    assert payload["scheduler_running"] is True

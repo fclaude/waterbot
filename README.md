@@ -44,7 +44,14 @@ cd waterbot
 1. Install the required packages:
 
 ```bash
+# Runtime dependencies (works on laptops and CI without Raspberry Pi GPIO)
 pip install -r requirements.txt
+
+# Development / tests
+pip install -r requirements-dev.txt
+
+# On a Raspberry Pi, also install GPIO support
+pip install -r requirements-rpi.txt
 ```
 
 1. Create a `.env` file with your configuration:
@@ -98,12 +105,12 @@ AGENT_REQUIRE_CONFIRMATION=true
 
 # Optional authenticated web interface
 ENABLE_WEB_INTERFACE=false
-WEB_HOST=0.0.0.0
+WEB_HOST=127.0.0.1
 WEB_PORT=8080
 WEB_AUTH_USERNAME=admin
 # WEB_AUTH_PASSWORD="change_me"
 # WEB_AUTH_TOKEN="optional_api_token"
-WEB_PUBLIC_SCHEDULES=true
+WEB_PUBLIC_SCHEDULES=false
 
 # Schedule Configuration (alternative to JSON file)
 # Format: SCHEDULE_<DEVICE>_<ACTION>=HH:MM[,HH:MM,...]
@@ -120,6 +127,9 @@ WEATHER_PROVIDER=none
 # WEATHER_LONGITUDE=-122.4194
 # WEATHER_CONTEXT_JSON={"temperature_f":90,"rain_last_24h_inches":0}
 ```
+
+Use `data/schedules.json`, `data/schedule_policies.json`, and `data/waterbot_agent.db` by default
+(see `env.sample`). Copy `env.sample` to `.env` for a full template.
 
 ### Discord Bot Setup
 
@@ -153,12 +163,13 @@ Send these commands from the Discord channel to control your devices:
 #### Device Control
 
 - `status` - Show the status of all devices
-- `on <device>` - Turn on a specific device
-- `off <device>` - Turn off a specific device
+- `on <device>` - Turn on a specific device (permanent)
+- `off <device>` - Turn off a specific device (permanent)
 - `on <device> <minutes>` - Turn on a device for a specified time
 - `off <device> <minutes>` - Turn off a device for a specified time
 - `on all` - Turn on all devices
 - `off all` - Turn off all devices
+- `on all <minutes>` / `off all <minutes>` - Timed all-device operations
 
 #### Scheduling Commands
 
@@ -193,14 +204,15 @@ conversations.
 ### Web Interface
 
 Set `ENABLE_WEB_INTERFACE=true` and configure `WEB_AUTH_PASSWORD` or
-`WEB_AUTH_TOKEN` to start the local web server. The schedule dashboard is public
-by default at `http://<bot-host>:8080/`; set `WEB_PUBLIC_SCHEDULES=false` to
-require authentication for schedules too.
+`WEB_AUTH_TOKEN` to start the local web server. By default the server binds to
+`127.0.0.1` and schedules require authentication. Set `WEB_PUBLIC_SCHEDULES=true`
+to expose the schedule dashboard without auth on a trusted network, and use a
+reverse proxy with TLS if you bind to `0.0.0.0`.
 
 Authenticated users can open `/chat` to ask the bot to change schedules, create
 cycles, explain recent policy decisions, record feedback, and confirm risky
 actions. The web chat uses the same action engine and confirmation flow as
-Discord.
+Discord. Health probes can hit `/healthz`.
 
 ### Examples
 
@@ -339,23 +351,30 @@ WaterBot includes comprehensive CI/CD pipelines for automated testing and deploy
 ### GitLab CI/CD
 
 - Automated testing on every commit and merge request
-- Multi-Python version testing (3.8-3.11)
+- Python 3.11 and 3.12 matrix testing
 - Code quality checks (linting, formatting, type checking)
-- Security vulnerability scanning
-- Docker image building and testing
+- Security scanning with Bandit and pip-audit
+- Coverage gate at 85%
 
 ### GitHub Actions
 
-- Similar comprehensive pipeline for GitHub repositories
-- Automatic PyPI publishing on releases
+- Same quality and test gates as GitLab
 - Codecov integration for coverage reporting
 
 See [CI-CD.md](CI-CD.md) for detailed pipeline documentation.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Running as a Service
 
-To run the bot as a systemd service on your Raspberry Pi, follow these
-comprehensive steps:
+A checked-in unit file lives at `deploy/waterbot.service`. On a Pi you can run:
+
+```bash
+sudo ./scripts/install-service.sh
+sudo nano /opt/waterbot/.env
+sudo systemctl start waterbot.service
+```
+
+For a manual install, follow these steps:
 
 ### Prerequisites
 
@@ -410,7 +429,7 @@ pip install -r requirements.txt
 
 ```bash
 # Create and configure the .env file
-sudo cp .env.example .env  # if you have an example file
+sudo cp env.sample .env
 sudo nano /opt/waterbot/.env
 
 # Ensure proper ownership

@@ -102,6 +102,10 @@ class WebInterfaceServer:
                         self._send_auth_required()
                     return
 
+                if path == "/healthz":
+                    self._send_json(app.health_snapshot())
+                    return
+
                 if path == "/chat":
                     if not app.is_authenticated(self.headers.get("Authorization")):
                         self._send_auth_required()
@@ -214,6 +218,21 @@ class WebInterfaceServer:
             return False
         username, separator, password = decoded.partition(":")
         return bool(separator) and username == self.username and password == self.password
+
+    def health_snapshot(self) -> Dict[str, Any]:
+        """Return a lightweight health payload for probes."""
+        scheduler_running = False
+        try:
+            scheduler_running = bool(getattr(scheduler.get_scheduler(), "running", False))
+        except Exception:  # nosec B110
+            scheduler_running = False
+
+        return {
+            "status": "ok",
+            "web": True,
+            "scheduler_running": scheduler_running,
+            "openai_configured": bool(OPENAI_API_KEY),
+        }
 
     def schedule_snapshot(self) -> Dict[str, Any]:
         """Return current legacy and flexible schedule state."""

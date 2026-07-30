@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Dict, Optional, Tuple
 
-from ..config import DEFAULT_TIMEOUT, DEVICE_TO_PIN
+from ..config import DEVICE_TO_PIN
 
 logger = logging.getLogger("command_parser")
 
@@ -116,12 +116,20 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
 
         return "schedule_remove", {"device": device, "action": action, "time": time_str}
 
-    # All devices commands
+    # All devices commands. Bare on/off is permanent; optional minutes become seconds.
     if text == "on all":
-        return "all_on", {"timeout": DEFAULT_TIMEOUT * 60}
+        return "all_on", {}
+
+    on_all_match = re.match(r"on\s+all\s+(\d+)$", text)
+    if on_all_match:
+        return "all_on", {"timeout": int(on_all_match.group(1)) * 60}
 
     if text == "off all":
-        return "all_off", {"timeout": DEFAULT_TIMEOUT * 60}
+        return "all_off", {}
+
+    off_all_match = re.match(r"off\s+all\s+(\d+)$", text)
+    if off_all_match:
+        return "all_off", {"timeout": int(off_all_match.group(1)) * 60}
 
     # Device-specific commands
     on_match = re.match(r"on\s+(\w+)(?:\s+(\d+))?", text)
@@ -131,9 +139,11 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Timeout input is minutes. GPIO receives seconds.
-        timeout = (int(time_str) * 60) if time_str else DEFAULT_TIMEOUT * 60
-        return "device_on", {"device": device, "timeout": timeout}
+        # Timeout input is minutes. GPIO receives seconds. No duration => permanent.
+        params: Dict[str, Any] = {"device": device}
+        if time_str:
+            params["timeout"] = int(time_str) * 60
+        return "device_on", params
 
     off_match = re.match(r"off\s+(\w+)(?:\s+(\d+))?", text)
     if off_match:
@@ -142,9 +152,10 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
             logger.warning(f"Unknown device: {device}")
             return "error", {"message": f"Unknown device: {device}"}
 
-        # Timeout input is minutes. GPIO receives seconds.
-        timeout = (int(time_str) * 60) if time_str else DEFAULT_TIMEOUT * 60
-        return "device_off", {"device": device, "timeout": timeout}
+        params = {"device": device}
+        if time_str:
+            params["timeout"] = int(time_str) * 60
+        return "device_off", params
 
     # Simple scheduling commands (must be after more specific schedule patterns)
     if text == "schedules" or text == "schedule":

@@ -14,12 +14,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY requirements.txt requirements-dev.txt ./
 
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir --upgrade pip==24.0 && \
+RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
@@ -57,7 +57,8 @@ USER waterbot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import waterbot.config; print('OK')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')" || \
+        python -c "import waterbot; print('OK')"
 
 # Expose port for the optional web interface
 EXPOSE 8080
@@ -66,6 +67,9 @@ EXPOSE 8080
 ENV OPERATION_MODE=emulation
 ENV LOG_LEVEL=INFO
 ENV SCHEDULE_CONFIG_FILE=/app/data/schedules.json
+ENV POLICY_SCHEDULE_CONFIG_FILE=/app/data/schedule_policies.json
+ENV AGENT_DB_FILE=/app/data/waterbot_agent.db
+ENV WEB_HOST=127.0.0.1
 
 # Default command
 CMD ["python", "-m", "waterbot.bot"]
@@ -74,15 +78,7 @@ CMD ["python", "-m", "waterbot.bot"]
 FROM builder as development
 
 # Install development dependencies
-RUN pip install --no-cache-dir \
-    black==24.0.0 \
-    flake8==7.0.0 \
-    isort==5.13.0 \
-    mypy==1.8.0 \
-    bandit==1.7.6 \
-    safety==3.0.0 \
-    pytest-watch==4.2.0 \
-    pre-commit==3.6.0
+RUN pip install --no-cache-dir -r requirements-dev.txt
 
 # Set development environment variables
 ENV OPERATION_MODE=emulation

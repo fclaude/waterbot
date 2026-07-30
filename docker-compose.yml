@@ -19,11 +19,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      - ./schedules.json:/app/data/schedules.json
+      - ./data/schedules.json:/app/data/schedules.json
     networks:
       - waterbot-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import waterbot.config; print('OK')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -103,15 +103,23 @@ class TestCommandParser:
         """Test parsing all devices on/off commands."""
         command_type, params = parse_command("on all")
         assert command_type == "all_on"
-        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
+        assert params == {}
 
         command_type, params = parse_command("off all")
         assert command_type == "all_off"
-        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
+        assert params == {}
 
         command_type, params = parse_command("ON ALL")
         assert command_type == "all_on"
-        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
+        assert params == {}
+
+        command_type, params = parse_command("on all 15")
+        assert command_type == "all_on"
+        assert params == {"timeout": 900}
+
+        command_type, params = parse_command("off all 10")
+        assert command_type == "all_off"
+        assert params == {"timeout": 600}
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17, "light": 18})
     def test_device_on_command(self):
@@ -119,8 +127,7 @@ class TestCommandParser:
         command_type, params = parse_command("on pump")
 
         assert command_type == "device_on"
-        assert params["device"] == "pump"
-        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
+        assert params == {"device": "pump"}
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_on_with_timeout(self):
@@ -144,8 +151,7 @@ class TestCommandParser:
         command_type, params = parse_command("off light")
 
         assert command_type == "device_off"
-        assert params["device"] == "light"
-        assert params["timeout"] == 3600  # default 60 minutes * 60 seconds
+        assert params == {"device": "light"}
 
     @patch("waterbot.utils.command_parser.DEVICE_TO_PIN", {"pump": 17})
     def test_device_off_with_timeout(self):

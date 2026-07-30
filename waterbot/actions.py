@@ -85,7 +85,7 @@ class ActionEngine:
             return result
 
         try:
-            result = self._execute(normalized_type, args)
+            result = self._execute(normalized_type, args, channel_id=channel_id)
         except Exception as exc:
             result = ActionResult("error", f"Error executing {normalized_type}: {exc}")
 
@@ -163,7 +163,12 @@ class ActionEngine:
             action_type in self.risky_actions or _is_all_device_action(action_type, arguments)
         )
 
-    def _execute(self, action_type: str, arguments: Dict[str, Any]) -> ActionResult:
+    def _execute(
+        self,
+        action_type: str,
+        arguments: Dict[str, Any],
+        channel_id: Optional[str] = None,
+    ) -> ActionResult:
         if action_type == "get_device_status":
             return _status_result(arguments.get("device"))
         if action_type == "turn_device_on":
@@ -228,7 +233,11 @@ class ActionEngine:
             return _policy_decision_history_result(self.memory, arguments.get("device"))
         if action_type == "record_user_feedback":
             feedback = str(arguments["feedback"])
-            self.memory.record_feedback(feedback, arguments.get("channel_id"), arguments.get("device"))
+            self.memory.record_feedback(
+                feedback,
+                arguments.get("channel_id") or channel_id,
+                arguments.get("device"),
+            )
             return ActionResult("success", "Recorded feedback for future watering decisions.")
 
         return ActionResult("failed", f"Unknown action: {action_type}")
