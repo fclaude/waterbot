@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waterbot"
-version = "0.3.2"
+version = "0.3.3"
 description = "A Discord bot to control GPIO pins on Raspberry Pi with scheduling"
 readme = "README.md"
 license = "MIT"

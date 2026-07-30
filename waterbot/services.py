@@ -64,15 +64,26 @@ def set_action_engine(engine: Optional[ActionEngine]) -> None:
 
 
 def get_openai_client() -> Any:
-    """Return the shared OpenAI client when configured."""
+    """Return the shared OpenAI-compatible client when configured.
+
+    Uses the official OpenAI SDK against api.openai.com by default, or against
+    OPENAI_BASE_URL when set (any Chat Completions-compatible server).
+    """
     global _openai_client
     if _openai_client is None:
-        from .config import OPENAI_API_KEY
+        from .config import OPENAI_API_KEY, OPENAI_BASE_URL, is_openai_configured
 
-        if OPENAI_API_KEY:
+        if is_openai_configured():
             from openai import OpenAI
 
-            _openai_client = OpenAI(api_key=OPENAI_API_KEY)
+            kwargs: dict[str, Any] = {
+                # Self-hosted OpenAI-compatible servers often ignore auth; the SDK
+                # still expects a non-empty api_key string.
+                "api_key": OPENAI_API_KEY or "not-needed",
+            }
+            if OPENAI_BASE_URL:
+                kwargs["base_url"] = OPENAI_BASE_URL
+            _openai_client = OpenAI(**kwargs)
     return _openai_client
 
 

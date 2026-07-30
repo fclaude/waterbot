@@ -12,7 +12,7 @@ from ..config import (
     DISCORD_BOT_TOKEN,
     DISCORD_CHANNEL_ID,
     LOG_LEVEL,
-    OPENAI_API_KEY,
+    is_openai_configured,
 )
 from ..gpio import handler as gpio_handler
 from ..openai_integration import process_with_openai
@@ -80,12 +80,12 @@ class WaterBot(commands.Bot):
         ip_info = ip_result.data.get("ip_info", {})
 
         startup_message = "WaterBot is now online!\n"
-        if OPENAI_API_KEY:
+        if is_openai_configured():
             startup_message += "AI-powered conversational interface enabled!\n"
             startup_message += "Just chat with me naturally to control devices.\n\n"
         else:
             startup_message += "Send `status` to check device status.\n"
-            startup_message += "Tip: Set OPENAI_API_KEY for conversational AI interface.\n\n"
+            startup_message += "Tip: Set OPENAI_API_KEY (and optional OPENAI_BASE_URL) for conversational AI.\n\n"
 
         if ip_info:
             startup_message += "SSH Access:\n"
@@ -113,7 +113,7 @@ class WaterBot(commands.Bot):
         author_id = _safe_discord_id(message.author)
         author_name = _safe_discord_name(message.author)
 
-        if OPENAI_API_KEY:
+        if is_openai_configured():
             try:
                 response = await process_with_openai(text, channel_id, author_id, author_name)
                 if response:
@@ -184,8 +184,8 @@ class WaterBot(commands.Bot):
             "test - Test notification system\n"
             "```\n"
             + (
-                "Tip: Set OPENAI_API_KEY for conversational AI interface."
-                if not OPENAI_API_KEY
+                "Tip: Set OPENAI_API_KEY (and optional OPENAI_BASE_URL) for conversational AI."
+                if not is_openai_configured()
                 else "AI-powered conversational interface enabled!"
             )
         )

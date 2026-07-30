@@ -79,7 +79,10 @@ async def process_with_openai(
     # Prefer an explicitly patched module client in tests; otherwise use shared client.
     active_client = client if client is not None else get_openai_client()
     if not active_client:
-        return "OpenAI is not configured. Please set OPENAI_API_KEY in your .env file."
+        return (
+            "OpenAI-compatible LLM is not configured. "
+            "Set OPENAI_API_KEY (and optionally OPENAI_BASE_URL) in your .env file."
+        )
 
     try:
         runtime = get_agent_runtime()

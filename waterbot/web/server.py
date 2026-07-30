@@ -16,7 +16,6 @@ from .. import policy as policy_model
 from .. import scheduler
 from ..actions import ActionEngine
 from ..config import (
-    OPENAI_API_KEY,
     WEB_AUTH_PASSWORD,
     WEB_AUTH_TOKEN,
     WEB_AUTH_USERNAME,
@@ -24,6 +23,7 @@ from ..config import (
     WEB_PORT,
     WEB_PUBLIC_SCHEDULES,
     get_schedules,
+    is_openai_configured,
 )
 from ..openai_integration import process_with_openai
 from ..services import get_action_engine
@@ -232,7 +232,7 @@ class WebInterfaceServer:
             "status": "ok",
             "web": True,
             "scheduler_running": scheduler_running,
-            "openai_configured": bool(OPENAI_API_KEY),
+            "openai_configured": is_openai_configured(),
         }
 
     def schedule_snapshot(self) -> Dict[str, Any]:
@@ -261,7 +261,7 @@ class WebInterfaceServer:
 
     def chat(self, message: str) -> str:
         """Process an authenticated web chat message."""
-        if OPENAI_API_KEY:
+        if is_openai_configured():
             return asyncio.run(process_with_openai(message, "web", author_name="Web"))
 
         command_type, params = parse_command(message.lower())

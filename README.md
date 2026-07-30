@@ -61,9 +61,12 @@ pip install -r requirements-rpi.txt
 DISCORD_BOT_TOKEN="your_discord_bot_token_here"
 DISCORD_CHANNEL_ID="123456789012345678"
 
-# OpenAI Configuration (optional, enables natural-language control)
+# OpenAI-compatible LLM (optional, enables natural-language control)
+# Leave OPENAI_BASE_URL unset to use api.openai.com. Point it at any Chat
+# Completions-compatible server (OpenRouter, vLLM, Ollama, LiteLLM, etc.).
 OPENAI_API_KEY="your_openai_api_key_here"  # pragma: allowlist secret
 OPENAI_MODEL="gpt-4o-mini"
+# OPENAI_BASE_URL="http://127.0.0.1:11434/v1"
 
 # Operation Mode (rpi or emulation)
 OPERATION_MODE=rpi
@@ -190,8 +193,20 @@ Send these commands from the Discord channel to control your devices:
 
 ### Conversational Agent
 
-When `OPENAI_API_KEY` is configured, WaterBot keeps a conversational agent memory in
-`AGENT_DB_FILE`:
+When `OPENAI_API_KEY` or `OPENAI_BASE_URL` is configured, WaterBot keeps a conversational
+agent memory in `AGENT_DB_FILE`. The client uses the official OpenAI SDK and speaks the
+OpenAI Chat Completions + tools protocol, so you can leave `OPENAI_BASE_URL` unset for
+OpenAI itself, or point it at any compatible server:
+
+```env
+OPENAI_API_KEY="sk-..."
+OPENAI_MODEL="gpt-4o-mini"
+# Optional: OpenAI-compatible endpoint (OpenRouter, vLLM, Ollama, LiteLLM, …)
+# OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+```
+
+For local servers that ignore auth, set `OPENAI_BASE_URL` and either a dummy
+`OPENAI_API_KEY` or omit the key entirely.
 
 - Recent turns are replayed to the model as real chat messages
 - Older turns fold into a long-term channel summary

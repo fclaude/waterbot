@@ -28,9 +28,21 @@ load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 
-# OpenAI configuration
+# OpenAI-compatible LLM configuration (optional; enables natural-language control).
+# Point OPENAI_BASE_URL at any OpenAI Chat Completions-compatible server
+# (OpenAI, OpenRouter, vLLM, Ollama, LiteLLM, etc.). Leave unset for api.openai.com.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "").strip() or None
+
+
+def is_openai_configured() -> bool:
+    """Return True when the conversational LLM client can be created.
+
+    An API key enables the default OpenAI endpoint. A custom OPENAI_BASE_URL also
+    enables the client (local/self-hosted servers often accept a dummy key).
+    """
+    return bool(OPENAI_API_KEY) or bool(OPENAI_BASE_URL)
 
 # Operation mode
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()

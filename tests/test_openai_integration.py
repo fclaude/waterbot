@@ -446,7 +446,8 @@ class TestOpenAIIntegration:
         ):
             result = await process_with_openai("test message")
 
-            assert "OpenAI is not configured" in result
+            assert "not configured" in result.lower()
+            assert "OPENAI_API_KEY" in result
 
     @pytest.mark.asyncio
     async def test_process_with_openai_success(self, tmp_path):

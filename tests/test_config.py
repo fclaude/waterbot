@@ -14,6 +14,7 @@ from waterbot.config import (
     get_device_default_state,
     get_device_gpio_state,
     get_schedules,
+    is_openai_configured,
     load_schedules,
     load_schedules_from_env,
     parse_gpio_level,
@@ -355,3 +356,31 @@ class TestWebConfiguration:
             patch("waterbot.policy.list_policies", return_value=[]),
         ):
             assert validate_config() is True
+
+
+class TestOpenAICompatibleConfiguration:
+    """Test OpenAI-compatible LLM configuration helpers."""
+
+    def test_is_openai_configured_with_api_key(self):
+        """API key alone enables the default OpenAI client."""
+        with (
+            patch("waterbot.config.OPENAI_API_KEY", "sk-test"),
+            patch("waterbot.config.OPENAI_BASE_URL", None),
+        ):
+            assert is_openai_configured() is True
+
+    def test_is_openai_configured_with_base_url_only(self):
+        """Custom base URL enables a self-hosted OpenAI-compatible client."""
+        with (
+            patch("waterbot.config.OPENAI_API_KEY", None),
+            patch("waterbot.config.OPENAI_BASE_URL", "http://127.0.0.1:11434/v1"),
+        ):
+            assert is_openai_configured() is True
+
+    def test_is_openai_configured_when_unset(self):
+        """Neither key nor base URL means the agent is disabled."""
+        with (
+            patch("waterbot.config.OPENAI_API_KEY", None),
+            patch("waterbot.config.OPENAI_BASE_URL", None),
+        ):
+            assert is_openai_configured() is False

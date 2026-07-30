@@ -221,8 +221,10 @@ Shared rules:
 
 ### Conversational Agent Memory
 
-When `OPENAI_API_KEY` is set, chat goes through `AgentRuntime`:
+When `OPENAI_API_KEY` or `OPENAI_BASE_URL` is set, chat goes through `AgentRuntime`:
 
+- The OpenAI SDK talks to api.openai.com by default, or to `OPENAI_BASE_URL` for any
+  Chat Completions + tools compatible server
 - Recent turns are sent to the model as real user/assistant messages
 - Older turns fold into a long-term per-channel summary
 - Feedback, pending confirmations, and recent audited actions are injected into the system prompt

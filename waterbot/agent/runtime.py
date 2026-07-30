@@ -44,7 +44,10 @@ class AgentRuntime:
     ) -> str:
         """Process a user message with persistent channel context."""
         if not self.client:
-            return "OpenAI is not configured. Please set OPENAI_API_KEY in your .env file."
+            return (
+                "OpenAI-compatible LLM is not configured. "
+                "Set OPENAI_API_KEY (and optionally OPENAI_BASE_URL) in your .env file."
+            )
 
         self.memory.record_message(channel_id, "user", message, author_id, author_name)
         context = self.memory.get_context(channel_id, limit=AGENT_CONTEXT_MESSAGE_LIMIT)

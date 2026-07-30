@@ -123,7 +123,7 @@ def test_chat_page_and_api_require_auth_and_route_commands():
         action_engine=engine,
     )
 
-    with patch("waterbot.web.server.OPENAI_API_KEY", None):
+    with patch("waterbot.web.server.is_openai_configured", return_value=False):
         status, _, _ = _request(server, "GET", "/chat")
         assert status == 401
 
@@ -177,7 +177,7 @@ def test_chat_confirm_cancel_help_error_and_bearer_auth():
     assert server.is_authenticated(_auth_header(password="wrong")) is False
     assert server.is_authenticated("Basic not-base64") is False
 
-    with patch("waterbot.web.server.OPENAI_API_KEY", None):
+    with patch("waterbot.web.server.is_openai_configured", return_value=False):
         assert server.chat("confirm abc123") == "Confirmed"
         engine.confirm.assert_called_once_with("abc123", channel_id="web")
         assert server.chat("cancel abc123") == "Cancelled"
@@ -201,7 +201,7 @@ def test_chat_uses_openai_when_configured():
         return f"{channel_id}:{author_name}:{message}"
 
     with (
-        patch("waterbot.web.server.OPENAI_API_KEY", "key"),
+        patch("waterbot.web.server.is_openai_configured", return_value=True),
         patch("waterbot.web.server.process_with_openai", side_effect=fake_process),
     ):
         assert server.chat("hello") == "web:Web:hello"

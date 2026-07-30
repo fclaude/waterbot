@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3 - 2026-07-30
+
+### Added
+- Optional `OPENAI_BASE_URL` for OpenAI-compatible Chat Completions servers
+  (OpenRouter, vLLM, Ollama, LiteLLM, and similar). Leave unset to keep using
+  OpenAI. A custom base URL alone can enable the agent for local/no-auth servers.
+
 ## 0.3.2 - 2026-07-30
 
 ### Changed

@@ -82,7 +82,7 @@ class TestWaterBot:
 
         with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
-            with patch("waterbot.discord.bot.OPENAI_API_KEY", None):
+            with patch("waterbot.discord.bot.is_openai_configured", return_value=False):
                 with patch.object(self.bot, "_execute_command") as mock_execute:
                     mock_execute.return_value = "Test response"
 
@@ -316,7 +316,7 @@ class TestWaterBot:
 
         with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
-            with patch("waterbot.discord.bot.OPENAI_API_KEY", "test_key"):
+            with patch("waterbot.discord.bot.is_openai_configured", return_value=True):
                 with patch("waterbot.discord.bot.process_with_openai") as mock_openai:
                     mock_openai.return_value = "OpenAI response"
 
@@ -339,7 +339,7 @@ class TestWaterBot:
 
         with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
-            with patch("waterbot.discord.bot.OPENAI_API_KEY", "test_key"):
+            with patch("waterbot.discord.bot.is_openai_configured", return_value=True):
                 with patch(
                     "waterbot.discord.bot.process_with_openai",
                     side_effect=RuntimeError("api down"),
