@@ -58,7 +58,7 @@ class TestOpenAIIntegration:
         for expected_func in expected_functions:
             assert expected_func in function_names
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_get_device_status_all(self, mock_gpio_handler):
         """Test execute_tool_call for get_device_status (all devices)."""
         mock_gpio_handler.get_status.return_value = {"pump": True, "light": False}
@@ -69,7 +69,7 @@ class TestOpenAIIntegration:
         assert "pump: ON" in result
         assert "light: OFF" in result
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_get_device_status_specific(self, mock_gpio_handler):
         """Test execute_tool_call for get_device_status (specific device)."""
         mock_gpio_handler.get_status.return_value = {"pump": True, "light": False}
@@ -78,7 +78,7 @@ class TestOpenAIIntegration:
 
         assert "Device 'pump' is ON" in result
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_get_device_status_not_found(self, mock_gpio_handler):
         """Test execute_tool_call for get_device_status (device not found)."""
         mock_gpio_handler.get_status.return_value = {"pump": True}
@@ -87,7 +87,7 @@ class TestOpenAIIntegration:
 
         assert "Device 'unknown' not found" in result
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_get_device_status_no_devices(self, mock_gpio_handler):
         """Test execute_tool_call for get_device_status (no devices)."""
         mock_gpio_handler.get_status.return_value = {}
@@ -96,7 +96,7 @@ class TestOpenAIIntegration:
 
         assert "No devices configured" in result
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_on(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_on."""
         mock_gpio_handler.turn_on.return_value = True
@@ -106,7 +106,7 @@ class TestOpenAIIntegration:
         assert "Device 'pump' turned ON" in result
         mock_gpio_handler.turn_on.assert_called_once_with("pump", None)
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_on_with_duration(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_on with duration."""
         mock_gpio_handler.turn_on.return_value = True
@@ -116,7 +116,7 @@ class TestOpenAIIntegration:
         assert "Device 'pump' turned ON for 30 minutes" in result
         mock_gpio_handler.turn_on.assert_called_once_with("pump", 1800)  # 30 * 60
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_on_all(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_on (all devices)."""
         result = execute_tool_call("turn_device_on", {"device": "all"})
@@ -124,7 +124,7 @@ class TestOpenAIIntegration:
         assert "All devices turned ON" in result
         mock_gpio_handler.turn_all_on.assert_called_once()
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_on_unknown(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_on (unknown device)."""
         mock_gpio_handler.turn_on.return_value = False
@@ -133,7 +133,7 @@ class TestOpenAIIntegration:
 
         assert "Error: Unknown device 'unknown'" in result
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_off(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_off."""
         mock_gpio_handler.turn_off.return_value = True
@@ -143,7 +143,7 @@ class TestOpenAIIntegration:
         assert "Device 'pump' turned OFF" in result
         mock_gpio_handler.turn_off.assert_called_once_with("pump", None)
 
-    @patch("waterbot.openai_integration.gpio_handler")
+    @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_turn_device_off_all(self, mock_gpio_handler):
         """Test execute_tool_call for turn_device_off (all devices)."""
         result = execute_tool_call("turn_device_off", {"device": "all"})
@@ -151,7 +151,7 @@ class TestOpenAIIntegration:
         assert "All devices turned OFF" in result
         mock_gpio_handler.turn_all_off.assert_called_once()
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_add_schedule(self, mock_scheduler):
         """Test execute_tool_call for add_schedule."""
         mock_scheduler.add_schedule.return_value = True
@@ -161,7 +161,7 @@ class TestOpenAIIntegration:
         assert "Added schedule: pump on at 09:00" in result
         mock_scheduler.add_schedule.assert_called_once_with("pump", "on", "09:00")
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_add_schedule_failure(self, mock_scheduler):
         """Test execute_tool_call for add_schedule (failure)."""
         mock_scheduler.add_schedule.return_value = False
@@ -170,7 +170,7 @@ class TestOpenAIIntegration:
 
         assert "Failed to add schedule for pump" in result
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_remove_schedule(self, mock_scheduler):
         """Test execute_tool_call for remove_schedule."""
         mock_scheduler.remove_schedule.return_value = True
@@ -180,7 +180,7 @@ class TestOpenAIIntegration:
         assert "Removed schedule: pump on at 09:00" in result
         mock_scheduler.remove_schedule.assert_called_once_with("pump", "on", "09:00")
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_remove_schedule_not_found(self, mock_scheduler):
         """Test execute_tool_call for remove_schedule (not found)."""
         mock_scheduler.remove_schedule.return_value = False
@@ -189,7 +189,7 @@ class TestOpenAIIntegration:
 
         assert "No such schedule found: pump on at 09:00" in result
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_get_schedules_all(self, mock_scheduler):
         """Test execute_tool_call for get_schedules (all devices)."""
         mock_schedules = {
@@ -214,7 +214,7 @@ class TestOpenAIIntegration:
         assert "LIGHT:" in result
         assert "Next scheduled runs:" in result
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_get_schedules_specific_device(self, mock_scheduler):
         """Test execute_tool_call for get_schedules (specific device)."""
         mock_schedules = {"on": ["09:00"], "off": ["18:00"]}
@@ -228,7 +228,7 @@ class TestOpenAIIntegration:
         assert "ON at 09:00" in result
         assert "OFF at 18:00" in result
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_get_schedules_no_schedules(self, mock_scheduler):
         """Test execute_tool_call for get_schedules (no schedules)."""
         with patch("waterbot.config.get_schedules", return_value={}):
@@ -292,7 +292,7 @@ class TestOpenAIIntegration:
 
             assert "No network interfaces found" in result
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_clear_device_schedule(self, mock_scheduler):
         """Test execute_tool_call for clear_device_schedule."""
         mock_schedules = {"on": ["09:00"], "off": ["18:00"]}
@@ -304,7 +304,7 @@ class TestOpenAIIntegration:
         assert "Cleared all schedules for 'pump' - removed 2 schedule entries" in result
         assert mock_scheduler.remove_schedule.call_count == 2
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_replace_device_schedule(self, mock_scheduler):
         """Test execute_tool_call for replace_device_schedule."""
         mock_schedules = {"on": ["09:00"], "off": ["18:00"]}
@@ -330,7 +330,7 @@ class TestOpenAIIntegration:
             {"on": ["08:00", "14:00"], "off": ["12:00", "18:00"]},
         )
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_test_notification(self, mock_scheduler):
         """Test execute_tool_call for test_notification."""
         mock_scheduler_instance = MagicMock()
@@ -341,7 +341,7 @@ class TestOpenAIIntegration:
         assert "Test notification sent via scheduler system" in result
         mock_scheduler_instance._send_discord_notification.assert_called_once_with("test_device", "on", True)
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_create_every_n_days_cycle(self, mock_scheduler):
         """Test execute_tool_call for create_every_n_days_cycle."""
         mock_scheduler.upsert_policy_schedule.return_value = {
@@ -372,7 +372,7 @@ class TestOpenAIIntegration:
         assert "Saved flexible cycle" in result
         mock_scheduler.upsert_policy_schedule.assert_called_once()
 
-    @patch("waterbot.openai_integration.scheduler")
+    @patch("waterbot.actions.scheduler")
     def test_execute_tool_get_policy_schedules(self, mock_scheduler):
         """Test execute_tool_call for get_policy_schedules."""
         mock_scheduler.get_policy_schedules.return_value = [
@@ -396,6 +396,30 @@ class TestOpenAIIntegration:
         assert "Flexible Policy Schedules" in result
         assert "pump-every-3-days-0600" in result
 
+    @patch("waterbot.openai_integration.ActionEngine")
+    def test_execute_tool_passes_confirmation_context(self, mock_action_engine):
+        """Risky direct tools should pass execution context to ActionEngine."""
+        engine = mock_action_engine.return_value
+        engine.execute_action.return_value.message = "Confirmation required"
+        arguments = {"device": "pump", "schedule_periods": []}
+
+        result = execute_tool_call(
+            "replace_device_schedule",
+            arguments,
+            channel_id="channel-123",
+            source="agent",
+            require_confirmation=True,
+        )
+
+        assert result == "Confirmation required"
+        engine.execute_action.assert_called_once_with(
+            "replace_device_schedule",
+            arguments,
+            source="agent",
+            channel_id="channel-123",
+            require_confirmation=True,
+        )
+
     def test_execute_tool_unknown_function(self):
         """Test execute_tool_call with unknown function."""
         result = execute_tool_call("unknown_function", {})
@@ -405,7 +429,7 @@ class TestOpenAIIntegration:
     def test_execute_tool_exception_handling(self):
         """Test execute_tool_call exception handling."""
         with patch(
-            "waterbot.openai_integration.gpio_handler.get_status",
+            "waterbot.actions.gpio_handler.get_status",
             side_effect=Exception("Test error"),
         ):
             result = execute_tool_call("get_device_status", {})

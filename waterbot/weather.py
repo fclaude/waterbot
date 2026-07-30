@@ -70,7 +70,7 @@ class WeatherContextProvider:
             logger.warning("WEATHER_LATITUDE and WEATHER_LONGITUDE are required for open_meteo")
             return {}
 
-        params = {
+        params: Dict[str, str] = {
             "latitude": WEATHER_LATITUDE,
             "longitude": WEATHER_LONGITUDE,
             "current": "temperature_2m,precipitation",
@@ -78,8 +78,8 @@ class WeatherContextProvider:
             "temperature_unit": "fahrenheit",
             "precipitation_unit": "inch",
             "timezone": "auto",
-            "past_days": 1,
-            "forecast_days": 2,
+            "past_days": "1",
+            "forecast_days": "2",
         }
 
         try:

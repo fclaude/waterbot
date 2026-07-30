@@ -5,15 +5,20 @@ import os
 import re
 from copy import deepcopy
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
+load_dotenv: Callable[[], bool]
 try:
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv as _load_dotenv
+
+    load_dotenv = _load_dotenv
 except ImportError:
 
-    def load_dotenv() -> bool:
+    def _fallback_load_dotenv() -> bool:
         """Fallback when python-dotenv is not installed."""
         return False
+
+    load_dotenv = _fallback_load_dotenv
 
 
 # Load environment variables from .env file

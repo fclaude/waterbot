@@ -406,6 +406,13 @@ def _schedules_result(device: Optional[str] = None) -> ActionResult:
             lines.append(f"{dev.upper()}:")
             for action, times in actions.items():
                 lines.extend(f"  {action.upper()} at {time_str}" for time_str in times)
+
+    next_runs = scheduler.get_next_runs()
+    if next_runs:
+        lines.extend(["", "Next scheduled runs:"])
+        lines.extend(
+            f"  {run['device']} {run['action']} at {run['time']} (next: {run['next_run']})" for run in next_runs[:5]
+        )
     return ActionResult("success", "\n".join(lines))
 
 

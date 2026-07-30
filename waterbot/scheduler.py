@@ -263,6 +263,8 @@ class DeviceScheduler:
                 # Use asyncio to send the message via the bot's event loop
                 import asyncio
 
+                target_channel = bot.target_channel
+
                 def schedule_message() -> None:
                     """Schedule message to be sent via bot's event loop."""
                     try:
@@ -272,7 +274,7 @@ class DeviceScheduler:
                         bot_loop = bot.loop
                         if bot_loop and not bot_loop.is_closed():
                             # Schedule the coroutine in the bot's event loop
-                            future = asyncio.run_coroutine_threadsafe(bot.target_channel.send(message), bot_loop)
+                            future = asyncio.run_coroutine_threadsafe(target_channel.send(message), bot_loop)
                             # Wait for completion with timeout
                             result = future.result(timeout=10)
                             logger.info(f"Discord notification sent successfully: {result}")

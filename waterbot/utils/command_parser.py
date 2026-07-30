@@ -89,7 +89,7 @@ def parse_command(text: str) -> Tuple[Optional[str], Dict[str, Any]]:
         return "show_device_schedules", {"device": device}
 
     # Schedule add: "schedule <device> <action> <time>"
-    schedule_add_match = re.match(r"schedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)  # type: ignore[unreachable]
+    schedule_add_match = re.match(r"schedule\s+(\w+)\s+(on|off)\s+(\d{2}:\d{2})", text)
     if schedule_add_match:
         device, action, time_str = schedule_add_match.groups()
         if device not in DEVICE_TO_PIN:
