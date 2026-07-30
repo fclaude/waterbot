@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waterbot"
-version = "0.3.0"
+version = "0.3.1"
 description = "A Discord bot to control GPIO pins on Raspberry Pi with scheduling"
 readme = "README.md"
 license = "MIT"
@@ -159,7 +159,7 @@ addopts = [
     "--cov=waterbot",
     "--cov-report=html",
     "--cov-report=term-missing",
-    "--cov-fail-under=85",
+    "--cov-fail-under=90",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

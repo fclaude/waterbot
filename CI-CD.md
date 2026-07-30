@@ -11,7 +11,7 @@ WaterBot CI runs on GitHub Actions and GitLab CI with the same quality gates.
 ## Quality gates
 
 - All tests must pass
-- Coverage ≥85%
+- Coverage ≥90%
 - No lint/format errors
 - mypy must pass
 - Bandit and pip-audit must pass

@@ -232,6 +232,105 @@ class TestDeviceScheduler:
         mock_schedule.run_pending.assert_called_once()
         mock_sleep.assert_called_once_with(1)
 
+    def test_replace_device_schedules(self):
+        """Test replacing all schedules for a device."""
+        with (
+            patch("waterbot.config.replace_device_schedules", return_value=True) as mock_replace,
+            patch.object(self.scheduler, "_schedule_device_action") as mock_schedule_action,
+            patch("waterbot.scheduler.schedule") as mock_schedule,
+        ):
+            existing_job = Mock()
+            self.scheduler.scheduled_jobs = [
+                {"device": "pump", "action": "on", "time": "08:00", "job": existing_job},
+                {"device": "light", "action": "on", "time": "06:00", "job": Mock()},
+            ]
+            success = self.scheduler.replace_device_schedules("pump", {"on": ["09:00"], "off": ["21:00"]})
+
+        assert success is True
+        mock_replace.assert_called_once()
+        mock_schedule.cancel_job.assert_called_once_with(existing_job)
+        assert mock_schedule_action.call_count == 2
+        assert all(job["device"] != "pump" or job["time"] != "08:00" for job in self.scheduler.scheduled_jobs)
+
+    def test_run_policy_schedules_notifies(self):
+        """Test flexible policy results are audited and notified."""
+        result = Mock(
+            policy_id="pump-1",
+            device="pump",
+            run_key="2024-01-01T06:00",
+            executed=True,
+            skipped=False,
+            duration_minutes=8,
+            message="ran pump",
+            context={},
+            matched_rules=[],
+        )
+        self.scheduler.policy_scheduler = Mock()
+        self.scheduler.policy_scheduler.run_due.return_value = [result]
+        self.scheduler.agent_memory = Mock()
+
+        with patch.object(self.scheduler, "_send_discord_message") as mock_send:
+            self.scheduler._run_policy_schedules()
+
+        self.scheduler.agent_memory.record_policy_decision.assert_called_once()
+        mock_send.assert_called_once()
+        assert "Policy run" in mock_send.call_args[0][0]
+
+    def test_send_discord_notification_success_and_failure(self):
+        """Test scheduled action notification formatting."""
+        with patch.object(self.scheduler, "_send_discord_message") as mock_send:
+            self.scheduler._send_discord_notification("pump", "on", True)
+            self.scheduler._send_discord_notification("pump", "off", False)
+
+        assert mock_send.call_count == 2
+        assert "Scheduled ON" in mock_send.call_args_list[0][0][0]
+        assert "Schedule Failed" in mock_send.call_args_list[1][0][0]
+
+    def test_send_discord_message_without_bot(self):
+        """Test Discord notify path when bot is unavailable."""
+        with patch("waterbot.discord.bot.get_bot_instance", return_value=None):
+            self.scheduler._send_discord_message("hello")
+
+    def test_send_discord_message_with_bot_loop(self):
+        """Test Discord notify queues a message onto the bot loop."""
+        bot = Mock()
+        bot.target_channel = Mock()
+        bot.target_channel.send = Mock()
+        bot.loop = Mock()
+        bot.loop.is_closed.return_value = False
+        future = Mock()
+        future.result.return_value = True
+
+        with (
+            patch("waterbot.discord.bot.get_bot_instance", return_value=bot),
+            patch("asyncio.run_coroutine_threadsafe", return_value=future) as mock_schedule,
+            patch("threading.Thread") as mock_thread_cls,
+        ):
+            thread = Mock()
+            mock_thread_cls.return_value = thread
+            self.scheduler._send_discord_message("notify me")
+            # Execute the queued thread target immediately.
+            target = mock_thread_cls.call_args.kwargs.get("target") or mock_thread_cls.call_args[0][0]
+            target()
+
+        mock_schedule.assert_called_once()
+        future.result.assert_called_once_with(timeout=10)
+        thread.start.assert_called_once()
+
+    def test_schedule_device_action_failure_notifies(self):
+        """Failed scheduled GPIO actions should notify Discord."""
+        with (
+            patch("waterbot.scheduler.gpio_handler.turn_on", return_value=False),
+            patch("waterbot.scheduler.schedule") as mock_schedule,
+            patch.object(self.scheduler, "_send_discord_notification") as mock_notify,
+        ):
+            mock_schedule.every.return_value.day.at.return_value.do.return_value = Mock()
+            self.scheduler._schedule_device_action("pump", "on", "08:00")
+            job = mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
+            job()
+
+        mock_notify.assert_called_once_with("pump", "on", False)
+
 
 class TestSchedulerModuleFunctions:
     """Test module-level scheduler functions."""

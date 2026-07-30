@@ -225,7 +225,7 @@ waterbot/
 - Use dependency injection for testability
 - Mock external dependencies (hardware, network)
 - Test edge cases and error conditions
-- Maintain high test coverage (>85%)
+- Maintain high test coverage (>90%)
 - Use descriptive test names and docstrings
 
 ## Code Style Guidelines
@@ -283,7 +283,7 @@ The GitLab CI/CD pipeline runs on every commit and includes:
 
 ### Quality Gates
 
-- Code coverage must be ≥85%
+- Code coverage must be ≥90%
 - No linting errors
 - No security vulnerabilities (high severity)
 - Code must be properly formatted

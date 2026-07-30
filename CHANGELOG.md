@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1 - 2026-07-30
+
+### Added
+- Broader policy/scheduler coverage and integration tests for schedule→GPIO,
+  weather skip/run, and confirmation flows.
+- Coverage gate raised to 90%.
+
+### Changed
+- Removed stale remote branch `codex/add-configurable-relay-voltage-settings`.
+
 ## 0.3.0 - 2026-07-30
 
 ### Fixed
