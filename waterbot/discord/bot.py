@@ -2,7 +2,7 @@
 
 import logging
 import subprocess  # nosec B404
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, cast
 
 import discord
 from discord.ext import commands
@@ -205,7 +205,7 @@ class WaterBot(commands.Bot):
         logger.info(f"Discord bot logged in as {self.user}")
 
         if self.channel_id:
-            self.target_channel = self.get_channel(self.channel_id)
+            self.target_channel = cast(Optional[discord.TextChannel], self.get_channel(self.channel_id))
             if self.target_channel:
                 logger.info(f"Connected to channel: {self.target_channel.name}")
 
@@ -261,18 +261,18 @@ class WaterBot(commands.Bot):
                     # Fallback to command parser
                     text_lower = text.lower()
                     command_type, params = parse_command(text_lower)
-                    response = await self._execute_command(command_type, params, channel_id=channel_id)
-                    if response:
-                        logger.debug(f"Sending fallback response: {response}")
-                        await message.channel.send(response)
+                    command_response = await self._execute_command(command_type, params, channel_id=channel_id)
+                    if command_response:
+                        logger.debug(f"Sending fallback response: {command_response}")
+                        await message.channel.send(command_response)
             else:
                 # Fallback to legacy command parser if OpenAI not configured
                 text_lower = text.lower()
                 command_type, params = parse_command(text_lower)
-                response = await self._execute_command(command_type, params, channel_id=channel_id)
-                if response:
-                    logger.debug(f"Sending response: {response}")
-                    await message.channel.send(response)
+                command_response = await self._execute_command(command_type, params, channel_id=channel_id)
+                if command_response:
+                    logger.debug(f"Sending response: {command_response}")
+                    await message.channel.send(command_response)
 
     async def _execute_command(
         self,
