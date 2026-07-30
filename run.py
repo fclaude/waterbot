@@ -25,7 +25,7 @@ DISCORD_BOT_TOKEN="your_discord_bot_token_here"
 DISCORD_CHANNEL_ID="123456789012345678"
 
 # OpenAI-compatible LLM (optional, enables natural-language control)
-OPENAI_API_KEY="your_openai_api_key_here"
+OPENAI_API_KEY="your_openai_api_key_here"  # pragma: allowlist secret
 OPENAI_MODEL="gpt-4o-mini"
 # OPENAI_BASE_URL="http://127.0.0.1:11434/v1"
 
@@ -62,8 +62,8 @@ ENABLE_WEB_INTERFACE=false
 WEB_HOST=0.0.0.0
 WEB_PORT=8080
 WEB_AUTH_USERNAME=admin
-# WEB_AUTH_PASSWORD="change_me"
-# WEB_AUTH_TOKEN="optional_api_token"
+# WEB_AUTH_PASSWORD="change_me"  # pragma: allowlist secret
+# WEB_AUTH_TOKEN="optional_api_token"  # pragma: allowlist secret
 WEB_PUBLIC_SCHEDULES=true
 
 # Optional weather context for flexible policy schedules

@@ -9,8 +9,12 @@ from waterbot.actions import ActionResult
 from waterbot.policy import PolicyValidationError
 from waterbot.web.server import WebInterfaceServer, _recurrence_text
 
+_TEST_PASSWORD = "test-pass"  # pragma: allowlist secret
+_TEST_TOKEN = "test-token"  # pragma: allowlist secret
+_WRONG_PASSWORD = "wrong"  # pragma: allowlist secret
 
-def _auth_header(username: str = "admin", password: str = "secret") -> str:
+
+def _auth_header(username: str = "admin", password: str = _TEST_PASSWORD) -> str:
     token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
     return f"Basic {token}"
 
@@ -49,7 +53,7 @@ def test_public_schedule_page_and_api_render_schedules():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         public_schedules=True,
         action_engine=engine,
     )
@@ -91,7 +95,7 @@ def test_private_schedule_page_requires_authentication():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         public_schedules=False,
         action_engine=MagicMock(),
     )
@@ -118,7 +122,7 @@ def test_chat_page_and_api_require_auth_and_route_commands():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         public_schedules=True,
         action_engine=engine,
     )
@@ -167,14 +171,14 @@ def test_chat_confirm_cancel_help_error_and_bearer_auth():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
-        token="api-token",
+        password=_TEST_PASSWORD,
+        token=_TEST_TOKEN,
         action_engine=engine,
     )
 
-    assert server.is_authenticated("Bearer api-token") is True
+    assert server.is_authenticated(f"Bearer {_TEST_TOKEN}") is True
     assert server.is_authenticated(_auth_header()) is True
-    assert server.is_authenticated(_auth_header(password="wrong")) is False
+    assert server.is_authenticated(_auth_header(password=_WRONG_PASSWORD)) is False
     assert server.is_authenticated("Basic not-base64") is False
 
     with patch("waterbot.web.server.is_openai_configured", return_value=False):
@@ -193,7 +197,7 @@ def test_chat_uses_openai_when_configured():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         action_engine=MagicMock(),
     )
 
@@ -212,7 +216,7 @@ def test_policy_error_is_reported_in_schedule_snapshot():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         action_engine=MagicMock(),
     )
     with (
@@ -230,7 +234,7 @@ def test_policy_error_is_reported_in_schedule_snapshot():
 
 def test_server_start_stop_lifecycle_without_socket():
     """Server lifecycle should bind once and shut down cleanly."""
-    server = WebInterfaceServer(host="127.0.0.1", port=8080, password="secret", action_engine=MagicMock())
+    server = WebInterfaceServer(host="127.0.0.1", port=8080, password=_TEST_PASSWORD, action_engine=MagicMock())
     httpd = MagicMock()
     httpd.server_address = ("127.0.0.1", 9080)
     thread = MagicMock()
@@ -261,7 +265,7 @@ def test_handler_error_routes_logo_and_invalid_json():
     server = WebInterfaceServer(
         host="127.0.0.1",
         port=0,
-        password="secret",
+        password=_TEST_PASSWORD,
         public_schedules=False,
         action_engine=MagicMock(),
     )
@@ -307,7 +311,7 @@ def test_auth_without_password_and_recurrence_text_variants():
 
 def test_healthz_endpoint():
     """Health endpoint should be public and report basic runtime state."""
-    server = WebInterfaceServer(password="secret", public_schedules=False, action_engine=MagicMock())
+    server = WebInterfaceServer(password=_TEST_PASSWORD, public_schedules=False, action_engine=MagicMock())
     with patch("waterbot.web.server.scheduler.get_scheduler") as mock_get_scheduler:
         mock_get_scheduler.return_value = MagicMock(running=True)
         status, headers, data = _request(server, "GET", "/healthz")

@@ -79,7 +79,8 @@ def get_openai_client() -> Any:
             kwargs: dict[str, Any] = {
                 # Self-hosted OpenAI-compatible servers often ignore auth; the SDK
                 # still expects a non-empty api_key string.
-                "api_key": OPENAI_API_KEY or "not-needed",
+                "api_key": OPENAI_API_KEY
+                or "not-needed",
             }
             if OPENAI_BASE_URL:
                 kwargs["base_url"] = OPENAI_BASE_URL

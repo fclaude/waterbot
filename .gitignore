@@ -93,9 +93,6 @@ Thumbs.db
 # Pre-commit
 .pre-commit-config.yaml.bak
 
-# Secrets
-.secrets.baseline
-
 # Documentation
 docs/_build/
 

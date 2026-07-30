@@ -44,6 +44,7 @@ def is_openai_configured() -> bool:
     """
     return bool(OPENAI_API_KEY) or bool(OPENAI_BASE_URL)
 
+
 # Operation mode
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
 IS_EMULATION = OPERATION_MODE != "rpi"

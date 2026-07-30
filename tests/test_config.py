@@ -364,7 +364,7 @@ class TestOpenAICompatibleConfiguration:
     def test_is_openai_configured_with_api_key(self):
         """API key alone enables the default OpenAI client."""
         with (
-            patch("waterbot.config.OPENAI_API_KEY", "sk-test"),
+            patch("waterbot.config.OPENAI_API_KEY", "test-key"),
             patch("waterbot.config.OPENAI_BASE_URL", None),
         ):
             assert is_openai_configured() is True

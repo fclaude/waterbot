@@ -111,8 +111,8 @@ ENABLE_WEB_INTERFACE=false
 WEB_HOST=127.0.0.1
 WEB_PORT=8080
 WEB_AUTH_USERNAME=admin
-# WEB_AUTH_PASSWORD="change_me"
-# WEB_AUTH_TOKEN="optional_api_token"
+# WEB_AUTH_PASSWORD="change_me"  # pragma: allowlist secret
+# WEB_AUTH_TOKEN="optional_api_token"  # pragma: allowlist secret
 WEB_PUBLIC_SCHEDULES=false
 
 # Schedule Configuration (alternative to JSON file)
@@ -199,7 +199,7 @@ OpenAI Chat Completions + tools protocol, so you can leave `OPENAI_BASE_URL` uns
 OpenAI itself, or point it at any compatible server:
 
 ```env
-OPENAI_API_KEY="sk-..."
+OPENAI_API_KEY="your_openai_api_key_here"  # pragma: allowlist secret
 OPENAI_MODEL="gpt-4o-mini"
 # Optional: OpenAI-compatible endpoint (OpenRouter, vLLM, Ollama, LiteLLM, …)
 # OPENAI_BASE_URL="https://openrouter.ai/api/v1"

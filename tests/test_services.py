@@ -13,6 +13,10 @@ from waterbot.services import (
     set_openai_client,
 )
 
+_TEST_API_KEY = "test-key"  # pragma: allowlist secret
+_LIVE_API_KEY = "live-key"  # pragma: allowlist secret
+_LOCAL_API_KEY = "not-needed"  # pragma: allowlist secret
+
 
 def test_shared_services_reuse_memory_and_engine(tmp_path):
     """Service getters should share one memory/engine instance."""
@@ -40,7 +44,7 @@ def test_get_openai_client_uses_base_url():
     mock_openai_cls = MagicMock()
 
     with (
-        patch("waterbot.config.OPENAI_API_KEY", "sk-test"),
+        patch("waterbot.config.OPENAI_API_KEY", _TEST_API_KEY),
         patch("waterbot.config.OPENAI_BASE_URL", "http://127.0.0.1:8080/v1"),
         patch("waterbot.config.is_openai_configured", return_value=True),
         patch("openai.OpenAI", mock_openai_cls),
@@ -49,7 +53,7 @@ def test_get_openai_client_uses_base_url():
 
     assert client is mock_openai_cls.return_value
     mock_openai_cls.assert_called_once_with(
-        api_key="sk-test",
+        api_key=_TEST_API_KEY,
         base_url="http://127.0.0.1:8080/v1",
     )
     reset_services()
@@ -70,7 +74,7 @@ def test_get_openai_client_base_url_without_api_key():
 
     assert client is mock_openai_cls.return_value
     mock_openai_cls.assert_called_once_with(
-        api_key="not-needed",
+        api_key=_LOCAL_API_KEY,
         base_url="http://ollama.local/v1",
     )
     reset_services()
@@ -82,7 +86,7 @@ def test_get_openai_client_default_openai_endpoint():
     mock_openai_cls = MagicMock()
 
     with (
-        patch("waterbot.config.OPENAI_API_KEY", "sk-live"),
+        patch("waterbot.config.OPENAI_API_KEY", _LIVE_API_KEY),
         patch("waterbot.config.OPENAI_BASE_URL", None),
         patch("waterbot.config.is_openai_configured", return_value=True),
         patch("openai.OpenAI", mock_openai_cls),
@@ -90,5 +94,5 @@ def test_get_openai_client_default_openai_endpoint():
         client = get_openai_client()
 
     assert client is mock_openai_cls.return_value
-    mock_openai_cls.assert_called_once_with(api_key="sk-live")
+    mock_openai_cls.assert_called_once_with(api_key=_LIVE_API_KEY)
     reset_services()
