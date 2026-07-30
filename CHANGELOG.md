@@ -7,6 +7,11 @@
   (OpenRouter, vLLM, Ollama, LiteLLM, and similar). Leave unset to keep using
   OpenAI. A custom base URL alone can enable the agent for local/no-auth servers.
 
+### Fixed
+- Black formatting for `OPENAI_BASE_URL` / client construction so `make format-check` passes.
+- Placeholder credential examples allowlisted for detect-secrets; pre-commit Black
+  pinned to 26.x to match project formatting.
+
 ## 0.3.2 - 2026-07-30
 
 ### Changed
