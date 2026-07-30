@@ -66,6 +66,12 @@ AGENT_DB_FILE = os.getenv("AGENT_DB_FILE", "data/waterbot_agent.db")
 AGENT_MEMORY_RETENTION_DAYS = int(os.getenv("AGENT_MEMORY_RETENTION_DAYS", "30"))
 AGENT_CONFIRMATION_TIMEOUT_MINUTES = int(os.getenv("AGENT_CONFIRMATION_TIMEOUT_MINUTES", "10"))
 AGENT_REQUIRE_CONFIRMATION = os.getenv("AGENT_REQUIRE_CONFIRMATION", "true").lower() == "true"
+# Recent turns sent to the model as real chat messages.
+AGENT_CONTEXT_MESSAGE_LIMIT = int(os.getenv("AGENT_CONTEXT_MESSAGE_LIMIT", "24"))
+# Max characters kept in the long-term channel summary.
+AGENT_SUMMARY_MAX_CHARS = int(os.getenv("AGENT_SUMMARY_MAX_CHARS", "4000"))
+# Max agent tool-calling rounds per user message.
+AGENT_MAX_TOOL_ROUNDS = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
 
 # Optional local web interface.
 # Default to localhost; set WEB_HOST=0.0.0.0 only for trusted LAN deployments.

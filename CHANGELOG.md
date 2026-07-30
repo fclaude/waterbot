@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 - 2026-07-30
+
+### Changed
+- Shared `AgentMemory` / `ActionEngine` / `AgentRuntime` via `waterbot.services`
+  across Discord, web, and scheduler threads.
+- Conversational agent now sends recent turns as real chat history and folds older
+  turns into a long-term channel summary, with pending confirmations/feedback in
+  the system prompt.
+- SQLite memory uses a process lock + WAL for cross-thread safety.
+
 ## 0.3.1 - 2026-07-30
 
 ### Added

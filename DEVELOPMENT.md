@@ -198,9 +198,35 @@ waterbot/
 ### Design Principles
 
 - **Dependency Injection**: All components accept their dependencies for easy testing
+- **Shared services**: Discord, web, and scheduler share one `AgentMemory` / `ActionEngine`
+  via `waterbot.services` so confirmations and chat memory stay consistent
 - **Interface Segregation**: GPIO operations abstracted behind interfaces
 - **Single Responsibility**: Each module has a clear, focused purpose
 - **Testability**: All code designed to be easily unit tested
+
+### Concurrency Model
+
+WaterBot runs as one process with three cooperative surfaces:
+
+1. **Discord bot** — asyncio event loop
+2. **Scheduler** — background thread for legacy schedules and flexible policies
+3. **Web server** — `ThreadingHTTPServer` workers when enabled
+
+Shared rules:
+
+- Use `waterbot.services.get_action_engine()` / `get_agent_memory()` instead of constructing new stores
+- `AgentMemory` serializes SQLite access with a lock and WAL mode
+- GPIO mutations go through `DeviceController.gpio_lock`
+- Do not run multiple WaterBot processes against the same SQLite/schedule files
+
+### Conversational Agent Memory
+
+When `OPENAI_API_KEY` is set, chat goes through `AgentRuntime`:
+
+- Recent turns are sent to the model as real user/assistant messages
+- Older turns fold into a long-term per-channel summary
+- Feedback, pending confirmations, and recent audited actions are injected into the system prompt
+- Configure with `AGENT_CONTEXT_MESSAGE_LIMIT`, `AGENT_SUMMARY_MAX_CHARS`, and `AGENT_MEMORY_RETENTION_DAYS`
 
 ## Testing Strategy
 

@@ -1,17 +1,26 @@
 """Conversational agent runtime for WaterBot."""
 
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any, Dict, List, Optional
 
 from ..actions import ActionEngine
+from ..config import AGENT_CONTEXT_MESSAGE_LIMIT, AGENT_MAX_TOOL_ROUNDS
 from .memory import AgentMemory
 
 logger = logging.getLogger("waterbot.agent")
 
 
 class AgentRuntime:
-    """Coordinate memory, model calls, tool dispatch, and audit history."""
+    """Coordinate memory, model calls, tool dispatch, and audit history.
+
+    Conversation model:
+    - Long-term channel summary + feedback/pending confirmations go in the system prompt
+    - Recent turns are sent as real user/assistant chat messages
+    - Tools mutate devices/schedules through the shared ActionEngine
+    """
 
     def __init__(
         self,
@@ -38,13 +47,12 @@ class AgentRuntime:
             return "OpenAI is not configured. Please set OPENAI_API_KEY in your .env file."
 
         self.memory.record_message(channel_id, "user", message, author_id, author_name)
-        context = self.memory.get_context(channel_id)
-        feedback = self.memory.get_recent_feedback(limit=5)
+        context = self.memory.get_context(channel_id, limit=AGENT_CONTEXT_MESSAGE_LIMIT)
 
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": _system_message(context, feedback)},
-            {"role": "user", "content": message},
+            {"role": "system", "content": _system_message(context)},
         ]
+        messages.extend(self.memory.get_conversation_messages(channel_id))
 
         response = self.client.chat.completions.create(
             model=self.model,
@@ -52,13 +60,13 @@ class AgentRuntime:
             tools=get_agent_tools(),
             tool_choice="auto",
             max_tokens=1200,
-            temperature=0.4,
+            temperature=0.3,
         )
 
         response_message = response.choices[0].message
         messages.append(_assistant_message_param(response_message))
 
-        max_rounds = 5
+        max_rounds = max(AGENT_MAX_TOOL_ROUNDS, 1)
         current_round = 0
         while response_message.tool_calls and current_round < max_rounds:
             current_round += 1
@@ -87,7 +95,7 @@ class AgentRuntime:
                 tools=get_agent_tools(),
                 tool_choice="auto",
                 max_tokens=1200,
-                temperature=0.4,
+                temperature=0.3,
             )
             response_message = next_response.choices[0].message
             messages.append(_assistant_message_param(response_message))
@@ -179,7 +187,7 @@ def get_agent_tools() -> List[Dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "get_recent_context",
-                "description": "Get persistent channel memory and recent messages.",
+                "description": "Get persistent channel memory, recent messages, pending confirmations, and feedback.",
                 "parameters": {"type": "object", "properties": {}, "required": []},
             },
         },
@@ -266,28 +274,41 @@ def _assistant_message_param(message: Any) -> Dict[str, Any]:
     return param
 
 
-def _system_message(context: Dict[str, Any], feedback: Optional[List[Dict[str, Any]]] = None) -> str:
-    summary = context.get("summary", {}).get("summary") or "No prior channel summary."
-    recent_lines = []
-    for item in context.get("recent_messages", []):
-        speaker = item.get("author_name") or item.get("role")
-        recent_lines.append(f"{speaker}: {item.get('content')}")
-    recent = "\n".join(recent_lines) or "No recent messages."
+def _system_message(context: Dict[str, Any]) -> str:
+    summary = context.get("summary", {}).get("summary") or "No long-term channel summary yet."
     feedback_lines = []
-    for item in feedback or []:
+    for item in context.get("recent_feedback") or []:
         target = f" for {item.get('device')}" if item.get("device") else ""
         feedback_lines.append(f"- {item.get('created_at')}{target}: {item.get('feedback')}")
     feedback_text = "\n".join(feedback_lines) or "No recent user feedback."
 
+    pending_lines = []
+    for item in context.get("pending_confirmations") or []:
+        pending_lines.append(
+            f"- token `{item.get('token')}`: {item.get('description')} (expires {item.get('expires_at')})"
+        )
+    pending_text = "\n".join(pending_lines) or "No pending confirmations."
+
+    action_lines = []
+    for item in context.get("recent_actions") or []:
+        action_lines.append(
+            f"- {item.get('created_at')}: {item.get('action_type')} -> {item.get('status')} ({item.get('message')})"
+        )
+    actions_text = "\n".join(action_lines) or "No recent audited actions."
+
     return (
         "You are WaterBot, a careful conversational agent for watering and GPIO control.\n\n"
-        "Use persistent channel context to understand follow-up requests. Prefer tools over guessing. "
-        "For risky or permanent changes, execute_action will return a confirmation token; when that "
-        "happens, tell the user exactly what will happen and how to confirm or cancel.\n\n"
+        "You have persistent memory for this channel. Recent conversation turns are provided as "
+        "chat messages after this system prompt. Use that history for follow-ups like "
+        "'do the same tomorrow', 'make it shorter', or 'why did you skip?'.\n\n"
+        "Prefer tools over guessing. For risky or permanent changes, execute_action returns a "
+        "confirmation token; tell the user exactly what will happen and how to confirm or cancel.\n\n"
         "Risky actions include all-device actions, replacing or clearing schedules, saving or deleting "
-        "flexible policies, and other permanent schedule changes. Automatic policy runs are allowed, "
-        "but user-requested risky changes need confirmation.\n\n"
+        "flexible policies, and other permanent schedule changes.\n\n"
         "For 'why did it run/skip' questions, use get_policy_decision_history. For 'too wet', 'too dry', "
-        "or similar feedback, call record_user_feedback.\n\n"
-        f"Channel summary:\n{summary}\n\nRecent messages:\n{recent}\n\nRecent feedback:\n{feedback_text}"
+        "or similar observations, call record_user_feedback so future turns remember them.\n\n"
+        f"Long-term channel summary:\n{summary}\n\n"
+        f"Pending confirmations:\n{pending_text}\n\n"
+        f"Recent audited actions:\n{actions_text}\n\n"
+        f"Recent feedback:\n{feedback_text}"
     )

@@ -16,6 +16,7 @@ from ..config import (
 )
 from ..gpio import handler as gpio_handler
 from ..openai_integration import process_with_openai
+from ..services import get_action_engine
 from ..utils.command_parser import parse_command
 
 logger = logging.getLogger("discord_bot")
@@ -45,7 +46,7 @@ class WaterBot(commands.Bot):
 
         self.channel_id = int(DISCORD_CHANNEL_ID) if DISCORD_CHANNEL_ID else None
         self.target_channel: Optional[discord.abc.Messageable] = None
-        self._action_engine = action_engine or ActionEngine()
+        self._action_engine = action_engine or get_action_engine()
 
         set_bot_instance(self)
         logger.info("Discord bot initialized for channel ID: %s", self.channel_id)

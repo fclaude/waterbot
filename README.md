@@ -190,11 +190,17 @@ Send these commands from the Discord channel to control your devices:
 
 ### Conversational Agent
 
-When `OPENAI_API_KEY` is configured, WaterBot keeps recent channel context and
-rolling summaries in `AGENT_DB_FILE`. Risky actions such as all-device changes,
-schedule replacement, clearing schedules, or saving/removing flexible policies
-return a confirmation token first. Reply with `confirm <token>` to execute or
-`cancel <token>` to discard.
+When `OPENAI_API_KEY` is configured, WaterBot keeps a conversational agent memory in
+`AGENT_DB_FILE`:
+
+- Recent turns are replayed to the model as real chat messages
+- Older turns fold into a long-term channel summary
+- Feedback, pending confirmation tokens, and recent audited actions stay available
+  for follow-ups
+
+Risky actions such as all-device changes, schedule replacement, clearing schedules,
+or saving/removing flexible policies return a confirmation token first. Reply with
+`confirm <token>` to execute or `cancel <token>` to discard.
 
 The agent also records action events, flexible policy decisions, and user
 feedback. Ask `why pump` to see recent automatic watering decisions for a device,

@@ -26,6 +26,7 @@ from ..config import (
     get_schedules,
 )
 from ..openai_integration import process_with_openai
+from ..services import get_action_engine
 from ..utils.command_parser import parse_command
 
 logger = logging.getLogger("waterbot.web")
@@ -51,7 +52,7 @@ class WebInterfaceServer:
         self.password = password
         self.token = token
         self.public_schedules = public_schedules
-        self.action_engine = action_engine or ActionEngine()
+        self.action_engine = action_engine or get_action_engine()
         self.httpd: Optional[ThreadingHTTPServer] = None
         self.thread: Optional[threading.Thread] = None
 

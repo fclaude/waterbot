@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional
 import schedule
 
 from . import policy
-from .agent.memory import AgentMemory
 from .config import DEVICE_SCHEDULES, ENABLE_SCHEDULING
 from .gpio import handler as gpio_handler
+from .services import get_agent_memory
 
 logger = logging.getLogger("scheduler")
 
@@ -25,7 +25,7 @@ class DeviceScheduler:
         self.scheduler_thread: Optional[threading.Thread] = None
         self.scheduled_jobs: List[Dict[str, Any]] = []
         self.policy_scheduler = policy.PolicyScheduler()
-        self.agent_memory = AgentMemory()
+        self.agent_memory = get_agent_memory()
 
     def setup_schedules(self) -> None:
         """Set up all scheduled tasks based on configuration."""

@@ -1,7 +1,10 @@
 """SQLite-backed memory and audit history for WaterBot."""
 
+from __future__ import annotations
+
 import json
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -10,34 +13,48 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from ..config import (
     AGENT_CONFIRMATION_TIMEOUT_MINUTES,
+    AGENT_CONTEXT_MESSAGE_LIMIT,
     AGENT_DB_FILE,
     AGENT_MEMORY_RETENTION_DAYS,
+    AGENT_SUMMARY_MAX_CHARS,
 )
 
 
 class AgentMemory:
-    """Persist conversation context, confirmations, and action history."""
+    """Persist conversation context, confirmations, and action history.
+
+    Each public method opens a short-lived SQLite connection under a process lock
+    so Discord, scheduler, and web threads can share one store safely.
+    """
 
     def __init__(self, path: str = AGENT_DB_FILE) -> None:
         """Initialize the memory store."""
         self.path = path
+        self._lock = threading.RLock()
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
+        connection = sqlite3.connect(
+            self.path,
+            timeout=30,
+            check_same_thread=False,
+        )
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
         """Open a SQLite connection and close it after use."""
-        connection = self._connect()
-        try:
-            yield connection
-            connection.commit()
-        finally:
-            connection.close()
+        with self._lock:
+            connection = self._connect()
+            try:
+                yield connection
+                connection.commit()
+            finally:
+                connection.close()
 
     def _initialize(self) -> None:
         """Create tables if they do not exist."""
@@ -104,6 +121,11 @@ class AgentMemory:
                     feedback TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+
+                CREATE INDEX IF NOT EXISTS idx_messages_channel_id
+                    ON messages(channel_id, id);
+                CREATE INDEX IF NOT EXISTS idx_action_events_channel_id
+                    ON action_events(channel_id, id);
                 """)
 
     def record_message(
@@ -124,11 +146,16 @@ class AgentMemory:
                 """,
                 (channel_id, author_id, author_name, role, content, created_at),
             )
-        self._update_channel_summary(channel_id)
+        self._fold_old_messages_into_summary(channel_id)
         self.prune_old_messages()
 
-    def get_context(self, channel_id: str, limit: int = 12) -> Dict[str, Any]:
-        """Return summary and recent messages for prompt context."""
+    def get_context(
+        self,
+        channel_id: str,
+        limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Return long-term summary plus recent messages for prompt context."""
+        recent_limit = limit if limit is not None else AGENT_CONTEXT_MESSAGE_LIMIT
         with self._connection() as connection:
             summary_row = connection.execute(
                 "SELECT summary, updated_at FROM channel_summaries WHERE channel_id = ?",
@@ -136,44 +163,92 @@ class AgentMemory:
             ).fetchone()
             rows = connection.execute(
                 """
-                SELECT role, author_name, content, created_at
+                SELECT role, author_id, author_name, content, created_at
                 FROM messages
                 WHERE channel_id = ?
                 ORDER BY id DESC
                 LIMIT ?
                 """,
-                (channel_id, limit),
+                (channel_id, recent_limit),
             ).fetchall()
 
         recent = [dict(row) for row in reversed(rows)]
         return {
             "summary": dict(summary_row) if summary_row else {"summary": "", "updated_at": None},
             "recent_messages": recent,
+            "pending_confirmations": self.get_pending_confirmations(channel_id),
+            "recent_actions": self.get_recent_action_events(channel_id, limit=5),
+            "recent_feedback": self.get_recent_feedback(channel_id=channel_id, limit=5),
         }
 
-    def _update_channel_summary(self, channel_id: str) -> None:
-        """Maintain a compact rolling text summary for the channel."""
+    def get_conversation_messages(
+        self,
+        channel_id: str,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, str]]:
+        """Return recent turns as OpenAI chat messages (user/assistant only)."""
+        recent_limit = limit if limit is not None else AGENT_CONTEXT_MESSAGE_LIMIT
+        context = self.get_context(channel_id, limit=recent_limit)
+        conversation: List[Dict[str, str]] = []
+        for item in context["recent_messages"]:
+            role = item.get("role")
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+            if role == "assistant":
+                conversation.append({"role": "assistant", "content": content})
+            elif role in {"user", "system"}:
+                # Persist system-ish notes as user context lines so the model
+                # still sees them in the turn stream.
+                label = item.get("author_name")
+                if role == "user" and label:
+                    conversation.append({"role": "user", "content": content})
+                elif role == "user":
+                    conversation.append({"role": "user", "content": content})
+                else:
+                    conversation.append({"role": "user", "content": f"[{label or 'note'}] {content}"})
+        return conversation
+
+    def _fold_old_messages_into_summary(self, channel_id: str) -> None:
+        """Move messages older than the recent window into a rolling summary."""
+        keep = max(AGENT_CONTEXT_MESSAGE_LIMIT, 1)
         with self._connection() as connection:
-            rows = connection.execute(
+            total = connection.execute(
+                "SELECT COUNT(*) AS count FROM messages WHERE channel_id = ?",
+                (channel_id,),
+            ).fetchone()["count"]
+            if total <= keep:
+                return
+
+            older_rows = connection.execute(
                 """
                 SELECT role, author_name, content
                 FROM messages
                 WHERE channel_id = ?
-                ORDER BY id DESC
-                LIMIT 30
+                ORDER BY id ASC
+                LIMIT ?
                 """,
-                (channel_id,),
+                (channel_id, total - keep),
             ).fetchall()
+            if not older_rows:
+                return
 
-            lines = []
-            for row in reversed(rows):
+            existing = connection.execute(
+                "SELECT summary FROM channel_summaries WHERE channel_id = ?",
+                (channel_id,),
+            ).fetchone()
+            existing_summary = existing["summary"] if existing else ""
+
+            folded_lines = []
+            for row in older_rows:
                 speaker = row["author_name"] or row["role"]
                 content = " ".join(str(row["content"]).split())
-                if len(content) > 220:
-                    content = content[:217] + "..."
-                lines.append(f"{speaker}: {content}")
+                if len(content) > 160:
+                    content = content[:157] + "..."
+                folded_lines.append(f"{speaker}: {content}")
 
-            summary = "\n".join(lines)[-6000:]
+            combined = (existing_summary + "\n" if existing_summary else "") + "\n".join(folded_lines)
+            summary = combined[-AGENT_SUMMARY_MAX_CHARS:].lstrip()
             connection.execute(
                 """
                 INSERT INTO channel_summaries (channel_id, summary, updated_at)
@@ -184,6 +259,20 @@ class AgentMemory:
                 """,
                 (channel_id, summary, _now()),
             )
+            oldest_kept = connection.execute(
+                """
+                SELECT id FROM messages
+                WHERE channel_id = ?
+                ORDER BY id DESC
+                LIMIT 1 OFFSET ?
+                """,
+                (channel_id, keep - 1),
+            ).fetchone()
+            if oldest_kept:
+                connection.execute(
+                    "DELETE FROM messages WHERE channel_id = ? AND id < ?",
+                    (channel_id, oldest_kept["id"]),
+                )
 
     def create_confirmation(
         self,
@@ -241,6 +330,36 @@ class AgentMemory:
         confirmation["arguments"] = json.loads(confirmation["arguments_json"])
         return confirmation
 
+    def get_pending_confirmations(self, channel_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return non-expired pending confirmations, optionally for one channel."""
+        with self._connection() as connection:
+            if channel_id:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM pending_confirmations
+                    WHERE status = 'pending' AND (channel_id IS NULL OR channel_id = ?)
+                    ORDER BY created_at DESC
+                    """,
+                    (channel_id,),
+                ).fetchall()
+            else:
+                rows = connection.execute("""
+                    SELECT * FROM pending_confirmations
+                    WHERE status = 'pending'
+                    ORDER BY created_at DESC
+                    """).fetchall()
+
+        pending: List[Dict[str, Any]] = []
+        now = datetime.now()
+        for row in rows:
+            confirmation = dict(row)
+            if datetime.fromisoformat(confirmation["expires_at"]) < now:
+                self.resolve_confirmation(confirmation["token"], "expired")
+                continue
+            confirmation["arguments"] = json.loads(confirmation["arguments_json"])
+            pending.append(confirmation)
+        return pending
+
     def resolve_confirmation(self, token: str, status: str) -> None:
         """Resolve a pending confirmation."""
         with self._connection() as connection:
@@ -284,6 +403,28 @@ class AgentMemory:
                     _now(),
                 ),
             )
+
+    def get_recent_action_events(
+        self,
+        channel_id: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Return recent action audit events."""
+        query = "SELECT * FROM action_events"
+        params: List[Any] = []
+        if channel_id:
+            query += " WHERE channel_id = ?"
+            params.append(channel_id)
+        query += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+        with self._connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        events = []
+        for row in rows:
+            event = dict(row)
+            event["arguments"] = json.loads(event.pop("arguments_json"))
+            events.append(event)
+        return events
 
     def record_policy_decision(
         self,
@@ -358,13 +499,24 @@ class AgentMemory:
                 (channel_id, device, feedback, _now()),
             )
 
-    def get_recent_feedback(self, device: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_recent_feedback(
+        self,
+        device: Optional[str] = None,
+        channel_id: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
         """Return recent user feedback."""
-        query = "SELECT * FROM feedback"
+        clauses: List[str] = []
         params: List[Any] = []
         if device:
-            query += " WHERE device = ?"
+            clauses.append("device = ?")
             params.append(device)
+        if channel_id:
+            clauses.append("channel_id = ?")
+            params.append(channel_id)
+        query = "SELECT * FROM feedback"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY id DESC LIMIT ?"
         params.append(limit)
         with self._connection() as connection:
@@ -375,6 +527,8 @@ class AgentMemory:
         cutoff = (datetime.now() - timedelta(days=AGENT_MEMORY_RETENTION_DAYS)).isoformat(timespec="seconds")
         with self._connection() as connection:
             connection.execute("DELETE FROM messages WHERE created_at < ?", (cutoff,))
+            connection.execute("DELETE FROM action_events WHERE created_at < ?", (cutoff,))
+            connection.execute("DELETE FROM feedback WHERE created_at < ?", (cutoff,))
 
 
 def _now() -> str:

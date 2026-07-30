@@ -396,10 +396,11 @@ class TestOpenAIIntegration:
         assert "Flexible Policy Schedules" in result
         assert "pump-every-3-days-0600" in result
 
-    @patch("waterbot.openai_integration.ActionEngine")
-    def test_execute_tool_passes_confirmation_context(self, mock_action_engine):
+    @patch("waterbot.openai_integration.get_action_engine")
+    def test_execute_tool_passes_confirmation_context(self, mock_get_action_engine):
         """Risky direct tools should pass execution context to ActionEngine."""
-        engine = mock_action_engine.return_value
+        engine = MagicMock()
+        mock_get_action_engine.return_value = engine
         engine.execute_action.return_value.message = "Confirmation required"
         arguments = {"device": "pump", "schedule_periods": []}
 
@@ -439,19 +440,29 @@ class TestOpenAIIntegration:
     @pytest.mark.asyncio
     async def test_process_with_openai_no_client(self):
         """Test process_with_openai when client is not configured."""
-        with patch("waterbot.openai_integration.client", None):
+        with (
+            patch("waterbot.openai_integration.client", None),
+            patch("waterbot.openai_integration.get_openai_client", return_value=None),
+        ):
             result = await process_with_openai("test message")
 
             assert "OpenAI is not configured" in result
 
     @pytest.mark.asyncio
-    async def test_process_with_openai_success(self):
+    async def test_process_with_openai_success(self, tmp_path):
         """Test process_with_openai successful processing."""
+        from waterbot.agent.memory import AgentMemory
+        from waterbot.agent.runtime import AgentRuntime
+        from waterbot.services import set_agent_runtime
+
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.choices[0].message.content = "Test response"
         mock_response.choices[0].message.tool_calls = None
         mock_client.chat.completions.create.return_value = mock_response
+
+        memory = AgentMemory(str(tmp_path / "agent.db"))
+        set_agent_runtime(AgentRuntime(client=mock_client, model="test", memory=memory))
 
         with patch("waterbot.openai_integration.client", mock_client):
             result = await process_with_openai("test message")
@@ -460,11 +471,15 @@ class TestOpenAIIntegration:
             mock_client.chat.completions.create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_process_with_openai_with_tool_calls(self):
+    async def test_process_with_openai_with_tool_calls(self, tmp_path):
         """Test process_with_openai with tool calls."""
+        from waterbot.actions import ActionResult
+        from waterbot.agent.memory import AgentMemory
+        from waterbot.agent.runtime import AgentRuntime
+        from waterbot.services import set_agent_runtime
+
         mock_client = MagicMock()
 
-        # First response with tool calls
         mock_tool_call = MagicMock()
         mock_tool_call.id = "call_123"
         mock_tool_call.function.name = "get_device_status"
@@ -474,7 +489,6 @@ class TestOpenAIIntegration:
         mock_first_response.choices[0].message.content = None
         mock_first_response.choices[0].message.tool_calls = [mock_tool_call]
 
-        # Second response after tool execution
         mock_second_response = MagicMock()
         mock_second_response.choices[0].message.content = "Final response"
         mock_second_response.choices[0].message.tool_calls = None
@@ -484,21 +498,40 @@ class TestOpenAIIntegration:
             mock_second_response,
         ]
 
-        with (
-            patch("waterbot.openai_integration.client", mock_client),
-            patch("waterbot.openai_integration.execute_tool_call", return_value="Tool result"),
-        ):
+        memory = AgentMemory(str(tmp_path / "agent.db"))
+        action_engine = MagicMock()
+        action_engine.execute_action.return_value = ActionResult("success", "Tool result")
+        set_agent_runtime(
+            AgentRuntime(
+                client=mock_client,
+                model="test",
+                memory=memory,
+                action_engine=action_engine,
+            )
+        )
 
+        with patch("waterbot.openai_integration.client", mock_client):
             result = await process_with_openai("test message")
 
             assert result == "Final response"
             assert mock_client.chat.completions.create.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_process_with_openai_exception(self):
+    async def test_process_with_openai_exception(self, tmp_path):
         """Test process_with_openai exception handling."""
+        from waterbot.agent.memory import AgentMemory
+        from waterbot.agent.runtime import AgentRuntime
+        from waterbot.services import set_agent_runtime
+
         mock_client = MagicMock()
         mock_client.chat.completions.create.side_effect = Exception("API Error")
+        set_agent_runtime(
+            AgentRuntime(
+                client=mock_client,
+                model="test",
+                memory=AgentMemory(str(tmp_path / "agent.db")),
+            )
+        )
 
         with patch("waterbot.openai_integration.client", mock_client):
             result = await process_with_openai("test message")

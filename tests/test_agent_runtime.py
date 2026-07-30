@@ -32,6 +32,36 @@ async def test_agent_runtime_records_plain_response(tmp_path):
     context = memory.get_context("channel-1")
     assert context["recent_messages"][-1]["content"] == "Pump is currently on."
 
+    sent_messages = client.chat.completions.create.call_args.kwargs["messages"]
+    assert sent_messages[0]["role"] == "system"
+    assert "Long-term channel summary" in sent_messages[0]["content"]
+    assert any(
+        msg.get("role") == "user" and "what is the pump doing?" in msg.get("content", "") for msg in sent_messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_agent_runtime_uses_prior_turns(tmp_path):
+    """Follow-up prompts should include earlier user/assistant turns as chat history."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    memory.record_message("channel-1", "user", "turn on the pump for 10 minutes", author_name="Fran")
+    memory.record_message("channel-1", "assistant", "Pump turned ON for 10 minutes", author_name="WaterBot")
+
+    client = MagicMock()
+    response = MagicMock()
+    response.choices[0].message.content = "Done — same duration as before."
+    response.choices[0].message.tool_calls = None
+    client.chat.completions.create.return_value = response
+
+    runtime = AgentRuntime(client=client, model="test-model", memory=memory)
+    await runtime.process("do that again", channel_id="channel-1", author_name="Fran")
+
+    sent_messages = client.chat.completions.create.call_args.kwargs["messages"]
+    user_assistant = [msg for msg in sent_messages if msg["role"] in {"user", "assistant"}]
+    assert user_assistant[0]["content"] == "turn on the pump for 10 minutes"
+    assert user_assistant[1]["content"] == "Pump turned ON for 10 minutes"
+    assert user_assistant[2]["content"] == "do that again"
+
 
 @pytest.mark.asyncio
 async def test_agent_runtime_executes_tool_call(tmp_path):
