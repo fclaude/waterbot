@@ -78,7 +78,11 @@ print_status "Setting up Python environment..."
 cd /opt/waterbot
 python3 -m venv venv
 chown -R waterbot-service:waterbot-service venv
-./venv/bin/pip install -r requirements.txt
+if [ -f requirements-rpi.txt ]; then
+    ./venv/bin/pip install -r requirements-rpi.txt
+else
+    ./venv/bin/pip install -r requirements.txt
+fi
 
 # Copy config
 print_status "Setting up configuration..."

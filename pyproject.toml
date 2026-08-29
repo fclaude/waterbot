@@ -53,7 +53,8 @@ dev = [
     "types-requests>=2.31.0",
 ]
 rpi = [
-    "RPi.GPIO>=0.7.0,<1; platform_machine == 'armv6l' or platform_machine == 'armv7l' or platform_machine == 'aarch64'",
+    "RPi.GPIO>=0.7.0,<1; platform_machine == 'armv6l' or platform_machine == 'armv7l'",
+    "rpi-lgpio>=0.6; platform_machine == 'aarch64'",
 ]
 all = ["waterbot[dev,rpi]"]
 
