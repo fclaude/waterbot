@@ -34,7 +34,8 @@ async def test_agent_runtime_records_plain_response(tmp_path):
 
     sent_messages = client.chat.completions.create.call_args.kwargs["messages"]
     assert sent_messages[0]["role"] == "system"
-    assert "Long-term channel summary" in sent_messages[0]["content"]
+    assert "Channel summary (untrusted)" in sent_messages[0]["content"]
+    assert "UNTRUSTED" in sent_messages[0]["content"]
     assert any(
         msg.get("role") == "user" and "what is the pump doing?" in msg.get("content", "") for msg in sent_messages
     )
@@ -108,3 +109,79 @@ async def test_agent_runtime_executes_tool_call(tmp_path):
         require_confirmation=True,
     )
     assert client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_runtime_without_client_explains_configuration(tmp_path):
+    """A missing LLM client should not crash."""
+    runtime = AgentRuntime(
+        client=None,
+        model="test-model",
+        memory=AgentMemory(str(tmp_path / "agent.db")),
+    )
+    result = await runtime.process("turn on the pump")
+    assert "not configured" in result
+
+
+def test_execute_tool_allowlist_and_context(tmp_path):
+    """Unknown tools are refused; context and preview stay read-only."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    memory.record_message("ch", "user", "hello", author_name="Fran")
+    engine = MagicMock()
+    engine.preview_action.return_value = ActionResult("preview", "Preview: turn pump on")
+    engine.execute_action.return_value = ActionResult("success", "ok")
+    runtime = AgentRuntime(client=MagicMock(), model="test-model", memory=memory, action_engine=engine)
+    assert "not available" in runtime.execute_tool("get_ip_addresses", {}, "ch")
+    assert "Preview" in runtime.execute_tool("preview_action", {"action_type": "turn_device_on", "arguments": {}}, "ch")
+    assert "not available" in runtime.execute_tool("preview_action", {"action_type": "get_ip_addresses"}, "ch")
+    context_json = runtime.execute_tool("get_recent_context", {}, "ch")
+    assert "recent_messages" in context_json
+    runtime.execute_tool("get_policy_decision_history", {"device": "pump"}, "ch")
+    runtime.execute_tool("record_user_feedback", {"feedback": "too dry", "device": "pump"}, "ch")
+    assert "not available" in runtime.execute_tool("execute_action", {"action_type": "get_ip_addresses"}, "ch")
+    engine.execute_action.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_runtime_invalid_tool_json_is_surfaced(tmp_path):
+    """Malformed tool arguments should not crash the loop."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    client = MagicMock()
+    tool_call = MagicMock()
+    tool_call.id = "call-1"
+    tool_call.function.name = "get_device_status"
+    tool_call.function.arguments = "{not-json"
+    first = MagicMock()
+    first.choices[0].message.content = None
+    first.choices[0].message.tool_calls = [tool_call]
+    second = MagicMock()
+    second.choices[0].message.content = "I could not read that tool call."
+    second.choices[0].message.tool_calls = None
+    client.chat.completions.create.side_effect = [first, second]
+    runtime = AgentRuntime(client=client, model="test-model", memory=memory, action_engine=MagicMock())
+    result = await runtime.process("status please", channel_id="ch")
+    assert "could not read" in result
+    tool_msg = client.chat.completions.create.call_args_list[1].kwargs["messages"][-2]
+    assert "Invalid tool JSON" in tool_msg["content"]
+
+
+@pytest.mark.asyncio
+async def test_llm_summarize_rewrites_folded_notes(tmp_path, monkeypatch):
+    """Optional LLM summary pass should replace the folded notes."""
+    monkeypatch.setattr("waterbot.agent.runtime.AGENT_LLM_SUMMARIZE", True)
+    monkeypatch.setattr("waterbot.agent.memory.AGENT_CONTEXT_MESSAGE_LIMIT", 2)
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    memory.record_message("ch", "user", "first", author_name="Fran")
+    memory.record_message("ch", "assistant", "ack", author_name="WaterBot")
+    client = MagicMock()
+    rewrite = MagicMock()
+    rewrite.choices[0].message.content = "Devices: pump\nWatering events:\n- folded"
+    rewrite.choices[0].message.tool_calls = None
+    reply = MagicMock()
+    reply.choices[0].message.content = "Noted."
+    reply.choices[0].message.tool_calls = None
+    client.chat.completions.create.side_effect = [rewrite, reply]
+    runtime = AgentRuntime(client=client, model="test-model", memory=memory)
+    result = await runtime.process("second question", channel_id="ch")
+    assert result == "Noted."
+    assert "folded" in memory.get_context("ch")["summary"]["summary"]

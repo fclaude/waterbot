@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from . import policy as policy_model
 from . import scheduler
 from .agent.memory import AgentMemory
-from .config import AGENT_REQUIRE_CONFIRMATION
+from .config import AGENT_MAX_DURATION_MINUTES, AGENT_REQUIRE_CONFIRMATION, DEVICE_TO_PIN
 from .gpio import handler as gpio_handler
 from .weather import WeatherContextProvider
 
@@ -71,6 +71,10 @@ class ActionEngine:
         """Execute an action, requiring confirmation for risky agent actions."""
         args = arguments or {}
         normalized_type = _normalize_action_type(action_type)
+        constraint_error = _validate_action_constraints(normalized_type, args)
+        if constraint_error is not None:
+            self._record_event(normalized_type, args, constraint_error, source, channel_id)
+            return constraint_error
         needs_confirmation = self._needs_confirmation(normalized_type, args, require_confirmation, confirmed)
 
         if needs_confirmation:
@@ -287,6 +291,44 @@ def _normalize_action_type(action_type: str) -> str:
 def _is_all_device_action(action_type: str, arguments: Dict[str, Any]) -> bool:
     device = str(arguments.get("device", "")).lower()
     return action_type in {"all_on", "all_off"} or device == "all"
+
+
+def _validate_action_constraints(action_type: str, arguments: Dict[str, Any]) -> Optional[ActionResult]:
+    """Reject unknown devices and watering durations above the configured cap."""
+    device = arguments.get("device")
+    if device is not None and DEVICE_TO_PIN:
+        key = str(device).lower()
+        if key and key != "all" and key not in DEVICE_TO_PIN:
+            return ActionResult("failed", f"Unknown device '{device}'")
+
+    duration: Optional[float] = None
+    if arguments.get("duration_minutes") is not None:
+        try:
+            duration = float(arguments["duration_minutes"])
+        except (TypeError, ValueError):
+            return ActionResult("failed", "Duration must be a number of minutes.")
+    elif arguments.get("timeout") is not None and action_type in {
+        "turn_device_on",
+        "turn_device_off",
+        "device_on",
+        "device_off",
+        "all_on",
+        "all_off",
+    }:
+        try:
+            duration = float(arguments["timeout"]) / 60.0
+        except (TypeError, ValueError):
+            return ActionResult("failed", "Duration must be a number of minutes.")
+
+    if duration is not None:
+        if duration < 0:
+            return ActionResult("failed", "Duration must be positive.")
+        if duration > AGENT_MAX_DURATION_MINUTES:
+            return ActionResult(
+                "failed",
+                f"Duration {duration:g} minutes exceeds the maximum of {AGENT_MAX_DURATION_MINUTES} minutes.",
+            )
+    return None
 
 
 def _status_result(device: Optional[str] = None) -> ActionResult:

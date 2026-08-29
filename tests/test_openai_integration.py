@@ -51,12 +51,12 @@ class TestOpenAIIntegration:
             "remove_schedule",
             "get_schedules",
             "get_current_time",
-            "get_ip_addresses",
-            "test_notification",
         ]
 
         for expected_func in expected_functions:
             assert expected_func in function_names
+        assert "get_ip_addresses" not in function_names
+        assert "test_notification" not in function_names
 
     @patch("waterbot.actions.gpio_handler")
     def test_execute_tool_get_device_status_all(self, mock_gpio_handler):
@@ -253,44 +253,15 @@ class TestOpenAIIntegration:
 
             assert "Current Time:" in result
 
-    def test_execute_tool_get_ip_addresses(self):
-        """Test execute_tool_call for get_ip_addresses."""
-        with patch("subprocess.run") as mock_run:
-            # Mock successful interface listing
-            mock_run.side_effect = [
-                MagicMock(stdout="eth0\nwlan0\n", returncode=0),
-                MagicMock(
-                    stdout=(
-                        "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
-                        "state UP qlen 1000\n    inet 192.168.1.100/24 brd "
-                        "192.168.1.255 "
-                        "scope global dynamic"
-                    ),
-                    returncode=0,
-                ),
-                MagicMock(
-                    stdout=(
-                        "3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq "
-                        "state UP qlen 1000\n    inet 192.168.1.101/24 brd "
-                        "192.168.1.255 "
-                        "scope global dynamic"
-                    ),
-                    returncode=0,
-                ),
-            ]
+    def test_execute_tool_get_ip_addresses_is_disallowed(self):
+        """Agent tool path must not expose IP lookup."""
+        result = execute_tool_call("get_ip_addresses", {})
+        assert "not available" in result
 
-            result = execute_tool_call("get_ip_addresses", {})
-
-            assert "SSH Access Information:" in result
-            assert "ssh pi@192.168.1.100" in result
-            assert "ssh pi@192.168.1.101" in result
-
-    def test_execute_tool_get_ip_addresses_no_interfaces(self):
-        """Test execute_tool_call for get_ip_addresses with no interfaces."""
-        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "ls")):
-            result = execute_tool_call("get_ip_addresses", {})
-
-            assert "No network interfaces found" in result
+    def test_execute_tool_get_ip_addresses_no_interfaces_is_disallowed(self):
+        """Agent tool path must not expose IP lookup even when no interfaces exist."""
+        result = execute_tool_call("get_ip_addresses", {})
+        assert "not available" in result
 
     @patch("waterbot.actions.scheduler")
     def test_execute_tool_clear_device_schedule(self, mock_scheduler):
@@ -330,16 +301,10 @@ class TestOpenAIIntegration:
             {"on": ["08:00", "14:00"], "off": ["12:00", "18:00"]},
         )
 
-    @patch("waterbot.actions.scheduler")
-    def test_execute_tool_test_notification(self, mock_scheduler):
-        """Test execute_tool_call for test_notification."""
-        mock_scheduler_instance = MagicMock()
-        mock_scheduler.get_scheduler.return_value = mock_scheduler_instance
-
+    def test_execute_tool_test_notification_is_disallowed(self):
+        """Agent tool path must not send test notifications."""
         result = execute_tool_call("test_notification", {})
-
-        assert "Test notification sent via scheduler system" in result
-        mock_scheduler_instance._send_discord_notification.assert_called_once_with("test_device", "on", True)
+        assert "not available" in result
 
     @patch("waterbot.actions.scheduler")
     def test_execute_tool_create_every_n_days_cycle(self, mock_scheduler):
@@ -425,7 +390,7 @@ class TestOpenAIIntegration:
         """Test execute_tool_call with unknown function."""
         result = execute_tool_call("unknown_function", {})
 
-        assert "Unknown function: unknown_function" in result
+        assert "not available" in result
 
     def test_execute_tool_exception_handling(self):
         """Test execute_tool_call exception handling."""

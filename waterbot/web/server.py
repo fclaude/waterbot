@@ -25,8 +25,9 @@ from ..config import (
     get_schedules,
     is_openai_configured,
 )
+from ..agent.routing import try_direct_command
 from ..openai_integration import process_with_openai
-from ..services import get_action_engine
+from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
 
 logger = logging.getLogger("waterbot.web")
@@ -261,6 +262,17 @@ class WebInterfaceServer:
 
     def chat(self, message: str) -> str:
         """Process an authenticated web chat message."""
+        direct = try_direct_command(
+            message,
+            action_engine=self.action_engine,
+            channel_id="web",
+            source="web",
+            author_name="Web",
+            memory=get_agent_memory(),
+        )
+        if direct is not None:
+            return direct
+
         if is_openai_configured():
             return asyncio.run(process_with_openai(message, "web", author_name="Web"))
 

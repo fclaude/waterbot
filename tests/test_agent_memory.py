@@ -91,8 +91,9 @@ def test_agent_memory_folds_old_messages_into_summary(tmp_path, monkeypatch):
     assert context["recent_messages"][0]["content"] == "second"
 
 
-def test_agent_memory_is_thread_safe(tmp_path):
+def test_agent_memory_is_thread_safe(tmp_path, monkeypatch):
     """Concurrent writers should not corrupt the SQLite store."""
+    monkeypatch.setattr("waterbot.agent.memory.AGENT_CONTEXT_MESSAGE_LIMIT", 24)
     memory = AgentMemory(str(tmp_path / "agent.db"))
 
     def write(index: int) -> None:
@@ -104,4 +105,5 @@ def test_agent_memory_is_thread_safe(tmp_path):
     context = memory.get_context("threaded", limit=24)
     assert len(context["recent_messages"]) == 24
     assert context["recent_messages"][-1]["content"] == "message-39"
-    assert "message-0" in context["summary"]["summary"]
+    assert context["summary"]["summary"].startswith("Devices:")
+    assert "message-" in context["summary"]["summary"]

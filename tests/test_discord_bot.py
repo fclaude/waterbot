@@ -70,26 +70,30 @@ class TestWaterBot:
 
     @pytest.mark.asyncio
     async def test_on_message_command(self):
-        """Test handling command message."""
+        """Test handling an explicit status command without the LLM."""
         mock_message = Mock()
         mock_message.author = Mock()
+        mock_message.author.id = 7
+        mock_message.author.display_name = "Fran"
         mock_message.content = "status"
         mock_message.channel = Mock()
         mock_message.channel.id = 123456789
         mock_message.channel.send = AsyncMock()
 
         mock_user = Mock()
+        mock_engine = Mock()
+        mock_engine.execute_action.return_value = Mock(message="Test response", status="success")
+        mock_memory = Mock()
 
         with patch.object(type(self.bot), "user", new_callable=PropertyMock) as mock_user_prop:
             mock_user_prop.return_value = mock_user
             with patch("waterbot.discord.bot.is_openai_configured", return_value=False):
-                with patch.object(self.bot, "_execute_command") as mock_execute:
-                    mock_execute.return_value = "Test response"
+                with patch.object(self.bot, "_get_action_engine", return_value=mock_engine):
+                    with patch("waterbot.discord.bot.get_agent_memory", return_value=mock_memory):
+                        await self.bot.on_message(mock_message)
 
-                    await self.bot.on_message(mock_message)
-
-                    mock_execute.assert_called_once()
-                    mock_message.channel.send.assert_called_once_with("Test response")
+        mock_engine.execute_action.assert_called_once()
+        mock_message.channel.send.assert_called_once_with("Test response")
 
     @pytest.mark.asyncio
     async def test_on_message_ignore_bot(self):
@@ -330,7 +334,7 @@ class TestWaterBot:
         """Test OpenAI failure falls back to the command parser."""
         mock_message = Mock()
         mock_message.author = Mock()
-        mock_message.content = "status"
+        mock_message.content = "how wet is the garden"
         mock_message.channel = Mock()
         mock_message.channel.id = 123456789
         mock_message.channel.send = AsyncMock()

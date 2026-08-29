@@ -181,15 +181,16 @@ def test_chat_confirm_cancel_help_error_and_bearer_auth():
     assert server.is_authenticated(_auth_header(password=_WRONG_PASSWORD)) is False
     assert server.is_authenticated("Basic not-base64") is False
 
-    with patch("waterbot.web.server.is_openai_configured", return_value=False):
-        assert server.chat("confirm abc123") == "Confirmed"
-        engine.confirm.assert_called_once_with("abc123", channel_id="web")
-        assert server.chat("cancel abc123") == "Cancelled"
-        engine.cancel.assert_called_once_with("abc123", channel_id="web")
-        assert "Try status" in server.chat("nonsense")
+    with patch("waterbot.web.server.get_agent_memory", return_value=MagicMock()):
+        with patch("waterbot.web.server.is_openai_configured", return_value=False):
+            assert server.chat("confirm abc123") == "Confirmed"
+            engine.confirm.assert_called_once_with("abc123", channel_id="web")
+            assert server.chat("cancel abc123") == "Cancelled"
+            engine.cancel.assert_called_once_with("abc123", channel_id="web")
+            assert "Try status" in server.chat("nonsense")
 
-        with patch("waterbot.web.server.parse_command", return_value=("error", {"message": "bad command"})):
-            assert server.chat("bad") == "bad command"
+            with patch("waterbot.web.server.parse_command", return_value=("error", {"message": "bad command"})):
+                assert server.chat("bad") == "bad command"
 
 
 def test_chat_uses_openai_when_configured():

@@ -80,11 +80,23 @@ AGENT_MEMORY_RETENTION_DAYS = int(os.getenv("AGENT_MEMORY_RETENTION_DAYS", "30")
 AGENT_CONFIRMATION_TIMEOUT_MINUTES = int(os.getenv("AGENT_CONFIRMATION_TIMEOUT_MINUTES", "10"))
 AGENT_REQUIRE_CONFIRMATION = os.getenv("AGENT_REQUIRE_CONFIRMATION", "true").lower() == "true"
 # Recent turns sent to the model as real chat messages.
-AGENT_CONTEXT_MESSAGE_LIMIT = int(os.getenv("AGENT_CONTEXT_MESSAGE_LIMIT", "24"))
+AGENT_CONTEXT_MESSAGE_LIMIT = int(os.getenv("AGENT_CONTEXT_MESSAGE_LIMIT", "48"))
 # Max characters kept in the long-term channel summary.
 AGENT_SUMMARY_MAX_CHARS = int(os.getenv("AGENT_SUMMARY_MAX_CHARS", "4000"))
 # Max agent tool-calling rounds per user message.
 AGENT_MAX_TOOL_ROUNDS = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
+# Hard cap on watering/device run duration requested via chat or tools.
+AGENT_MAX_DURATION_MINUTES = int(os.getenv("AGENT_MAX_DURATION_MINUTES", "120"))
+# Discord-friendly cap on the model's final reply.
+AGENT_MAX_REPLY_CHARS = int(os.getenv("AGENT_MAX_REPLY_CHARS", "800"))
+# Approximate character budget for the assembled chat prompt (system + history).
+AGENT_PROMPT_CHAR_BUDGET = int(os.getenv("AGENT_PROMPT_CHAR_BUDGET", "24000"))
+# How many audited actions to inject into the system prompt.
+AGENT_RECENT_ACTIONS_LIMIT = int(os.getenv("AGENT_RECENT_ACTIONS_LIMIT", "15"))
+# LLM calls allowed per author (or channel) per rolling minute.
+AGENT_RATE_LIMIT_PER_MINUTE = int(os.getenv("AGENT_RATE_LIMIT_PER_MINUTE", "8"))
+# Optional extra LLM pass to rewrite the folded channel summary.
+AGENT_LLM_SUMMARIZE = os.getenv("AGENT_LLM_SUMMARIZE", "false").lower() == "true"
 
 # Optional local web interface.
 # Default to localhost; set WEB_HOST=0.0.0.0 only for trusted LAN deployments.

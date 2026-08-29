@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from .agent.runtime import get_agent_tools
+from .agent.tools import AGENT_TOOL_NAMES, get_agent_tools
 from .services import get_action_engine, get_agent_memory, get_agent_runtime, get_openai_client
 
 logger = logging.getLogger("waterbot.openai")
@@ -35,6 +35,9 @@ def execute_tool_call(
 ) -> str:
     """Execute a tool function call and return the result."""
     try:
+        if function_name not in AGENT_TOOL_NAMES:
+            return "That tool is not available. I only control watering and garden devices."
+
         if function_name == "get_recent_context":
             return json.dumps(get_agent_memory().get_context(channel_id), indent=2)
 

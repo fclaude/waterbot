@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -16,7 +17,9 @@ from ..config import (
     AGENT_CONTEXT_MESSAGE_LIMIT,
     AGENT_DB_FILE,
     AGENT_MEMORY_RETENTION_DAYS,
+    AGENT_RECENT_ACTIONS_LIMIT,
     AGENT_SUMMARY_MAX_CHARS,
+    DEVICE_TO_PIN,
 )
 
 
@@ -122,6 +125,15 @@ class AgentMemory:
                     created_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS channel_slots (
+                    channel_id TEXT PRIMARY KEY,
+                    last_device TEXT,
+                    last_duration_minutes REAL,
+                    last_action TEXT,
+                    last_policy_id TEXT,
+                    updated_at TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_messages_channel_id
                     ON messages(channel_id, id);
                 CREATE INDEX IF NOT EXISTS idx_action_events_channel_id
@@ -135,8 +147,11 @@ class AgentMemory:
         content: str,
         author_id: Optional[str] = None,
         author_name: Optional[str] = None,
-    ) -> None:
-        """Record a Discord or assistant message and refresh channel summary."""
+    ) -> bool:
+        """Record a Discord or assistant message and refresh channel summary.
+
+        Returns True when older turns were folded into the long-term summary.
+        """
         created_at = _now()
         with self._connection() as connection:
             connection.execute(
@@ -146,8 +161,9 @@ class AgentMemory:
                 """,
                 (channel_id, author_id, author_name, role, content, created_at),
             )
-        self._fold_old_messages_into_summary(channel_id)
+        folded = self._fold_old_messages_into_summary(channel_id)
         self.prune_old_messages()
+        return folded
 
     def get_context(
         self,
@@ -173,12 +189,14 @@ class AgentMemory:
             ).fetchall()
 
         recent = [dict(row) for row in reversed(rows)]
+        action_limit = AGENT_RECENT_ACTIONS_LIMIT
         return {
             "summary": dict(summary_row) if summary_row else {"summary": "", "updated_at": None},
             "recent_messages": recent,
             "pending_confirmations": self.get_pending_confirmations(channel_id),
-            "recent_actions": self.get_recent_action_events(channel_id, limit=5),
+            "recent_actions": self.get_recent_action_events(channel_id, limit=action_limit),
             "recent_feedback": self.get_recent_feedback(channel_id=channel_id, limit=5),
+            "working_slots": self.get_working_slots(channel_id),
         }
 
     def get_conversation_messages(
@@ -209,8 +227,8 @@ class AgentMemory:
                     conversation.append({"role": "user", "content": f"[{label or 'note'}] {content}"})
         return conversation
 
-    def _fold_old_messages_into_summary(self, channel_id: str) -> None:
-        """Move messages older than the recent window into a rolling summary."""
+    def _fold_old_messages_into_summary(self, channel_id: str) -> bool:
+        """Move messages older than the recent window into a structured summary."""
         keep = max(AGENT_CONTEXT_MESSAGE_LIMIT, 1)
         with self._connection() as connection:
             total = connection.execute(
@@ -218,7 +236,7 @@ class AgentMemory:
                 (channel_id,),
             ).fetchone()["count"]
             if total <= keep:
-                return
+                return False
 
             older_rows = connection.execute(
                 """
@@ -231,24 +249,15 @@ class AgentMemory:
                 (channel_id, total - keep),
             ).fetchall()
             if not older_rows:
-                return
+                return False
 
             existing = connection.execute(
                 "SELECT summary FROM channel_summaries WHERE channel_id = ?",
                 (channel_id,),
             ).fetchone()
             existing_summary = existing["summary"] if existing else ""
-
-            folded_lines = []
-            for row in older_rows:
-                speaker = row["author_name"] or row["role"]
-                content = " ".join(str(row["content"]).split())
-                if len(content) > 160:
-                    content = content[:157] + "..."
-                folded_lines.append(f"{speaker}: {content}")
-
-            combined = (existing_summary + "\n" if existing_summary else "") + "\n".join(folded_lines)
-            summary = combined[-AGENT_SUMMARY_MAX_CHARS:].lstrip()
+            summary = build_structured_summary(existing_summary, [dict(row) for row in older_rows])
+            summary = summary[-AGENT_SUMMARY_MAX_CHARS:].lstrip()
             connection.execute(
                 """
                 INSERT INTO channel_summaries (channel_id, summary, updated_at)
@@ -273,6 +282,7 @@ class AgentMemory:
                     "DELETE FROM messages WHERE channel_id = ? AND id < ?",
                     (channel_id, oldest_kept["id"]),
                 )
+            return True
 
     def create_confirmation(
         self,
@@ -529,6 +539,189 @@ class AgentMemory:
             connection.execute("DELETE FROM messages WHERE created_at < ?", (cutoff,))
             connection.execute("DELETE FROM action_events WHERE created_at < ?", (cutoff,))
             connection.execute("DELETE FROM feedback WHERE created_at < ?", (cutoff,))
+
+    def get_working_slots(self, channel_id: str) -> Dict[str, Any]:
+        """Return last-device / last-duration slots for follow-up commands."""
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT last_device, last_duration_minutes, last_action, last_policy_id, updated_at
+                FROM channel_slots WHERE channel_id = ?
+                """,
+                (channel_id,),
+            ).fetchone()
+        if not row:
+            return {
+                "last_device": None,
+                "last_duration_minutes": None,
+                "last_action": None,
+                "last_policy_id": None,
+                "updated_at": None,
+            }
+        return dict(row)
+
+    def update_working_slots(
+        self,
+        channel_id: str,
+        *,
+        last_device: Optional[str] = None,
+        last_duration_minutes: Optional[float] = None,
+        last_action: Optional[str] = None,
+        last_policy_id: Optional[str] = None,
+    ) -> None:
+        """Merge non-null slot fields for a channel."""
+        current = self.get_working_slots(channel_id)
+        device = last_device if last_device is not None else current.get("last_device")
+        duration = last_duration_minutes if last_duration_minutes is not None else current.get("last_duration_minutes")
+        action = last_action if last_action is not None else current.get("last_action")
+        policy_id = last_policy_id if last_policy_id is not None else current.get("last_policy_id")
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO channel_slots (
+                    channel_id, last_device, last_duration_minutes, last_action, last_policy_id, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(channel_id) DO UPDATE SET
+                    last_device = excluded.last_device,
+                    last_duration_minutes = excluded.last_duration_minutes,
+                    last_action = excluded.last_action,
+                    last_policy_id = excluded.last_policy_id,
+                    updated_at = excluded.updated_at
+                """,
+                (channel_id, device, duration, action, policy_id, _now()),
+            )
+
+    def replace_channel_summary(self, channel_id: str, summary: str) -> None:
+        """Overwrite the long-term summary (used by optional LLM folding)."""
+        clipped = summary[-AGENT_SUMMARY_MAX_CHARS:].lstrip()
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO channel_summaries (channel_id, summary, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(channel_id) DO UPDATE SET
+                    summary = excluded.summary,
+                    updated_at = excluded.updated_at
+                """,
+                (channel_id, clipped, _now()),
+            )
+
+    def update_slots_from_action(
+        self,
+        channel_id: str,
+        action_type: str,
+        arguments: Dict[str, Any],
+        status: str,
+    ) -> None:
+        """Remember the last successful (or pending) watering action for follow-ups."""
+        if status not in {"success", "pending_confirmation"}:
+            return
+        device = arguments.get("device")
+        if isinstance(device, str) and device.strip():
+            device_name: Optional[str] = device.strip().lower()
+        elif action_type in {"all_on", "all_off"}:
+            device_name = "all"
+        else:
+            device_name = None
+        duration: Optional[float] = None
+        if arguments.get("duration_minutes") is not None:
+            try:
+                duration = float(arguments["duration_minutes"])
+            except (TypeError, ValueError):
+                duration = None
+        elif arguments.get("timeout") is not None:
+            try:
+                duration = float(arguments["timeout"]) / 60.0
+            except (TypeError, ValueError):
+                duration = None
+        policy = arguments.get("policy") if isinstance(arguments.get("policy"), dict) else {}
+        policy_id = arguments.get("policy_id") or policy.get("id")
+        self.update_working_slots(
+            channel_id,
+            last_device=device_name,
+            last_duration_minutes=duration,
+            last_action=action_type,
+            last_policy_id=str(policy_id) if policy_id else None,
+        )
+
+
+def build_structured_summary(existing: str, rows: List[Dict[str, Any]]) -> str:
+    """Fold overflow turns into labeled garden notes instead of a raw transcript dump."""
+    sections = _parse_structured_summary(existing)
+    device_names = {name.lower() for name in DEVICE_TO_PIN.keys()}
+
+    for row in rows:
+        speaker = str(row.get("author_name") or row.get("role") or "user")
+        content = " ".join(str(row.get("content") or "").split())
+        if not content:
+            continue
+        clipped = _clip(content, 120)
+        found = [name for name in device_names if re.search(rf"\b{re.escape(name)}\b", content, re.I)]
+        sections["devices"].update(found)
+        lower = content.lower()
+        if any(token in lower for token in ("too dry", "too wet", "feedback")):
+            sections["feedback"].append(f"{speaker}: {clipped}")
+        elif found or any(token in lower for token in ("on", "off", "water", "schedule", "cycle", "bed")):
+            sections["events"].append(f"{speaker}: {clipped}")
+        else:
+            sections["other"].append(f"{speaker}: {_clip(content, 80)}")
+
+    return _format_structured_summary(sections)
+
+
+def _parse_structured_summary(text: str) -> Dict[str, Any]:
+    sections: Dict[str, Any] = {
+        "devices": set(),
+        "events": [],
+        "feedback": [],
+        "other": [],
+    }
+    if not text or not text.strip():
+        return sections
+    if not text.startswith("Devices:"):
+        sections["other"].append(_clip(text.replace("\n", " "), 200))
+        return sections
+
+    current = "other"
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("Devices:"):
+            rest = line[len("Devices:") :].strip()
+            sections["devices"].update(part.strip().lower() for part in rest.split(",") if part.strip())
+            current = "devices"
+        elif line.startswith("Watering events:"):
+            current = "events"
+        elif line.startswith("Feedback:"):
+            current = "feedback"
+        elif line.startswith("Other:"):
+            current = "other"
+        elif line.startswith("- ") and current in {"events", "feedback", "other"}:
+            sections[current].append(line[2:])
+    return sections
+
+
+def _format_structured_summary(sections: Dict[str, Any]) -> str:
+    devices = sorted(str(item) for item in sections["devices"] if item)
+    events = list(sections["events"])[-20:]
+    feedback = list(sections["feedback"])[-10:]
+    other = list(sections["other"])[-8:]
+    lines = [
+        "Devices: " + (", ".join(devices) if devices else "(none yet)"),
+        "Watering events:",
+    ]
+    lines.extend(f"- {item}" for item in events or ["(none)"])
+    lines.append("Feedback:")
+    lines.extend(f"- {item}" for item in feedback or ["(none)"])
+    lines.append("Other:")
+    lines.extend(f"- {item}" for item in other or ["(none)"])
+    return "\n".join(lines)
+
+
+def _clip(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
 
 
 def _now() -> str:

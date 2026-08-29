@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from ..actions import ActionEngine
+from ..agent.routing import try_direct_command
 from ..config import (
     DEBUG_MODE,
     DISCORD_BOT_TOKEN,
@@ -16,7 +17,7 @@ from ..config import (
 )
 from ..gpio import handler as gpio_handler
 from ..openai_integration import process_with_openai
-from ..services import get_action_engine
+from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
 
 logger = logging.getLogger("discord_bot")
@@ -112,6 +113,19 @@ class WaterBot(commands.Bot):
         channel_id = str(message.channel.id)
         author_id = _safe_discord_id(message.author)
         author_name = _safe_discord_name(message.author)
+
+        direct = try_direct_command(
+            text,
+            action_engine=self._get_action_engine(),
+            channel_id=channel_id,
+            source="discord_command",
+            author_id=author_id,
+            author_name=author_name,
+            memory=get_agent_memory(),
+        )
+        if direct is not None:
+            await message.channel.send(direct)
+            return
 
         if is_openai_configured():
             try:
