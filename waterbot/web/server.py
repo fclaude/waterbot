@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from .. import policy as policy_model
 from .. import scheduler
 from ..actions import ActionEngine
+from ..agent.routing import try_direct_command
 from ..config import (
     WEB_AUTH_PASSWORD,
     WEB_AUTH_TOKEN,
@@ -25,7 +26,6 @@ from ..config import (
     get_schedules,
     is_openai_configured,
 )
-from ..agent.routing import try_direct_command
 from ..openai_integration import process_with_openai
 from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
