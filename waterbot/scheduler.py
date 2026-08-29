@@ -66,9 +66,9 @@ class DeviceScheduler:
             def job() -> None:
                 logger.info(f"Executing scheduled {action} for device '{device}' at {time_str}")
                 if action == "on":
-                    success = gpio_handler.turn_on(device)
+                    success = gpio_handler.turn_on(device, source="schedule")
                 elif action == "off":
-                    success = gpio_handler.turn_off(device)
+                    success = gpio_handler.turn_off(device, source="schedule")
                 else:
                     logger.error(f"Unknown action: {action}")
                     return

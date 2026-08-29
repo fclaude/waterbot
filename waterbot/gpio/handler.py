@@ -11,6 +11,7 @@ from ..config import (
     get_device_default_state,
     get_device_gpio_state,
 )
+from ..observability import record_device_transition
 from .interface import EmulationGPIO, GPIOInterface, HardwareGPIO  # noqa: I100
 
 logger = logging.getLogger("gpio_handler")
@@ -61,10 +62,11 @@ class DeviceController:
                 self.gpio.output(pin, get_device_gpio_state(device, default_state))
             self.device_status[device] = default_state
             self.device_timers[device] = None
+            record_device_transition(device, default_state, "startup")
 
         logger.info(f"Setup {len(DEVICE_TO_PIN)} devices")
 
-    def turn_on(self, device: str, timeout: Optional[int] = None) -> bool:
+    def turn_on(self, device: str, timeout: Optional[int] = None, source: str = "command") -> bool:
         """Turn on a device using the configured relay polarity.
 
         Args:
@@ -102,9 +104,10 @@ class DeviceController:
                     timer.start()
                 logger.info(f"Device '{device}' will turn off after {timeout // 60} minutes")
 
+        record_device_transition(device, True, source)
         return True
 
-    def turn_off(self, device: str, timeout: Optional[int] = None) -> bool:
+    def turn_off(self, device: str, timeout: Optional[int] = None, source: str = "command") -> bool:
         """Turn off a device using the configured relay polarity.
 
         Args:
@@ -144,6 +147,7 @@ class DeviceController:
             else:
                 logger.info(f"Device '{device}' turned off permanently")
 
+        record_device_transition(device, False, source)
         return True
 
     def get_status(self) -> Dict[str, bool]:
