@@ -109,6 +109,25 @@ def test_direct_command_bypasses_llm_and_records_slots(tmp_path):
     assert try_direct_command("please water later", action_engine=engine, channel_id="ch", source="test") is None
 
 
+def test_bare_confirm_resolves_single_pending_token(tmp_path):
+    """Bare confirm/yes should execute when exactly one confirmation is pending."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    engine = MagicMock()
+    token = memory.create_confirmation("all_off", {}, "Turn all devices off", "ch")
+    engine.confirm.return_value = MagicMock(message="All devices turned OFF")
+
+    reply = try_direct_command(
+        "confirm",
+        action_engine=engine,
+        channel_id="ch",
+        source="test",
+        memory=memory,
+    )
+
+    assert reply == "All devices turned OFF"
+    engine.confirm.assert_called_once_with(token, channel_id="ch")
+
+
 def test_duration_cap_rejects_extreme_requests(tmp_path):
     """Agent and command paths share a hard watering duration cap."""
     engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))

@@ -9,6 +9,9 @@ from ..utils.command_parser import parse_command
 from .memory import AgentMemory
 
 # Parsed commands that must not go through the model. Unknown text still does.
+_CONFIRM_ALIASES: FrozenSet[str] = frozenset({"confirm", "yes", "ok"})
+_CANCEL_ALIASES: FrozenSet[str] = frozenset({"cancel", "no", "abort"})
+
 LLM_BYPASS_COMMANDS: FrozenSet[str] = frozenset(
     {
         "confirm",
@@ -37,7 +40,20 @@ def try_direct_command(
 
     Returns the reply string, or None when the line should go to the agent.
     """
-    command_type, params = parse_command(text.lower())
+    normalized = text.strip().lower()
+    if memory is not None:
+        alias_reply = _resolve_confirmation_alias(
+            normalized,
+            action_engine=action_engine,
+            channel_id=channel_id,
+            memory=memory,
+        )
+        if alias_reply is not None:
+            memory.record_message(channel_id, "user", text, author_id, author_name)
+            memory.record_message(channel_id, "assistant", alias_reply, author_name="WaterBot")
+            return alias_reply
+
+    command_type, params = parse_command(normalized)
     if command_type not in LLM_BYPASS_COMMANDS:
         return None
 
@@ -63,3 +79,29 @@ def try_direct_command(
         memory.record_message(channel_id, "user", text, author_id, author_name)
         memory.record_message(channel_id, "assistant", reply, author_name="WaterBot")
     return reply
+
+
+def _resolve_confirmation_alias(
+    normalized: str,
+    *,
+    action_engine: ActionEngine,
+    channel_id: str,
+    memory: AgentMemory,
+) -> Optional[str]:
+    """Map bare confirm/cancel replies to a single pending token when unambiguous."""
+    if normalized in _CONFIRM_ALIASES:
+        action = action_engine.confirm
+        verb = "confirm"
+    elif normalized in _CANCEL_ALIASES:
+        action = action_engine.cancel
+        verb = "cancel"
+    else:
+        return None
+
+    pending = memory.get_pending_confirmations(channel_id)
+    if len(pending) == 1:
+        return action(pending[0]["token"], channel_id=channel_id).message
+    if len(pending) > 1:
+        options = ", ".join(f"`{verb} {item['token']}`" for item in pending)
+        return f"Multiple actions are pending. Reply with one of: {options}"
+    return f"No pending confirmations to {verb}."
