@@ -1,6 +1,5 @@
 """Tests for waterbot/openai_integration.py."""
 
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest

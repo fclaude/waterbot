@@ -635,7 +635,8 @@ class AgentMemory:
                 duration = float(arguments["timeout"]) / 60.0
             except (TypeError, ValueError):
                 duration = None
-        policy = arguments.get("policy") if isinstance(arguments.get("policy"), dict) else {}
+        policy_arg = arguments.get("policy")
+        policy = policy_arg if isinstance(policy_arg, dict) else {}
         policy_id = arguments.get("policy_id") or policy.get("id")
         self.update_working_slots(
             channel_id,

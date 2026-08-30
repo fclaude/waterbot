@@ -215,14 +215,14 @@ def set_controller(controller: DeviceController) -> None:
 
 
 # Backward compatibility functions
-def turn_on(device: str, timeout: Optional[int] = None) -> bool:
+def turn_on(device: str, timeout: Optional[int] = None, source: str = "command") -> bool:
     """Turn on a device, optionally with a timeout."""
-    return _get_controller().turn_on(device, timeout)
+    return _get_controller().turn_on(device, timeout, source)
 
 
-def turn_off(device: str, timeout: Optional[int] = None) -> bool:
+def turn_off(device: str, timeout: Optional[int] = None, source: str = "command") -> bool:
     """Turn off a device, optionally with a timeout."""
-    return _get_controller().turn_off(device, timeout)
+    return _get_controller().turn_off(device, timeout, source)
 
 
 def get_status() -> Dict[str, bool]:
