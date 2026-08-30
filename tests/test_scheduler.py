@@ -70,7 +70,7 @@ class TestDeviceScheduler:
             scheduled_function = mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
             scheduled_function()
 
-            mock_gpio.turn_on.assert_called_once_with("pump")
+            mock_gpio.turn_on.assert_called_once_with("pump", source="schedule")
 
     @patch("waterbot.scheduler.gpio_handler")
     def test_schedule_device_action_off(self, mock_gpio):
@@ -87,7 +87,7 @@ class TestDeviceScheduler:
             scheduled_function = mock_schedule.every.return_value.day.at.return_value.do.call_args[0][0]
             scheduled_function()
 
-            mock_gpio.turn_off.assert_called_once_with("pump")
+            mock_gpio.turn_off.assert_called_once_with("pump", source="schedule")
 
     @patch("waterbot.config.add_schedule")
     def test_add_schedule_success(self, mock_config_add):
