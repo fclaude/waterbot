@@ -14,7 +14,7 @@ from ..config import (
     AGENT_PROMPT_CHAR_BUDGET,
     AGENT_RATE_LIMIT_PER_MINUTE,
 )
-from ..llm_compat import completion_token_limit_kwargs
+from ..llm_compat import completion_token_limit_kwargs, reasoning_effort_kwargs
 from .guard import RATE_LIMIT_MESSAGE, REFUSAL_MESSAGE, gate_assistant_reply, is_disallowed_request
 from .memory import AgentMemory
 from .rate_limit import SlidingWindowRateLimiter
@@ -87,6 +87,7 @@ class AgentRuntime:
             tools=get_agent_tools(),
             tool_choice="auto",
             **completion_token_limit_kwargs(self.model, 600),
+            **reasoning_effort_kwargs(self.model, use_tools=True),
             temperature=0.2,
         )
 
@@ -122,6 +123,7 @@ class AgentRuntime:
                 tools=get_agent_tools(),
                 tool_choice="auto",
                 **completion_token_limit_kwargs(self.model, 600),
+                **reasoning_effort_kwargs(self.model, use_tools=True),
                 temperature=0.2,
             )
             response_message = next_response.choices[0].message
