@@ -26,6 +26,8 @@ AGENT_TOOL_NAMES: FrozenSet[str] = frozenset(
         "get_policy_schedules",
         "get_weather_context",
         "get_current_time",
+        "confirm_pending_action",
+        "cancel_pending_action",
     }
 )
 
@@ -176,6 +178,20 @@ def get_agent_tools() -> List[Dict[str, Any]]:
         _fn("get_policy_schedules", "List flexible watering cycles.", {}, []),
         _fn("get_weather_context", "Get the current weather context used by policies.", {}, []),
         _fn("get_current_time", "Get the bot host's local time.", {}, []),
+        _fn(
+            "confirm_pending_action",
+            "Confirm and execute a pending action the user just agreed to (e.g. said yes, sure, "
+            "go ahead). Omit token when only one action is pending.",
+            {"token": {"type": "string"}},
+            [],
+        ),
+        _fn(
+            "cancel_pending_action",
+            "Cancel a pending action the user just declined (e.g. said no, cancel, nevermind). "
+            "Omit token when only one action is pending.",
+            {"token": {"type": "string"}},
+            [],
+        ),
     ]
 
 

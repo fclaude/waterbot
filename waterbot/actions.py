@@ -9,7 +9,12 @@ from typing import Any, Dict, List, Optional
 from . import policy as policy_model
 from . import scheduler
 from .agent.memory import AgentMemory
-from .config import AGENT_MAX_DURATION_MINUTES, AGENT_REQUIRE_CONFIRMATION, DEVICE_TO_PIN
+from .config import (
+    AGENT_CONFIRM_DURATION_MINUTES,
+    AGENT_MAX_DURATION_MINUTES,
+    AGENT_REQUIRE_CONFIRMATION,
+    DEVICE_TO_PIN,
+)
 from .gpio import handler as gpio_handler
 from .weather import WeatherContextProvider
 
@@ -121,6 +126,34 @@ class ActionEngine:
         self.memory.resolve_confirmation(token, "cancelled")
         return ActionResult("cancelled", f"Cancelled pending action `{token}`.")
 
+    def confirm_pending(
+        self, channel_id: str, token: Optional[str] = None, source: str = "confirmation"
+    ) -> ActionResult:
+        """Confirm a pending action by token, or the sole pending one when token is omitted."""
+        resolved = self._resolve_pending_token(channel_id, token, "confirm")
+        if isinstance(resolved, ActionResult):
+            return resolved
+        return self.confirm(resolved, channel_id=channel_id, source=source)
+
+    def cancel_pending(self, channel_id: str, token: Optional[str] = None) -> ActionResult:
+        """Cancel a pending action by token, or the sole pending one when token is omitted."""
+        resolved = self._resolve_pending_token(channel_id, token, "cancel")
+        if isinstance(resolved, ActionResult):
+            return resolved
+        return self.cancel(resolved, channel_id=channel_id)
+
+    def _resolve_pending_token(self, channel_id: str, token: Optional[str], verb: str) -> Any:
+        """Return the token to act on, or an ActionResult explaining why one can't be picked."""
+        if token:
+            return token
+        pending = self.memory.get_pending_confirmations(channel_id)
+        if len(pending) == 1:
+            return pending[0]["token"]
+        if len(pending) > 1:
+            options = ", ".join(f"`{verb} {item['token']}`" for item in pending)
+            return ActionResult("failed", f"Multiple actions are pending. Reply with one of: {options}")
+        return ActionResult("failed", f"No pending confirmations to {verb}.")
+
     def describe_action(self, action_type: str, arguments: Dict[str, Any]) -> str:
         """Return a concise human-readable action description."""
         action_type = _normalize_action_type(action_type)
@@ -161,11 +194,14 @@ class ActionEngine:
             return False
         if require_confirmation is False:
             return False
-        if require_confirmation is True:
-            return action_type in self.risky_actions or _is_all_device_action(action_type, arguments)
-        return AGENT_REQUIRE_CONFIRMATION and (
-            action_type in self.risky_actions or _is_all_device_action(action_type, arguments)
+        is_risky = (
+            action_type in self.risky_actions
+            or _is_all_device_action(action_type, arguments)
+            or _is_long_duration_on(action_type, arguments)
         )
+        if require_confirmation is True:
+            return is_risky
+        return AGENT_REQUIRE_CONFIRMATION and is_risky
 
     def _execute(
         self,
@@ -288,9 +324,48 @@ def _normalize_action_type(action_type: str) -> str:
     return aliases.get(action_type, action_type)
 
 
+_READ_ONLY_ACTIONS = {
+    "get_device_status",
+    "get_schedules",
+    "get_policy_schedules",
+    "get_policy_decision_history",
+    "get_weather_context",
+    "get_current_time",
+    "record_user_feedback",
+}
+
+
 def _is_all_device_action(action_type: str, arguments: Dict[str, Any]) -> bool:
+    if action_type in _READ_ONLY_ACTIONS:
+        return False
     device = str(arguments.get("device", "")).lower()
     return action_type in {"all_on", "all_off"} or device == "all"
+
+
+_DURATION_ACTIONS = {"turn_device_on", "turn_device_off", "device_on", "device_off", "all_on", "all_off"}
+
+
+def _extract_duration_minutes(action_type: str, arguments: Dict[str, Any]) -> Optional[float]:
+    """Return the requested run duration in minutes, or None if unspecified/invalid."""
+    if arguments.get("duration_minutes") is not None:
+        try:
+            return float(arguments["duration_minutes"])
+        except (TypeError, ValueError):
+            return None
+    if arguments.get("timeout") is not None and action_type in _DURATION_ACTIONS:
+        try:
+            return float(arguments["timeout"]) / 60.0
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _is_long_duration_on(action_type: str, arguments: Dict[str, Any]) -> bool:
+    """Turning a single device on for a long stretch is risky; a few minutes is not."""
+    if action_type not in {"turn_device_on", "device_on"}:
+        return False
+    duration = _extract_duration_minutes(action_type, arguments)
+    return duration is not None and duration >= AGENT_CONFIRM_DURATION_MINUTES
 
 
 def _validate_action_constraints(action_type: str, arguments: Dict[str, Any]) -> Optional[ActionResult]:
@@ -307,14 +382,7 @@ def _validate_action_constraints(action_type: str, arguments: Dict[str, Any]) ->
             duration = float(arguments["duration_minutes"])
         except (TypeError, ValueError):
             return ActionResult("failed", "Duration must be a number of minutes.")
-    elif arguments.get("timeout") is not None and action_type in {
-        "turn_device_on",
-        "turn_device_off",
-        "device_on",
-        "device_off",
-        "all_on",
-        "all_off",
-    }:
+    elif arguments.get("timeout") is not None and action_type in _DURATION_ACTIONS:
         try:
             duration = float(arguments["timeout"]) / 60.0
         except (TypeError, ValueError):
@@ -335,7 +403,7 @@ def _status_result(device: Optional[str] = None) -> ActionResult:
     status = gpio_handler.get_status()
     if not status:
         return ActionResult("success", "No devices configured")
-    if device:
+    if device and device.lower() != "all":
         key = device.lower()
         if key not in status:
             return ActionResult("failed", f"Device '{device}' not found")

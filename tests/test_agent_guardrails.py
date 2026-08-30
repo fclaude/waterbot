@@ -112,20 +112,20 @@ def test_direct_command_bypasses_llm_and_records_slots(tmp_path):
 def test_bare_confirm_resolves_single_pending_token(tmp_path):
     """Bare confirm/yes should execute when exactly one confirmation is pending."""
     memory = AgentMemory(str(tmp_path / "agent.db"))
-    engine = MagicMock()
-    token = memory.create_confirmation("all_off", {}, "Turn all devices off", "ch")
-    engine.confirm.return_value = MagicMock(message="All devices turned OFF")
+    engine = ActionEngine(memory=memory)
+    memory.create_confirmation("all_off", {}, "Turn all devices off", "ch")
 
-    reply = try_direct_command(
-        "confirm",
-        action_engine=engine,
-        channel_id="ch",
-        source="test",
-        memory=memory,
-    )
+    with patch("waterbot.actions.gpio_handler.turn_all_off") as mock_turn_all_off:
+        reply = try_direct_command(
+            "confirm",
+            action_engine=engine,
+            channel_id="ch",
+            source="test",
+            memory=memory,
+        )
 
     assert reply == "All devices turned OFF"
-    engine.confirm.assert_called_once_with(token, channel_id="ch")
+    mock_turn_all_off.assert_called_once_with(None)
 
 
 def test_duration_cap_rejects_extreme_requests(tmp_path):

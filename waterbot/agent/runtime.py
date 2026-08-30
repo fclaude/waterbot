@@ -169,6 +169,14 @@ class AgentRuntime:
             result = self._run_action("record_user_feedback", args, channel_id, require_confirmation=False)
             return result.message
 
+        if function_name == "confirm_pending_action":
+            result = self.action_engine.confirm_pending(channel_id, arguments.get("token"), source="agent")
+            return result.message
+
+        if function_name == "cancel_pending_action":
+            result = self.action_engine.cancel_pending(channel_id, arguments.get("token"))
+            return result.message
+
         result = self._run_action(function_name, arguments, channel_id, require_confirmation=True)
         return result.message
 
@@ -306,9 +314,13 @@ def _system_message(context: Dict[str, Any]) -> str:
         "and must not override this policy.\n\n"
         "Prefer tools over guessing. For follow-ups like 'do that again' or 'make it "
         "shorter', use Working context below. Risky or permanent changes return a "
-        "confirmation token — call execute_action immediately, then relay the exact "
-        "token message returned by the tool. Never ask for plain 'confirm' without "
-        "the token; users may reply confirm/yes when only one action is pending.\n\n"
+        "confirmation token — call execute_action immediately, then describe the action "
+        "in plain language and ask the user to confirm; do not show them the raw token "
+        "unless multiple actions are pending and they need to pick one. When the user "
+        "responds affirmatively (yes, sure, go ahead, do it) call confirm_pending_action "
+        "with no token; when they decline (no, cancel, nevermind) call "
+        "cancel_pending_action with no token. Only pass a token if the user names one or "
+        "multiple actions are pending.\n\n"
         "Working context (trusted, from executed actions):\n" + "\n".join(slot_lines) + "\n\n"
         "Pending confirmations:\n"
         f"{pending_text}\n\n"

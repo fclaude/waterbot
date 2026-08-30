@@ -44,6 +44,76 @@ def test_non_risky_status_executes_without_confirmation(tmp_path):
     assert "pump: ON" in result.message
 
 
+def test_status_for_all_devices_does_not_require_confirmation(tmp_path):
+    """Asking for the status of 'all' devices is a query, not a bulk mutation."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.gpio_handler.get_status", return_value={"pump": True, "bed1": False}):
+        result = engine.execute_action("get_device_status", {"device": "all"}, require_confirmation=True)
+
+    assert result.success
+    assert "pump: ON" in result.message
+    assert "bed1: OFF" in result.message
+
+
+def test_short_watering_does_not_require_confirmation(tmp_path):
+    """A quick watering run should execute immediately."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17}):
+        with patch("waterbot.actions.gpio_handler.turn_on", return_value=True) as mock_turn_on:
+            result = engine.execute_action(
+                "turn_device_on",
+                {"device": "bed1", "duration_minutes": 5},
+                require_confirmation=True,
+            )
+
+    assert result.success
+    mock_turn_on.assert_called_once_with("bed1", 300)
+
+
+def test_long_watering_requires_confirmation(tmp_path):
+    """Leaving a bed running for a long stretch should be confirmed first."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17}):
+        result = engine.execute_action(
+            "turn_device_on",
+            {"device": "bed1", "duration_minutes": 60},
+            require_confirmation=True,
+        )
+
+    assert result.status == "pending_confirmation"
+    assert result.confirmation_token is not None
+
+
+def test_confirm_pending_and_cancel_pending_without_token(tmp_path):
+    """confirm_pending/cancel_pending should auto-resolve the sole pending action."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    engine = ActionEngine(memory=memory)
+
+    memory.create_confirmation("all_off", {}, "Turn all devices off", "ch")
+    with patch("waterbot.actions.gpio_handler.turn_all_off") as mock_turn_all_off:
+        result = engine.confirm_pending("ch")
+    assert result.success
+    mock_turn_all_off.assert_called_once_with(None)
+
+    result = engine.cancel_pending("ch")
+    assert result.status == "failed"
+    assert "No pending confirmations" in result.message
+
+    token_a = memory.create_confirmation("all_off", {}, "Turn all devices off", "ch")
+    token_b = memory.create_confirmation("all_on", {}, "Turn all devices on", "ch")
+    result = engine.confirm_pending("ch")
+    assert result.status == "failed"
+    assert "Multiple actions are pending" in result.message
+
+    result = engine.cancel_pending("ch", token_a)
+    assert result.status == "cancelled"
+    result = engine.cancel_pending("ch", token_b)
+    assert result.status == "cancelled"
+
+
 def test_policy_decision_history_and_feedback_actions(tmp_path):
     """The action engine should expose decision history and feedback storage."""
     memory = AgentMemory(str(tmp_path / "agent.db"))

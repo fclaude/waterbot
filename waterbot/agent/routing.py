@@ -42,12 +42,7 @@ def try_direct_command(
     """
     normalized = text.strip().lower()
     if memory is not None:
-        alias_reply = _resolve_confirmation_alias(
-            normalized,
-            action_engine=action_engine,
-            channel_id=channel_id,
-            memory=memory,
-        )
+        alias_reply = _resolve_confirmation_alias(normalized, action_engine=action_engine, channel_id=channel_id)
         if alias_reply is not None:
             memory.record_message(channel_id, "user", text, author_id, author_name)
             memory.record_message(channel_id, "assistant", alias_reply, author_name="WaterBot")
@@ -86,22 +81,10 @@ def _resolve_confirmation_alias(
     *,
     action_engine: ActionEngine,
     channel_id: str,
-    memory: AgentMemory,
 ) -> Optional[str]:
     """Map bare confirm/cancel replies to a single pending token when unambiguous."""
     if normalized in _CONFIRM_ALIASES:
-        action = action_engine.confirm
-        verb = "confirm"
-    elif normalized in _CANCEL_ALIASES:
-        action = action_engine.cancel
-        verb = "cancel"
-    else:
-        return None
-
-    pending = memory.get_pending_confirmations(channel_id)
-    if len(pending) == 1:
-        return action(pending[0]["token"], channel_id=channel_id).message
-    if len(pending) > 1:
-        options = ", ".join(f"`{verb} {item['token']}`" for item in pending)
-        return f"Multiple actions are pending. Reply with one of: {options}"
-    return f"No pending confirmations to {verb}."
+        return action_engine.confirm_pending(channel_id, source="command").message
+    if normalized in _CANCEL_ALIASES:
+        return action_engine.cancel_pending(channel_id).message
+    return None

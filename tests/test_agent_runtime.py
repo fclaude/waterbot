@@ -143,6 +143,23 @@ def test_execute_tool_allowlist_and_context(tmp_path):
     engine.execute_action.assert_called()
 
 
+def test_execute_tool_confirm_and_cancel_pending_action(tmp_path):
+    """The model should be able to confirm/cancel a pending action without a token."""
+    memory = AgentMemory(str(tmp_path / "agent.db"))
+    engine = MagicMock()
+    engine.confirm_pending.return_value = ActionResult("success", "All devices turned OFF")
+    engine.cancel_pending.return_value = ActionResult("cancelled", "Cancelled pending action `abc123`.")
+    runtime = AgentRuntime(client=MagicMock(), model="test-model", memory=memory, action_engine=engine)
+
+    assert runtime.execute_tool("confirm_pending_action", {}, "ch") == "All devices turned OFF"
+    engine.confirm_pending.assert_called_once_with("ch", None, source="agent")
+
+    assert (
+        runtime.execute_tool("cancel_pending_action", {"token": "abc123"}, "ch") == "Cancelled pending action `abc123`."
+    )
+    engine.cancel_pending.assert_called_once_with("ch", "abc123")
+
+
 @pytest.mark.asyncio
 async def test_runtime_invalid_tool_json_is_surfaced(tmp_path):
     """Malformed tool arguments should not crash the loop."""
