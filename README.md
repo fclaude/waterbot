@@ -213,9 +213,11 @@ For local servers that ignore auth, set `OPENAI_BASE_URL` and either a dummy
 - Feedback, pending confirmation tokens, and recent audited actions stay available
   for follow-ups
 
-Risky actions such as all-device changes, schedule replacement, clearing schedules,
-or saving/removing flexible policies return a confirmation token first. Reply with
-`confirm <token>` to execute or `cancel <token>` to discard.
+Turning devices on or off never requires confirmation, no matter how many devices
+or how long — `AGENT_MAX_DURATION_MINUTES` (default 30, configurable) hard-caps any
+single run instead. Only edits to future automated behavior — replacing or clearing
+a device schedule, or saving/removing a flexible policy — return a confirmation
+token first. Reply with `confirm <token>` to execute or `cancel <token>` to discard.
 
 The agent also records action events, flexible policy decisions, and user
 feedback. Ask `why pump` to see recent automatic watering decisions for a device,

@@ -85,11 +85,10 @@ AGENT_CONTEXT_MESSAGE_LIMIT = int(os.getenv("AGENT_CONTEXT_MESSAGE_LIMIT", "48")
 AGENT_SUMMARY_MAX_CHARS = int(os.getenv("AGENT_SUMMARY_MAX_CHARS", "4000"))
 # Max agent tool-calling rounds per user message.
 AGENT_MAX_TOOL_ROUNDS = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
-# Hard cap on watering/device run duration requested via chat or tools.
-AGENT_MAX_DURATION_MINUTES = int(os.getenv("AGENT_MAX_DURATION_MINUTES", "120"))
-# Turning a device on for at least this many minutes requires confirmation;
-# short waterings (a few minutes) do not.
-AGENT_CONFIRM_DURATION_MINUTES = int(os.getenv("AGENT_CONFIRM_DURATION_MINUTES", "20"))
+# Hard cap on watering/device run duration requested via chat or tools. Relay
+# on/off never requires confirmation (see ActionEngine.risky_actions), so this
+# cap is the only backstop against a run left on for too long.
+AGENT_MAX_DURATION_MINUTES = int(os.getenv("AGENT_MAX_DURATION_MINUTES", "30"))
 # Discord-friendly cap on the model's final reply.
 AGENT_MAX_REPLY_CHARS = int(os.getenv("AGENT_MAX_REPLY_CHARS", "800"))
 # Approximate character budget for the assembled chat prompt (system + history).

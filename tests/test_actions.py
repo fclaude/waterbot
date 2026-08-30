@@ -13,8 +13,8 @@ def test_risky_action_requires_confirmation_and_confirm_executes(tmp_path):
     engine = ActionEngine(memory=memory)
 
     pending = engine.execute_action(
-        "all_on",
-        {"timeout": 120},
+        "clear_device_schedule",
+        {"device": "pump"},
         source="agent",
         channel_id="channel-1",
         require_confirmation=True,
@@ -24,12 +24,9 @@ def test_risky_action_requires_confirmation_and_confirm_executes(tmp_path):
     assert pending.confirmation_token is not None
     assert "confirm" in pending.message
 
-    with patch("waterbot.actions.gpio_handler.turn_all_on") as mock_turn_all_on:
-        confirmed = engine.confirm(pending.confirmation_token, channel_id="channel-1")
+    confirmed = engine.confirm(pending.confirmation_token, channel_id="channel-1")
 
     assert confirmed.success
-    assert confirmed.message == "All devices turned ON for 2 minutes"
-    mock_turn_all_on.assert_called_once_with(120)
     assert memory.get_pending_confirmation(pending.confirmation_token, "channel-1") is None
 
 
@@ -72,19 +69,81 @@ def test_short_watering_does_not_require_confirmation(tmp_path):
     mock_turn_on.assert_called_once_with("bed1", 300)
 
 
-def test_long_watering_requires_confirmation(tmp_path):
-    """Leaving a bed running for a long stretch should be confirmed first."""
+def test_long_watering_never_confirms_but_hits_hard_cap(tmp_path):
+    """A long run never needs confirmation, but still can't exceed the hard duration cap."""
     engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
 
     with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17}):
-        result = engine.execute_action(
+        with patch("waterbot.actions.gpio_handler.turn_on", return_value=True) as mock_turn_on:
+            result = engine.execute_action(
+                "turn_device_on",
+                {"device": "bed1", "duration_minutes": 25},
+                require_confirmation=True,
+            )
+        assert result.status == "success"
+        mock_turn_on.assert_called_once_with("bed1", 1500)
+
+        over_cap = engine.execute_action(
             "turn_device_on",
-            {"device": "bed1", "duration_minutes": 60},
+            {"device": "bed1", "duration_minutes": 45},
             require_confirmation=True,
         )
+    assert over_cap.status == "failed"
+    assert "exceeds the maximum" in over_cap.message
 
-    assert result.status == "pending_confirmation"
-    assert result.confirmation_token is not None
+
+def test_turning_off_never_requires_confirmation(tmp_path):
+    """Stopping watering must always execute immediately, even for 'all' devices."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17, "bed2": 27}):
+        with patch("waterbot.actions.gpio_handler.turn_off", return_value=True) as mock_turn_off:
+            result = engine.execute_action(
+                "turn_device_off",
+                {"devices": ["bed1", "bed2"]},
+                require_confirmation=True,
+            )
+    assert result.status == "success"
+    assert mock_turn_off.call_count == 2
+
+    with patch("waterbot.actions.gpio_handler.turn_all_off") as mock_turn_all_off:
+        result = engine.execute_action("all_off", {}, require_confirmation=True)
+    assert result.status == "success"
+    mock_turn_all_off.assert_called_once_with(None)
+
+
+def test_turn_device_on_with_explicit_device_list(tmp_path):
+    """Naming several specific devices should turn on only those, not every device."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17, "bed2": 27, "bed3": 22, "bed4": 23}):
+        with patch("waterbot.actions.gpio_handler.turn_on", return_value=True) as mock_turn_on:
+            result = engine.execute_action(
+                "turn_device_on",
+                {"devices": ["bed1", "bed2", "bed3"], "duration_minutes": 5},
+                require_confirmation=True,
+            )
+    assert result.status == "success"
+    assert "bed1" in result.message and "bed2" in result.message and "bed3" in result.message
+    assert "bed4" not in result.message
+    assert mock_turn_on.call_count == 3
+    mock_turn_on.assert_any_call("bed1", 300)
+    mock_turn_on.assert_any_call("bed2", 300)
+    mock_turn_on.assert_any_call("bed3", 300)
+
+
+def test_turn_device_on_with_every_device_named_does_not_require_confirmation(tmp_path):
+    """Naming every configured device (or 'all') runs immediately like any other on-action."""
+    engine = ActionEngine(memory=AgentMemory(str(tmp_path / "agent.db")))
+
+    with patch("waterbot.actions.DEVICE_TO_PIN", {"bed1": 17, "bed2": 27}):
+        with patch("waterbot.actions.gpio_handler.turn_on", return_value=True):
+            result = engine.execute_action(
+                "turn_device_on",
+                {"devices": ["bed1", "bed2"], "duration_minutes": 5},
+                require_confirmation=True,
+            )
+    assert result.status == "success"
 
 
 def test_confirm_pending_and_cancel_pending_without_token(tmp_path):
@@ -156,12 +215,22 @@ def test_preview_cancel_describe_and_default_confirmation(tmp_path):
     assert preview.status == "preview"
     assert preview.message == "Preview: turn pump on for 5 minutes"
 
-    pending = engine.execute_action("all_off", {}, channel_id="channel-1", require_confirmation=None)
+    pending = engine.execute_action(
+        "clear_device_schedule", {"device": "pump"}, channel_id="channel-1", require_confirmation=None
+    )
     assert pending.status == "pending_confirmation"
     cancelled = engine.cancel(pending.confirmation_token, channel_id="channel-1")
     assert cancelled.status == "cancelled"
     assert engine.confirm(pending.confirmation_token, channel_id="channel-1").status == "not_found"
     assert engine.cancel("missing", channel_id="channel-1").status == "not_found"
+
+    with patch("waterbot.actions.gpio_handler.turn_all_on"):
+        on_result = engine.execute_action("all_on", {}, channel_id="channel-1", require_confirmation=None)
+    assert on_result.status != "pending_confirmation"
+
+    with patch("waterbot.actions.gpio_handler.turn_all_off"):
+        off_result = engine.execute_action("all_off", {}, channel_id="channel-1", require_confirmation=None)
+    assert off_result.status != "pending_confirmation"
 
     assert engine.describe_action("turn_device_off", {"device": "pump"}) == "turn pump off"
     assert engine.describe_action("all_on", {}) == "turn all devices on"
@@ -182,9 +251,11 @@ def test_failed_confirmed_action_is_single_use(tmp_path):
     """A confirmed action token should be consumed even when execution fails."""
     memory = AgentMemory(str(tmp_path / "agent.db"))
     engine = ActionEngine(memory=memory)
-    pending = engine.execute_action("all_on", {}, channel_id="channel-1", require_confirmation=True)
+    pending = engine.execute_action(
+        "clear_device_schedule", {"device": "pump"}, channel_id="channel-1", require_confirmation=True
+    )
 
-    with patch("waterbot.actions.gpio_handler.turn_all_on", side_effect=RuntimeError("relay error")):
+    with patch("waterbot.actions._clear_device_schedule", side_effect=RuntimeError("relay error")):
         result = engine.confirm(pending.confirmation_token, channel_id="channel-1")
 
     assert result.status == "error"
@@ -220,7 +291,7 @@ def test_device_actions_cover_success_failure_and_aliases(tmp_path):
     with patch("waterbot.actions.gpio_handler.turn_all_on") as mock_turn_all_on:
         result = engine.execute_action("turn_device_on", {"device": "all", "timeout": 60}, require_confirmation=False)
     assert result.success
-    assert result.message == "All devices turned ON"
+    assert result.message == "All devices turned ON for 1 minutes"
     mock_turn_all_on.assert_called_once_with(60)
 
     with patch("waterbot.actions.gpio_handler.turn_off", return_value=True) as mock_turn_off:
@@ -240,7 +311,7 @@ def test_device_actions_cover_success_failure_and_aliases(tmp_path):
     with patch("waterbot.actions.gpio_handler.turn_all_off") as mock_turn_all_off:
         result = engine.execute_action("turn_device_off", {"device": "all", "timeout": 60}, require_confirmation=False)
     assert result.success
-    assert result.message == "All devices turned OFF"
+    assert result.message == "All devices turned OFF for 1 minutes"
     mock_turn_all_off.assert_called_once_with(60)
 
 
@@ -459,4 +530,6 @@ def test_policy_weather_time_ip_and_misc_actions(tmp_path):
     scheduler_instance._send_discord_notification.assert_called_once_with("test_device", "on", True)
 
     assert engine.execute_action("unknown_action", {}, require_confirmation=False).status == "failed"
-    assert engine.execute_action("turn_device_on", {}, require_confirmation=False).status == "error"
+    no_device_result = engine.execute_action("turn_device_on", {}, require_confirmation=False)
+    assert no_device_result.status == "failed"
+    assert "No device specified" in no_device_result.message

@@ -10,7 +10,6 @@ from . import policy as policy_model
 from . import scheduler
 from .agent.memory import AgentMemory
 from .config import (
-    AGENT_CONFIRM_DURATION_MINUTES,
     AGENT_MAX_DURATION_MINUTES,
     AGENT_REQUIRE_CONFIRMATION,
     DEVICE_TO_PIN,
@@ -37,11 +36,11 @@ class ActionResult:
 class ActionEngine:
     """Validate, optionally confirm, execute, and audit WaterBot actions."""
 
+    # Relay on/off is reversible, immediately observable, and hard-capped by
+    # AGENT_MAX_DURATION_MINUTES, so it never needs a confirmation round-trip -
+    # only edits to future automated behavior (schedules, flexible policies) do,
+    # since those change what happens later with nobody watching.
     risky_actions = {
-        "all_on",
-        "all_off",
-        "turn_all_on",
-        "turn_all_off",
         "replace_device_schedule",
         "clear_device_schedule",
         "upsert_policy_schedule",
@@ -158,11 +157,12 @@ class ActionEngine:
         """Return a concise human-readable action description."""
         action_type = _normalize_action_type(action_type)
         if action_type == "turn_device_on":
-            device = arguments.get("device", "unknown")
+            device = ", ".join(_resolve_devices(arguments)) or "unknown"
             duration = arguments.get("duration_minutes")
             return f"turn {device} on" + (f" for {duration} minutes" if duration else "")
         if action_type == "turn_device_off":
-            return f"turn {arguments.get('device', 'unknown')} off"
+            device = ", ".join(_resolve_devices(arguments)) or "unknown"
+            return f"turn {device} off"
         if action_type == "all_on":
             return "turn all devices on"
         if action_type == "all_off":
@@ -194,11 +194,7 @@ class ActionEngine:
             return False
         if require_confirmation is False:
             return False
-        is_risky = (
-            action_type in self.risky_actions
-            or _is_all_device_action(action_type, arguments)
-            or _is_long_duration_on(action_type, arguments)
-        )
+        is_risky = action_type in self.risky_actions
         if require_confirmation is True:
             return is_risky
         return AGENT_REQUIRE_CONFIRMATION and is_risky
@@ -324,57 +320,31 @@ def _normalize_action_type(action_type: str) -> str:
     return aliases.get(action_type, action_type)
 
 
-_READ_ONLY_ACTIONS = {
-    "get_device_status",
-    "get_schedules",
-    "get_policy_schedules",
-    "get_policy_decision_history",
-    "get_weather_context",
-    "get_current_time",
-    "record_user_feedback",
-}
-
-
-def _is_all_device_action(action_type: str, arguments: Dict[str, Any]) -> bool:
-    if action_type in _READ_ONLY_ACTIONS:
-        return False
-    device = str(arguments.get("device", "")).lower()
-    return action_type in {"all_on", "all_off"} or device == "all"
-
-
 _DURATION_ACTIONS = {"turn_device_on", "turn_device_off", "device_on", "device_off", "all_on", "all_off"}
 
 
-def _extract_duration_minutes(action_type: str, arguments: Dict[str, Any]) -> Optional[float]:
-    """Return the requested run duration in minutes, or None if unspecified/invalid."""
-    if arguments.get("duration_minutes") is not None:
-        try:
-            return float(arguments["duration_minutes"])
-        except (TypeError, ValueError):
-            return None
-    if arguments.get("timeout") is not None and action_type in _DURATION_ACTIONS:
-        try:
-            return float(arguments["timeout"]) / 60.0
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
-def _is_long_duration_on(action_type: str, arguments: Dict[str, Any]) -> bool:
-    """Turning a single device on for a long stretch is risky; a few minutes is not."""
-    if action_type not in {"turn_device_on", "device_on"}:
-        return False
-    duration = _extract_duration_minutes(action_type, arguments)
-    return duration is not None and duration >= AGENT_CONFIRM_DURATION_MINUTES
+def _resolve_devices(arguments: Dict[str, Any]) -> List[str]:
+    """Return the requested device names from either 'devices' (list) or 'device' (single)."""
+    devices = arguments.get("devices")
+    if devices:
+        seen: List[str] = []
+        for item in devices:
+            name = str(item).strip()
+            if name and name not in seen:
+                seen.append(name)
+        return seen
+    device = arguments.get("device")
+    return [str(device)] if device is not None else []
 
 
 def _validate_action_constraints(action_type: str, arguments: Dict[str, Any]) -> Optional[ActionResult]:
     """Reject unknown devices and watering durations above the configured cap."""
-    device = arguments.get("device")
-    if device is not None and DEVICE_TO_PIN:
-        key = str(device).lower()
-        if key and key != "all" and key not in DEVICE_TO_PIN:
-            return ActionResult("failed", f"Unknown device '{device}'")
+    devices = _resolve_devices(arguments)
+    if devices and DEVICE_TO_PIN:
+        for device in devices:
+            key = device.lower()
+            if key and key != "all" and key not in DEVICE_TO_PIN:
+                return ActionResult("failed", f"Unknown device '{device}'")
 
     duration: Optional[float] = None
     if arguments.get("duration_minutes") is not None:
@@ -414,38 +384,56 @@ def _status_result(device: Optional[str] = None) -> ActionResult:
     return ActionResult("success", "\n".join(lines))
 
 
+def _duration_suffix(duration: Optional[Any], timeout: Optional[int]) -> str:
+    if duration:
+        return f" for {duration} minutes"
+    if timeout:
+        return f" for {int(timeout) // 60} minutes"
+    return ""
+
+
 def _turn_device_on(arguments: Dict[str, Any]) -> ActionResult:
-    device = str(arguments["device"])
+    devices = _resolve_devices(arguments)
+    if not devices:
+        return ActionResult("failed", "No device specified.")
     duration = arguments.get("duration_minutes")
     timeout = int(float(duration) * 60) if duration else arguments.get("timeout")
-    if device.lower() == "all":
+    suffix = _duration_suffix(duration, timeout)
+    if len(devices) == 1 and devices[0].lower() == "all":
         gpio_handler.turn_all_on(timeout)
-        return ActionResult("success", "All devices turned ON")
-    if gpio_handler.turn_on(device, timeout):
-        message = f"Device '{device}' turned ON"
-        if duration:
-            message += f" for {duration} minutes"
-        elif timeout:
-            message += f" for {int(timeout) // 60} minutes"
-        return ActionResult("success", message)
-    return ActionResult("failed", f"Error: Unknown device '{device}'")
+        return ActionResult("success", f"All devices turned ON{suffix}")
+    if len(devices) == 1:
+        device = devices[0]
+        if gpio_handler.turn_on(device, timeout):
+            return ActionResult("success", f"Device '{device}' turned ON{suffix}")
+        return ActionResult("failed", f"Error: Unknown device '{device}'")
+    turned_on = [d for d in devices if gpio_handler.turn_on(d, timeout)]
+    failed = [d for d in devices if d not in turned_on]
+    if failed:
+        return ActionResult("failed", f"Error: Unknown device(s) {', '.join(failed)}")
+    return ActionResult("success", f"Devices {', '.join(turned_on)} turned ON{suffix}")
 
 
 def _turn_device_off(arguments: Dict[str, Any]) -> ActionResult:
-    device = str(arguments["device"])
+    devices = _resolve_devices(arguments)
+    if not devices:
+        return ActionResult("failed", "No device specified.")
     duration = arguments.get("duration_minutes")
     timeout = int(float(duration) * 60) if duration else arguments.get("timeout")
-    if device.lower() == "all":
+    suffix = _duration_suffix(duration, timeout)
+    if len(devices) == 1 and devices[0].lower() == "all":
         gpio_handler.turn_all_off(timeout)
-        return ActionResult("success", "All devices turned OFF")
-    if gpio_handler.turn_off(device, timeout):
-        message = f"Device '{device}' turned OFF"
-        if duration:
-            message += f" for {duration} minutes"
-        elif timeout:
-            message += f" for {int(timeout) // 60} minutes"
-        return ActionResult("success", message)
-    return ActionResult("failed", f"Error: Unknown device '{device}'")
+        return ActionResult("success", f"All devices turned OFF{suffix}")
+    if len(devices) == 1:
+        device = devices[0]
+        if gpio_handler.turn_off(device, timeout):
+            return ActionResult("success", f"Device '{device}' turned OFF{suffix}")
+        return ActionResult("failed", f"Error: Unknown device '{device}'")
+    turned_off = [d for d in devices if gpio_handler.turn_off(d, timeout)]
+    failed = [d for d in devices if d not in turned_off]
+    if failed:
+        return ActionResult("failed", f"Error: Unknown device(s) {', '.join(failed)}")
+    return ActionResult("success", f"Devices {', '.join(turned_off)} turned OFF{suffix}")
 
 
 def _add_schedule(arguments: Dict[str, Any]) -> ActionResult:

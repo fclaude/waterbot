@@ -105,15 +105,38 @@ def get_agent_tools() -> List[Dict[str, Any]]:
         _fn("get_device_status", "Show on/off status for one device or all devices.", {"device": _DEVICE}, []),
         _fn(
             "turn_device_on",
-            "Turn a device on, optionally for a limited number of minutes.",
-            {"device": _DEVICE, "duration_minutes": _DURATION, "timeout": {"type": "integer"}},
-            ["device"],
+            "Turn one or more devices on, optionally for a limited number of minutes. For two or "
+            "more specific devices (e.g. bed1 and bed2), pass them all in 'devices' in one call. "
+            "Only use device 'all' when the user means literally every device, not as a shortcut "
+            "for a named subset.",
+            {
+                "device": _DEVICE,
+                "devices": {
+                    "type": "array",
+                    "items": _DEVICE,
+                    "description": "Multiple specific devices to turn on together.",
+                },
+                "duration_minutes": _DURATION,
+                "timeout": {"type": "integer"},
+            },
+            [],
         ),
         _fn(
             "turn_device_off",
-            "Turn a device off, optionally after a delay in minutes.",
-            {"device": _DEVICE, "duration_minutes": _DURATION, "timeout": {"type": "integer"}},
-            ["device"],
+            "Turn one or more devices off, optionally after a delay in minutes. For two or more "
+            "specific devices, pass them all in 'devices' in one call. Only use device 'all' when "
+            "the user means literally every device, not as a shortcut for a named subset.",
+            {
+                "device": _DEVICE,
+                "devices": {
+                    "type": "array",
+                    "items": _DEVICE,
+                    "description": "Multiple specific devices to turn off together.",
+                },
+                "duration_minutes": _DURATION,
+                "timeout": {"type": "integer"},
+            },
+            [],
         ),
         _fn(
             "add_schedule",

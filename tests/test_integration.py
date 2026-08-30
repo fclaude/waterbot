@@ -69,12 +69,18 @@ def test_confirmation_flow_end_to_end(tmp_path):
     memory = AgentMemory(path=str(tmp_path / "agent.db"))
     engine = ActionEngine(memory=memory)
 
-    with patch("waterbot.actions.gpio_handler.turn_all_on") as mock_all_on:
-        pending = engine.execute_action("all_on", {}, channel_id="chan", require_confirmation=True)
+    from waterbot.actions import ActionResult
+
+    with patch(
+        "waterbot.actions._clear_device_schedule", return_value=ActionResult("success", "cleared")
+    ) as mock_clear:
+        pending = engine.execute_action(
+            "clear_device_schedule", {"device": "pump"}, channel_id="chan", require_confirmation=True
+        )
         assert pending.status == "pending_confirmation"
         assert pending.confirmation_token
-        mock_all_on.assert_not_called()
+        mock_clear.assert_not_called()
 
         confirmed = engine.confirm(pending.confirmation_token, channel_id="chan")
         assert confirmed.success is True
-        mock_all_on.assert_called_once()
+        mock_clear.assert_called_once()
