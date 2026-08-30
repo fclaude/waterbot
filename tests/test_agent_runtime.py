@@ -39,6 +39,7 @@ async def test_agent_runtime_records_plain_response(tmp_path):
     assert any(
         msg.get("role") == "user" and "what is the pump doing?" in msg.get("content", "") for msg in sent_messages
     )
+    assert client.chat.completions.create.call_args.kwargs["max_tokens"] == 600
 
 
 @pytest.mark.asyncio

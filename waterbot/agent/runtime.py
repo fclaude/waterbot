@@ -14,6 +14,7 @@ from ..config import (
     AGENT_PROMPT_CHAR_BUDGET,
     AGENT_RATE_LIMIT_PER_MINUTE,
 )
+from ..llm_compat import completion_token_limit_kwargs
 from .guard import RATE_LIMIT_MESSAGE, REFUSAL_MESSAGE, gate_assistant_reply, is_disallowed_request
 from .memory import AgentMemory
 from .rate_limit import SlidingWindowRateLimiter
@@ -85,7 +86,7 @@ class AgentRuntime:
             messages=messages,
             tools=get_agent_tools(),
             tool_choice="auto",
-            max_tokens=600,
+            **completion_token_limit_kwargs(self.model, 600),
             temperature=0.2,
         )
 
@@ -120,7 +121,7 @@ class AgentRuntime:
                 messages=messages,
                 tools=get_agent_tools(),
                 tool_choice="auto",
-                max_tokens=600,
+                **completion_token_limit_kwargs(self.model, 600),
                 temperature=0.2,
             )
             response_message = next_response.choices[0].message
@@ -210,7 +211,7 @@ class AgentRuntime:
                     },
                     {"role": "user", "content": current},
                 ],
-                max_tokens=400,
+                **completion_token_limit_kwargs(self.model, 400),
                 temperature=0.1,
             )
             rewritten = (response.choices[0].message.content or "").strip()
