@@ -43,13 +43,28 @@ def execute_tool_call(
 
         action_engine = get_action_engine()
 
-        if function_name == "preview_action":
-            preview = action_engine.preview_action(arguments["action_type"], arguments.get("arguments", {}))
-            return preview.message
+        if function_name == "respond_to_pending_action":
+            decision = arguments.get("decision")
+            if decision == "confirm":
+                result = action_engine.confirm_pending(channel_id, arguments.get("token"), source=source)
+            elif decision == "cancel":
+                result = action_engine.cancel_pending(channel_id, arguments.get("token"))
+            else:
+                return "decision must be 'confirm' or 'cancel'."
+            return result.message
 
-        if function_name == "execute_action":
-            action_type = arguments["action_type"]
-            action_arguments = arguments.get("arguments", {})
+        if function_name == "set_device_power":
+            state = arguments.get("state")
+            if state not in {"on", "off"}:
+                return "state must be 'on' or 'off'."
+            action_type = f"turn_device_{state}"
+            action_arguments = {k: v for k, v in arguments.items() if k != "state"}
+        elif function_name == "edit_schedule":
+            op = arguments.get("op")
+            if op not in {"add", "remove"}:
+                return "op must be 'add' or 'remove'."
+            action_type = f"{op}_schedule"
+            action_arguments = {k: v for k, v in arguments.items() if k != "op"}
         else:
             action_type = function_name
             action_arguments = dict(arguments)

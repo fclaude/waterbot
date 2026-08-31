@@ -79,8 +79,8 @@ async def test_agent_runtime_executes_tool_call(tmp_path):
 
     tool_call = MagicMock()
     tool_call.id = "call-1"
-    tool_call.function.name = "execute_action"
-    tool_call.function.arguments = '{"action_type":"all_on","arguments":{"timeout":120}}'
+    tool_call.function.name = "set_device_power"
+    tool_call.function.arguments = '{"state":"on","device":"all","timeout":120}'
 
     first_response = MagicMock()
     first_response.choices[0].message.content = None
@@ -103,8 +103,8 @@ async def test_agent_runtime_executes_tool_call(tmp_path):
 
     assert result == "Reply confirm abc123 to run it."
     action_engine.execute_action.assert_called_once_with(
-        "all_on",
-        {"timeout": 120},
+        "turn_device_on",
+        {"device": "all", "timeout": 120},
         source="agent",
         channel_id="channel-1",
         require_confirmation=True,
@@ -125,22 +125,33 @@ async def test_runtime_without_client_explains_configuration(tmp_path):
 
 
 def test_execute_tool_allowlist_and_context(tmp_path):
-    """Unknown tools are refused; context and preview stay read-only."""
+    """Unknown tools are refused; context stays read-only; merged tools dispatch correctly."""
     memory = AgentMemory(str(tmp_path / "agent.db"))
     memory.record_message("ch", "user", "hello", author_name="Fran")
     engine = MagicMock()
-    engine.preview_action.return_value = ActionResult("preview", "Preview: turn pump on")
     engine.execute_action.return_value = ActionResult("success", "ok")
     runtime = AgentRuntime(client=MagicMock(), model="test-model", memory=memory, action_engine=engine)
     assert "not available" in runtime.execute_tool("get_ip_addresses", {}, "ch")
-    assert "Preview" in runtime.execute_tool("preview_action", {"action_type": "turn_device_on", "arguments": {}}, "ch")
-    assert "not available" in runtime.execute_tool("preview_action", {"action_type": "get_ip_addresses"}, "ch")
     context_json = runtime.execute_tool("get_recent_context", {}, "ch")
     assert "recent_messages" in context_json
     runtime.execute_tool("get_policy_decision_history", {"device": "pump"}, "ch")
     runtime.execute_tool("record_user_feedback", {"feedback": "too dry", "device": "pump"}, "ch")
-    assert "not available" in runtime.execute_tool("execute_action", {"action_type": "get_ip_addresses"}, "ch")
-    engine.execute_action.assert_called()
+
+    assert "state must be" in runtime.execute_tool("set_device_power", {"state": "sideways"}, "ch")
+    runtime.execute_tool("set_device_power", {"state": "on", "device": "pump"}, "ch")
+    engine.execute_action.assert_called_with(
+        "turn_device_on", {"device": "pump"}, source="agent", channel_id="ch", require_confirmation=True
+    )
+
+    assert "op must be" in runtime.execute_tool("edit_schedule", {"op": "replace"}, "ch")
+    runtime.execute_tool("edit_schedule", {"op": "add", "device": "pump", "action": "on", "time": "09:00"}, "ch")
+    engine.execute_action.assert_called_with(
+        "add_schedule",
+        {"device": "pump", "action": "on", "time": "09:00"},
+        source="agent",
+        channel_id="ch",
+        require_confirmation=True,
+    )
 
 
 def test_execute_tool_confirm_and_cancel_pending_action(tmp_path):
@@ -151,13 +162,16 @@ def test_execute_tool_confirm_and_cancel_pending_action(tmp_path):
     engine.cancel_pending.return_value = ActionResult("cancelled", "Cancelled pending action `abc123`.")
     runtime = AgentRuntime(client=MagicMock(), model="test-model", memory=memory, action_engine=engine)
 
-    assert runtime.execute_tool("confirm_pending_action", {}, "ch") == "All devices turned OFF"
+    assert runtime.execute_tool("respond_to_pending_action", {"decision": "confirm"}, "ch") == "All devices turned OFF"
     engine.confirm_pending.assert_called_once_with("ch", None, source="agent")
 
     assert (
-        runtime.execute_tool("cancel_pending_action", {"token": "abc123"}, "ch") == "Cancelled pending action `abc123`."
+        runtime.execute_tool("respond_to_pending_action", {"decision": "cancel", "token": "abc123"}, "ch")
+        == "Cancelled pending action `abc123`."
     )
     engine.cancel_pending.assert_called_once_with("ch", "abc123")
+
+    assert "decision must be" in runtime.execute_tool("respond_to_pending_action", {}, "ch")
 
 
 @pytest.mark.asyncio

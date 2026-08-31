@@ -36,7 +36,6 @@ class TestOpenAIIntegration:
         function_names = [tool["function"]["name"] for tool in tools]
 
         expected_functions = [
-            "replace_device_schedule",
             "clear_device_schedule",
             "upsert_policy_schedule",
             "create_every_n_days_cycle",
@@ -44,10 +43,8 @@ class TestOpenAIIntegration:
             "get_policy_schedules",
             "get_weather_context",
             "get_device_status",
-            "turn_device_on",
-            "turn_device_off",
-            "add_schedule",
-            "remove_schedule",
+            "set_device_power",
+            "edit_schedule",
             "get_schedules",
             "get_current_time",
         ]
@@ -96,97 +93,109 @@ class TestOpenAIIntegration:
         assert "No devices configured" in result
 
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_on(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_on."""
+    def test_execute_tool_set_device_power_on(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=on)."""
         mock_gpio_handler.turn_on.return_value = True
 
-        result = execute_tool_call("turn_device_on", {"device": "pump"})
+        result = execute_tool_call("set_device_power", {"state": "on", "device": "pump"})
 
         assert "Device 'pump' turned ON" in result
         mock_gpio_handler.turn_on.assert_called_once_with("pump", None)
 
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_on_with_duration(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_on with duration."""
+    def test_execute_tool_set_device_power_on_with_duration(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=on) with duration."""
         mock_gpio_handler.turn_on.return_value = True
 
-        result = execute_tool_call("turn_device_on", {"device": "pump", "duration_minutes": 30})
+        result = execute_tool_call("set_device_power", {"state": "on", "device": "pump", "duration_minutes": 30})
 
         assert "Device 'pump' turned ON for 30 minutes" in result
         mock_gpio_handler.turn_on.assert_called_once_with("pump", 1800)  # 30 * 60
 
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_on_all(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_on (all devices)."""
-        result = execute_tool_call("turn_device_on", {"device": "all"})
+    def test_execute_tool_set_device_power_on_all(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=on) (all devices)."""
+        result = execute_tool_call("set_device_power", {"state": "on", "device": "all"})
 
         assert "All devices turned ON" in result
         mock_gpio_handler.turn_all_on.assert_called_once()
 
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_on_unknown(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_on (unknown device)."""
+    def test_execute_tool_set_device_power_on_unknown(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=on) (unknown device)."""
         mock_gpio_handler.turn_on.return_value = False
 
-        result = execute_tool_call("turn_device_on", {"device": "unknown"})
+        result = execute_tool_call("set_device_power", {"state": "on", "device": "unknown"})
 
         assert "Error: Unknown device 'unknown'" in result
 
+    def test_execute_tool_set_device_power_invalid_state(self):
+        """Test execute_tool_call for set_device_power with an invalid state."""
+        result = execute_tool_call("set_device_power", {"state": "sideways", "device": "pump"})
+
+        assert "state must be" in result
+
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_off(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_off."""
+    def test_execute_tool_set_device_power_off(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=off)."""
         mock_gpio_handler.turn_off.return_value = True
 
-        result = execute_tool_call("turn_device_off", {"device": "pump"})
+        result = execute_tool_call("set_device_power", {"state": "off", "device": "pump"})
 
         assert "Device 'pump' turned OFF" in result
         mock_gpio_handler.turn_off.assert_called_once_with("pump", None)
 
     @patch("waterbot.actions.gpio_handler")
-    def test_execute_tool_turn_device_off_all(self, mock_gpio_handler):
-        """Test execute_tool_call for turn_device_off (all devices)."""
-        result = execute_tool_call("turn_device_off", {"device": "all"})
+    def test_execute_tool_set_device_power_off_all(self, mock_gpio_handler):
+        """Test execute_tool_call for set_device_power(state=off) (all devices)."""
+        result = execute_tool_call("set_device_power", {"state": "off", "device": "all"})
 
         assert "All devices turned OFF" in result
         mock_gpio_handler.turn_all_off.assert_called_once()
 
     @patch("waterbot.actions.scheduler")
-    def test_execute_tool_add_schedule(self, mock_scheduler):
-        """Test execute_tool_call for add_schedule."""
+    def test_execute_tool_edit_schedule_add(self, mock_scheduler):
+        """Test execute_tool_call for edit_schedule(op=add)."""
         mock_scheduler.add_schedule.return_value = True
 
-        result = execute_tool_call("add_schedule", {"device": "pump", "action": "on", "time": "09:00"})
+        result = execute_tool_call("edit_schedule", {"op": "add", "device": "pump", "action": "on", "time": "09:00"})
 
         assert "Added schedule: pump on at 09:00" in result
         mock_scheduler.add_schedule.assert_called_once_with("pump", "on", "09:00")
 
     @patch("waterbot.actions.scheduler")
-    def test_execute_tool_add_schedule_failure(self, mock_scheduler):
-        """Test execute_tool_call for add_schedule (failure)."""
+    def test_execute_tool_edit_schedule_add_failure(self, mock_scheduler):
+        """Test execute_tool_call for edit_schedule(op=add) (failure)."""
         mock_scheduler.add_schedule.return_value = False
 
-        result = execute_tool_call("add_schedule", {"device": "pump", "action": "on", "time": "09:00"})
+        result = execute_tool_call("edit_schedule", {"op": "add", "device": "pump", "action": "on", "time": "09:00"})
 
         assert "Failed to add schedule for pump" in result
 
     @patch("waterbot.actions.scheduler")
-    def test_execute_tool_remove_schedule(self, mock_scheduler):
-        """Test execute_tool_call for remove_schedule."""
+    def test_execute_tool_edit_schedule_remove(self, mock_scheduler):
+        """Test execute_tool_call for edit_schedule(op=remove)."""
         mock_scheduler.remove_schedule.return_value = True
 
-        result = execute_tool_call("remove_schedule", {"device": "pump", "action": "on", "time": "09:00"})
+        result = execute_tool_call("edit_schedule", {"op": "remove", "device": "pump", "action": "on", "time": "09:00"})
 
         assert "Removed schedule: pump on at 09:00" in result
         mock_scheduler.remove_schedule.assert_called_once_with("pump", "on", "09:00")
 
     @patch("waterbot.actions.scheduler")
-    def test_execute_tool_remove_schedule_not_found(self, mock_scheduler):
-        """Test execute_tool_call for remove_schedule (not found)."""
+    def test_execute_tool_edit_schedule_remove_not_found(self, mock_scheduler):
+        """Test execute_tool_call for edit_schedule(op=remove) (not found)."""
         mock_scheduler.remove_schedule.return_value = False
 
-        result = execute_tool_call("remove_schedule", {"device": "pump", "action": "on", "time": "09:00"})
+        result = execute_tool_call("edit_schedule", {"op": "remove", "device": "pump", "action": "on", "time": "09:00"})
 
         assert "No such schedule found: pump on at 09:00" in result
+
+    def test_execute_tool_edit_schedule_invalid_op(self):
+        """Test execute_tool_call for edit_schedule with an invalid op."""
+        result = execute_tool_call("edit_schedule", {"op": "replace", "device": "pump"})
+
+        assert "op must be" in result
 
     @patch("waterbot.actions.scheduler")
     def test_execute_tool_get_schedules_all(self, mock_scheduler):
@@ -274,31 +283,14 @@ class TestOpenAIIntegration:
         assert "Cleared all schedules for 'pump' - removed 2 schedule entries" in result
         assert mock_scheduler.remove_schedule.call_count == 2
 
-    @patch("waterbot.actions.scheduler")
-    def test_execute_tool_replace_device_schedule(self, mock_scheduler):
-        """Test execute_tool_call for replace_device_schedule."""
-        mock_schedules = {"on": ["09:00"], "off": ["18:00"]}
-        mock_scheduler.replace_device_schedules.return_value = True
-
-        schedule_periods = [
-            {"start_time": "08:00", "end_time": "12:00"},
-            {"start_time": "14:00", "end_time": "18:00"},
-        ]
-
-        with patch("waterbot.config.get_schedules", return_value=mock_schedules):
-            result = execute_tool_call(
-                "replace_device_schedule",
-                {"device": "pump", "schedule_periods": schedule_periods},
-            )
-
-        assert "Schedule replacement for 'pump' completed" in result
-        assert "Removed 2 existing schedules" in result
-        assert "Added 4 new schedules" in result
-        assert "Period 1: 08:00 to 12:00" in result
-        mock_scheduler.replace_device_schedules.assert_called_once_with(
-            "pump",
-            {"on": ["08:00", "14:00"], "off": ["12:00", "18:00"]},
+    def test_execute_tool_replace_device_schedule_is_disallowed(self):
+        """replace_device_schedule has no agent tool anymore; use clear + edit_schedule instead."""
+        result = execute_tool_call(
+            "replace_device_schedule",
+            {"device": "pump", "schedule_periods": []},
         )
+
+        assert "not available" in result
 
     def test_execute_tool_test_notification_is_disallowed(self):
         """Agent tool path must not send test notifications."""
@@ -366,11 +358,10 @@ class TestOpenAIIntegration:
         engine = MagicMock()
         mock_get_action_engine.return_value = engine
         engine.execute_action.return_value.message = "Confirmation required"
-        arguments = {"device": "pump", "schedule_periods": []}
 
         result = execute_tool_call(
-            "replace_device_schedule",
-            arguments,
+            "clear_device_schedule",
+            {"device": "pump"},
             channel_id="channel-123",
             source="agent",
             require_confirmation=True,
@@ -378,8 +369,8 @@ class TestOpenAIIntegration:
 
         assert result == "Confirmation required"
         engine.execute_action.assert_called_once_with(
-            "replace_device_schedule",
-            arguments,
+            "clear_device_schedule",
+            {"device": "pump"},
             source="agent",
             channel_id="channel-123",
             require_confirmation=True,

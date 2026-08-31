@@ -162,17 +162,20 @@ class AgentRuntime:
         if function_name not in AGENT_TOOL_NAMES:
             return "That tool is not available. I only control watering and garden devices."
 
-        if function_name == "preview_action":
-            action_type = str(arguments.get("action_type") or "")
-            if action_type not in AGENT_ACTION_TYPES:
-                return "That action is not available."
-            result = self.action_engine.preview_action(action_type, arguments.get("arguments") or {})
+        if function_name == "set_device_power":
+            state = arguments.get("state")
+            if state not in {"on", "off"}:
+                return "state must be 'on' or 'off'."
+            action_args = {k: v for k, v in arguments.items() if k != "state"}
+            result = self._run_action(f"turn_device_{state}", action_args, channel_id, require_confirmation=True)
             return result.message
 
-        if function_name == "execute_action":
-            action_type = str(arguments.get("action_type") or "")
-            action_args = arguments.get("arguments") or {}
-            result = self._run_action(action_type, action_args, channel_id, require_confirmation=True)
+        if function_name == "edit_schedule":
+            op = arguments.get("op")
+            if op not in {"add", "remove"}:
+                return "op must be 'add' or 'remove'."
+            action_args = {k: v for k, v in arguments.items() if k != "op"}
+            result = self._run_action(f"{op}_schedule", action_args, channel_id, require_confirmation=True)
             return result.message
 
         if function_name == "get_recent_context":
@@ -193,12 +196,14 @@ class AgentRuntime:
             result = self._run_action("record_user_feedback", args, channel_id, require_confirmation=False)
             return result.message
 
-        if function_name == "confirm_pending_action":
-            result = self.action_engine.confirm_pending(channel_id, arguments.get("token"), source="agent")
-            return result.message
-
-        if function_name == "cancel_pending_action":
-            result = self.action_engine.cancel_pending(channel_id, arguments.get("token"))
+        if function_name == "respond_to_pending_action":
+            decision = arguments.get("decision")
+            if decision == "confirm":
+                result = self.action_engine.confirm_pending(channel_id, arguments.get("token"), source="agent")
+            elif decision == "cancel":
+                result = self.action_engine.cancel_pending(channel_id, arguments.get("token"))
+            else:
+                return "decision must be 'confirm' or 'cancel'."
             return result.message
 
         result = self._run_action(function_name, arguments, channel_id, require_confirmation=True)
@@ -340,25 +345,26 @@ def _system_message(context: Dict[str, Any]) -> str:
         "Prefer tools over guessing. For follow-ups like 'do that again' or 'make it "
         "shorter', use Working context below. To act on two or more specific devices in "
         "one call (e.g. bed1 and bed2), pass them together in the 'devices' list argument "
-        "of turn_device_on/turn_device_off — never use device 'all' or all_on/all_off as a "
-        "stand-in for a named subset, since that also affects devices the user did not ask "
-        "about. Only use 'all' or all_on/all_off when the user means literally every "
-        "device.\n\n"
-        "Call execute_action and look at its result before saying anything to the user. "
-        "If the result status is 'pending_confirmation', describe the action in plain "
-        "language and ask the user to confirm; do not show them the raw token unless "
-        "multiple actions are pending and they need to pick one. If the result status is "
-        "'success' or 'error', the action already ran — just report what happened, do not "
-        "also ask the user to confirm something that is already done. When the user "
-        "responds affirmatively (yes, sure, go ahead, do it) call confirm_pending_action "
-        "with no token; when they decline (no, cancel, nevermind) call "
-        "cancel_pending_action with no token. Only pass a token if the user names one or "
+        "of set_device_power — never use device 'all' as a stand-in for a named subset, "
+        "since that also affects devices the user did not ask about. Only use device "
+        "'all' when the user means literally every device. To replace a device's whole "
+        "schedule, call clear_device_schedule then edit_schedule with op='add' for each "
+        "new time, in the same turn.\n\n"
+        "Look at a tool's result before saying anything to the user. If the result status "
+        "is 'pending_confirmation', describe the action in plain language and ask the user "
+        "to confirm; do not show them the raw token unless multiple actions are pending "
+        "and they need to pick one. If the result status is 'success' or 'error', the "
+        "action already ran — just report what happened, do not also ask the user to "
+        "confirm something that is already done. When the user responds affirmatively "
+        "(yes, sure, go ahead, do it) call respond_to_pending_action with decision='confirm' "
+        "and no token; when they decline (no, cancel, nevermind) call it with "
+        "decision='cancel' and no token. Only pass a token if the user names one or "
         "multiple actions are pending. Turning any device(s) on or off never needs "
-        "confirmation, no matter how many devices or how long — execute_action on those "
-        "always completes immediately (AGENT_MAX_DURATION_MINUTES hard-caps the run). Only "
-        "schedule/policy edits (replace or clear a device schedule, save or remove a "
-        "flexible watering policy) require confirmation, since those change future "
-        "automated behavior rather than something happening right now.\n\n"
+        "confirmation, no matter how many devices or how long — set_device_power always "
+        "completes immediately (AGENT_MAX_DURATION_MINUTES hard-caps the run). Only "
+        "schedule/policy edits (clearing a device schedule, saving or removing a flexible "
+        "watering policy) require confirmation, since those change future automated "
+        "behavior rather than something happening right now.\n\n"
         "Working context (trusted, from executed actions):\n" + "\n".join(slot_lines) + "\n\n"
         "Pending confirmations:\n"
         f"{pending_text}\n\n"

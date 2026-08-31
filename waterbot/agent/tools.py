@@ -5,19 +5,25 @@ from __future__ import annotations
 from typing import Any, Dict, FrozenSet, List
 
 # Tools the model may call. IP lookup and test notifications stay as typed commands.
+#
+# preview_action/execute_action were dropped: every action_type they could dispatch
+# is already reachable through its own typed tool below, and risky actions already
+# surface a confirmation preview before executing - so the generic dispatchers only
+# doubled the schema size sent on every LLM call without adding capability.
+# turn_device_on/turn_device_off, add_schedule/remove_schedule, and
+# confirm_pending_action/cancel_pending_action are collapsed into one tool each
+# (set_device_power, edit_schedule, respond_to_pending_action) since each pair
+# shared the same arguments and only varied by one enum value.
+# replace_device_schedule was dropped in favor of clear_device_schedule + add_schedule,
+# which the model can already issue together in a single round.
 AGENT_TOOL_NAMES: FrozenSet[str] = frozenset(
     {
-        "preview_action",
-        "execute_action",
         "get_recent_context",
         "get_policy_decision_history",
         "record_user_feedback",
         "get_device_status",
-        "turn_device_on",
-        "turn_device_off",
-        "add_schedule",
-        "remove_schedule",
-        "replace_device_schedule",
+        "set_device_power",
+        "edit_schedule",
         "clear_device_schedule",
         "get_schedules",
         "upsert_policy_schedule",
@@ -26,12 +32,14 @@ AGENT_TOOL_NAMES: FrozenSet[str] = frozenset(
         "get_policy_schedules",
         "get_weather_context",
         "get_current_time",
-        "confirm_pending_action",
-        "cancel_pending_action",
+        "respond_to_pending_action",
     }
 )
 
-# execute_action / preview_action may only target these WaterBot actions.
+# Allowlist checked by AgentRuntime before dispatching a tool call to ActionEngine.
+# all_on/all_off/replace_device_schedule have no dedicated tool anymore (superseded
+# by set_device_power(device="all") and clear_device_schedule + add_schedule) but
+# stay allowlisted since ActionEngine still supports them for other callers.
 AGENT_ACTION_TYPES: FrozenSet[str] = frozenset(
     {
         "get_device_status",
@@ -67,24 +75,6 @@ def get_agent_tools() -> List[Dict[str, Any]]:
     """Return strict function schemas for the watering agent."""
     return [
         _fn(
-            "preview_action",
-            "Preview a watering action without executing it.",
-            {
-                "action_type": {"type": "string", "enum": sorted(AGENT_ACTION_TYPES)},
-                "arguments": {"type": "object"},
-            },
-            ["action_type"],
-        ),
-        _fn(
-            "execute_action",
-            "Execute a watering action. Risky changes return a confirmation token.",
-            {
-                "action_type": {"type": "string", "enum": sorted(AGENT_ACTION_TYPES)},
-                "arguments": {"type": "object"},
-            },
-            ["action_type"],
-        ),
-        _fn(
             "get_recent_context",
             "Get this channel's working slots, summary, pending confirmations, and feedback.",
             {},
@@ -104,72 +94,40 @@ def get_agent_tools() -> List[Dict[str, Any]]:
         ),
         _fn("get_device_status", "Show on/off status for one device or all devices.", {"device": _DEVICE}, []),
         _fn(
-            "turn_device_on",
-            "Turn one or more devices on, optionally for a limited number of minutes. For two or "
-            "more specific devices (e.g. bed1 and bed2), pass them all in 'devices' in one call. "
-            "Only use device 'all' when the user means literally every device, not as a shortcut "
-            "for a named subset.",
+            "set_device_power",
+            "Turn one or more devices on or off. For 'on', duration_minutes limits how long it "
+            "stays on; for 'off', it delays the shutoff by that many minutes. For two or more "
+            "specific devices (e.g. bed1 and bed2), pass them all in 'devices' in one call. Only "
+            "use device 'all' when the user means literally every device, not as a shortcut for a "
+            "named subset.",
             {
+                "state": {"type": "string", "enum": ["on", "off"]},
                 "device": _DEVICE,
                 "devices": {
                     "type": "array",
                     "items": _DEVICE,
-                    "description": "Multiple specific devices to turn on together.",
+                    "description": "Multiple specific devices to act on together.",
                 },
                 "duration_minutes": _DURATION,
                 "timeout": {"type": "integer"},
             },
-            [],
+            ["state"],
         ),
         _fn(
-            "turn_device_off",
-            "Turn one or more devices off, optionally after a delay in minutes. For two or more "
-            "specific devices, pass them all in 'devices' in one call. Only use device 'all' when "
-            "the user means literally every device, not as a shortcut for a named subset.",
+            "edit_schedule",
+            "Add or remove a daily on/off time for a device.",
             {
+                "op": {"type": "string", "enum": ["add", "remove"]},
                 "device": _DEVICE,
-                "devices": {
-                    "type": "array",
-                    "items": _DEVICE,
-                    "description": "Multiple specific devices to turn off together.",
-                },
-                "duration_minutes": _DURATION,
-                "timeout": {"type": "integer"},
+                "action": {"type": "string", "enum": ["on", "off"]},
+                "time": _TIME,
             },
-            [],
-        ),
-        _fn(
-            "add_schedule",
-            "Add a daily on/off time for a device.",
-            {"device": _DEVICE, "action": {"type": "string", "enum": ["on", "off"]}, "time": _TIME},
-            ["device", "action", "time"],
-        ),
-        _fn(
-            "remove_schedule",
-            "Remove a daily on/off time for a device.",
-            {"device": _DEVICE, "action": {"type": "string", "enum": ["on", "off"]}, "time": _TIME},
-            ["device", "action", "time"],
-        ),
-        _fn(
-            "replace_device_schedule",
-            "Replace every schedule period for a device. Requires confirmation.",
-            {
-                "device": _DEVICE,
-                "schedule_periods": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {"start_time": _TIME, "end_time": _TIME},
-                        "required": ["start_time", "end_time"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            ["device", "schedule_periods"],
+            ["op", "device", "action", "time"],
         ),
         _fn(
             "clear_device_schedule",
-            "Remove all schedules for a device. Requires confirmation.",
+            "Remove all schedules for a device. Requires confirmation. To replace a device's "
+            "schedule wholesale, call this then edit_schedule with op='add' for each new time.",
             {"device": _DEVICE},
             ["device"],
         ),
@@ -202,18 +160,12 @@ def get_agent_tools() -> List[Dict[str, Any]]:
         _fn("get_weather_context", "Get the current weather context used by policies.", {}, []),
         _fn("get_current_time", "Get the bot host's local time.", {}, []),
         _fn(
-            "confirm_pending_action",
-            "Confirm and execute a pending action the user just agreed to (e.g. said yes, sure, "
-            "go ahead). Omit token when only one action is pending.",
-            {"token": {"type": "string"}},
-            [],
-        ),
-        _fn(
-            "cancel_pending_action",
-            "Cancel a pending action the user just declined (e.g. said no, cancel, nevermind). "
-            "Omit token when only one action is pending.",
-            {"token": {"type": "string"}},
-            [],
+            "respond_to_pending_action",
+            "Confirm or cancel a pending action the user just replied to (e.g. said yes/sure/go "
+            "ahead to confirm, or no/cancel/nevermind to cancel). Omit token when only one action "
+            "is pending.",
+            {"decision": {"type": "string", "enum": ["confirm", "cancel"]}, "token": {"type": "string"}},
+            ["decision"],
         ),
     ]
 
