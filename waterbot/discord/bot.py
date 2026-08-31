@@ -1,6 +1,7 @@
 """Discord bot implementation for WaterBot."""
 
 import logging
+import time
 from typing import Any, Optional, cast
 
 import discord
@@ -17,6 +18,7 @@ from ..config import (
     is_openai_configured,
 )
 from ..gpio import handler as gpio_handler
+from ..observability import record_latency
 from ..openai_integration import process_with_openai
 from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
@@ -119,34 +121,46 @@ class WaterBot(commands.Bot):
         author_id = _safe_discord_id(message.author)
         author_name = _safe_discord_name(message.author)
 
-        direct = try_direct_command(
-            text,
-            action_engine=self._get_action_engine(),
-            channel_id=channel_id,
-            source="discord_command",
-            author_id=author_id,
-            author_name=author_name,
-            memory=get_agent_memory(),
-        )
-        if direct is not None:
-            await message.channel.send(direct)
-            return
-
-        if is_openai_configured():
-            try:
-                response = await process_with_openai(text, channel_id, author_id, author_name)
-                if response:
-                    logger.debug("Sending OpenAI response: %s", response)
-                    await message.channel.send(response)
+        receive_start = time.monotonic()
+        path = "direct_command"
+        try:
+            direct = try_direct_command(
+                text,
+                action_engine=self._get_action_engine(),
+                channel_id=channel_id,
+                source="discord_command",
+                author_id=author_id,
+                author_name=author_name,
+                memory=get_agent_memory(),
+            )
+            if direct is not None:
+                await message.channel.send(direct)
                 return
-            except Exception as exc:
-                logger.error("OpenAI processing failed: %s", exc, exc_info=True)
 
-        command_type, params = parse_command(text.lower())
-        command_response = await self._execute_command(command_type, params, channel_id=channel_id)
-        if command_response:
-            logger.debug("Sending response: %s", command_response)
-            await message.channel.send(command_response)
+            if is_openai_configured():
+                path = "agent"
+                try:
+                    response = await process_with_openai(text, channel_id, author_id, author_name)
+                    if response:
+                        logger.debug("Sending OpenAI response: %s", response)
+                        await message.channel.send(response)
+                    return
+                except Exception as exc:
+                    logger.error("OpenAI processing failed: %s", exc, exc_info=True)
+
+            path = "fallback_parser"
+            command_type, params = parse_command(text.lower())
+            command_response = await self._execute_command(command_type, params, channel_id=channel_id)
+            if command_response:
+                logger.debug("Sending response: %s", command_response)
+                await message.channel.send(command_response)
+        finally:
+            record_latency(
+                "discord_reply",
+                time.monotonic() - receive_start,
+                channel_id=channel_id,
+                path=path,
+            )
 
     async def _execute_command(
         self,

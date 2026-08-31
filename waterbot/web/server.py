@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import threading
+import time
 from html import escape
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,6 +27,7 @@ from ..config import (
     get_schedules,
     is_openai_configured,
 )
+from ..observability import record_latency
 from ..openai_integration import process_with_openai
 from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
@@ -262,22 +264,29 @@ class WebInterfaceServer:
 
     def chat(self, message: str) -> str:
         """Process an authenticated web chat message."""
-        direct = try_direct_command(
-            message,
-            action_engine=self.action_engine,
-            channel_id="web",
-            source="web",
-            author_name="Web",
-            memory=get_agent_memory(),
-        )
-        if direct is not None:
-            return direct
+        reply_start = time.monotonic()
+        path = "direct_command"
+        try:
+            direct = try_direct_command(
+                message,
+                action_engine=self.action_engine,
+                channel_id="web",
+                source="web",
+                author_name="Web",
+                memory=get_agent_memory(),
+            )
+            if direct is not None:
+                return direct
 
-        if is_openai_configured():
-            return asyncio.run(process_with_openai(message, "web", author_name="Web"))
+            if is_openai_configured():
+                path = "agent"
+                return asyncio.run(process_with_openai(message, "web", author_name="Web"))
 
-        command_type, params = parse_command(message.lower())
-        return self._execute_fallback_command(command_type, params)
+            path = "fallback_parser"
+            command_type, params = parse_command(message.lower())
+            return self._execute_fallback_command(command_type, params)
+        finally:
+            record_latency("web_reply", time.monotonic() - reply_start, path=path)
 
     def _execute_fallback_command(self, command_type: Optional[str], params: Dict[str, Any]) -> str:
         """Execute parser commands when OpenAI is not configured."""
