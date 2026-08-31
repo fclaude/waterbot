@@ -389,10 +389,41 @@ class WebInterfaceServer:
               const messages = document.getElementById("messages");
               const form = document.getElementById("chat-form");
               const input = document.getElementById("message");
+              function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+              }
+              function renderMarkdown(text) {
+                const lines = escapeHtml(text).split("\\n");
+                let html = "";
+                let inList = false;
+                const inline = (s) => s
+                  .replace(/`([^`]+)`/g, "<code>$1</code>")
+                  .replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>")
+                  .replace(/(^|[^*])\\*([^*]+)\\*/g, "$1<em>$2</em>");
+                for (const line of lines) {
+                  const bullet = line.match(/^\\s*[-*]\\s+(.*)/);
+                  if (bullet) {
+                    if (!inList) { html += "<ul>"; inList = true; }
+                    html += "<li>" + inline(bullet[1]) + "</li>";
+                    continue;
+                  }
+                  if (inList) { html += "</ul>"; inList = false; }
+                  if (line.trim() === "") { html += "<br>"; continue; }
+                  html += "<p>" + inline(line) + "</p>";
+                }
+                if (inList) html += "</ul>";
+                return html;
+              }
               function add(role, text) {
                 const item = document.createElement("div");
                 item.className = "message " + role;
-                item.textContent = text;
+                if (role === "bot") {
+                  item.innerHTML = renderMarkdown(text);
+                } else {
+                  item.textContent = text;
+                }
                 messages.appendChild(item);
                 messages.scrollTop = messages.scrollHeight;
               }
@@ -590,12 +621,23 @@ def _page(title: str, body: str) -> str:
       margin: 8px 0;
       padding: 10px 12px;
       border-radius: 8px;
-      white-space: pre-wrap;
       overflow-wrap: anywhere;
       line-height: 1.4;
     }}
-    .message.user {{ margin-left: auto; background: var(--accent); color: white; }}
+    .message.user {{ margin-left: auto; background: var(--accent); color: white; white-space: pre-wrap; }}
     .message.bot {{ background: var(--field); border: 1px solid var(--line); }}
+    .message.bot p {{ margin: 0 0 8px; }}
+    .message.bot p:last-child {{ margin-bottom: 0; }}
+    .message.bot ul {{ margin: 0 0 8px; padding-left: 20px; }}
+    .message.bot ul:last-child {{ margin-bottom: 0; }}
+    .message.bot li {{ margin: 2px 0; }}
+    .message.bot code {{
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }}
     .composer {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }}
     input {{
       min-height: 44px;
