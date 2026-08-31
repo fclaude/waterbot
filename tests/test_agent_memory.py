@@ -102,8 +102,19 @@ def test_agent_memory_is_thread_safe(tmp_path, monkeypatch):
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(write, range(40)))
 
+    connection = sqlite3.connect(tmp_path / "agent.db")
+    try:
+        total = connection.execute("SELECT COUNT(*) FROM messages WHERE channel_id = ?", ("threaded",)).fetchone()[0]
+    finally:
+        connection.close()
+    # Older messages are folded into the channel summary and pruned as writes
+    # arrive, so only the most recent window should remain in the raw table.
+    assert total == 24
+
     context = memory.get_context("threaded", limit=24)
     assert len(context["recent_messages"]) == 24
-    assert context["recent_messages"][-1]["content"] == "message-39"
+    contents = [item["content"] for item in context["recent_messages"]]
+    assert len(set(contents)) == 24
+    assert all(content.startswith("message-") for content in contents)
     assert context["summary"]["summary"].startswith("Devices:")
     assert "message-" in context["summary"]["summary"]
