@@ -452,17 +452,13 @@ def _legacy_schedule_rows(schedules: Dict[str, Any]) -> str:
         return '<tr><td colspan="3" class="empty">No daily schedules configured</td></tr>'
     rows = []
     for device, actions in sorted(schedules.items()):
-        entries = [
-            (time, action)
-            for action, times in actions.items()
-            for time in times
-        ]
-        for time, action in sorted(entries):
+        entries = [(entry_time, action) for action, times in actions.items() for entry_time in times]
+        for entry_time, action in sorted(entries):
             rows.append(
                 "<tr>"
                 f"<td>{escape(str(device))}</td>"
                 f"<td><span class='pill'>{escape(str(action).upper())}</span></td>"
-                f"<td>{escape(str(time))}</td>"
+                f"<td>{escape(str(entry_time))}</td>"
                 "</tr>"
             )
     return "".join(rows)
