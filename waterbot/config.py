@@ -47,6 +47,8 @@ def is_openai_configured() -> bool:
 
 # Operation mode
 OPERATION_MODE = os.getenv("OPERATION_MODE", "emulation").lower()
+if OPERATION_MODE not in {"rpi", "emulation"}:
+    raise ValueError(f"Invalid OPERATION_MODE '{OPERATION_MODE}'. Must be 'rpi' or 'emulation'.")
 IS_EMULATION = OPERATION_MODE != "rpi"
 
 # Default timeout (in minutes)

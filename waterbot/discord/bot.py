@@ -12,6 +12,7 @@ from ..config import (
     DEBUG_MODE,
     DISCORD_BOT_TOKEN,
     DISCORD_CHANNEL_ID,
+    IS_EMULATION,
     LOG_LEVEL,
     is_openai_configured,
 )
@@ -81,6 +82,10 @@ class WaterBot(commands.Bot):
         ip_info = ip_result.data.get("ip_info", {})
 
         startup_message = "WaterBot is now online!\n"
+        if IS_EMULATION:
+            startup_message += "Mode: EMULATION - no relays are being driven, all device state is simulated.\n"
+        else:
+            startup_message += "Mode: HARDWARE (rpi)\n"
         if is_openai_configured():
             startup_message += "AI-powered conversational interface enabled!\n"
             startup_message += "Just chat with me naturally to control devices.\n\n"
