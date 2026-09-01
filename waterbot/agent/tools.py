@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Dict, FrozenSet, List
 
 # Tools the model may call. IP lookup and test notifications stay as typed commands.
@@ -71,8 +72,13 @@ _DURATION = {
 _TIME = {"type": "string", "description": "24-hour time HH:MM."}
 
 
+@lru_cache(maxsize=1)
 def get_agent_tools() -> List[Dict[str, Any]]:
-    """Return strict function schemas for the watering agent."""
+    """Return strict function schemas for the watering agent.
+
+    Schemas are static, so this is cached rather than rebuilt on every LLM
+    call. Callers must treat the returned list as read-only - it's shared.
+    """
     return [
         _fn(
             "get_recent_context",
