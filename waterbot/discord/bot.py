@@ -22,6 +22,7 @@ from ..observability import record_latency
 from ..openai_integration import process_with_openai
 from ..services import get_action_engine, get_agent_memory
 from ..utils.command_parser import parse_command
+from ..version import get_git_commit
 
 logger = logging.getLogger("discord_bot")
 
@@ -83,7 +84,7 @@ class WaterBot(commands.Bot):
         )
         ip_info = ip_result.data.get("ip_info", {})
 
-        startup_message = "WaterBot is now online!\n"
+        startup_message = f"WaterBot is now online! (commit `{get_git_commit()}`)\n"
         if IS_EMULATION:
             startup_message += "Mode: EMULATION - no relays are being driven, all device state is simulated.\n"
         else:
